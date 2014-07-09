@@ -1,0 +1,872 @@
+#!/usr/bin/python3
+
+"""
+Python3 code. Compatible with 2.7 with minor modifications(mainly encoding)
+"""
+
+import nltk
+from bs4 import BeautifulSoup, SoupStrainer
+from collections import Counter
+from group import Group
+import re
+import semanticsky_utilityfunctions as utils
+from semanticsky_utilityfunctions import * # all functions such as sentence splitting, language recognition, tokenization...
+import sys,time
+import pickle
+from sys import stdout
+from copy import deepcopy
+
+class Data():
+	"""
+	reimplementation of Tweedejaars' DataWrapper
+	"""
+	def __init__(self,filepath,fill = True,debug = False):
+		
+		self.filepath = filepath
+		self.oridata = None
+		self.debug = debug
+		
+		if fill:
+			self.fill()
+	
+	def fill(self):
+		
+		self.wrap()
+		self.handle_aliases()
+		self.induce_words_pairs()	
+	
+	def wrap(self):
+		"""
+		Loads the pickled export, and gives to each item its own id.
+		"""
+		
+		f = open(self.filepath,'rb')
+		self.oridata = pickle.load(f)
+		f.close()
+		
+		for key in self.oridata: # for both items and tags
+			for itemIDortagNAME in self.oridata[key]: # each item stores its own id, and tags store their name
+				self.oridata[key][itemIDortagNAME]['id'] = itemIDortagNAME
+	
+	# DataWrapper functions							
+	def item(self,ID):
+		
+		return self.oridata['items'][ID]
+		
+	def items(self,ID = None):
+
+		for itemid in self.oridata['items']:
+			yield itemid
+	
+	def items_by_dict(self):
+		
+		for itemid in self.items():
+			yield self.item(itemid)
+					
+	def tag(self,name):
+		return self.oridata['tags'][name]
+		
+	def tags(self,name = None):
+		"""
+		A generator for all tags' names.
+								  -----
+		"""
+		for tag in self.oridata['tags']:
+			yield tag			
+
+	def remove_invalid_links(self):
+		"""
+		Removes all links within the data that are invalid due to type or
+		authorship. These links should not be proposed by the algorithm
+		because the are already automatically added in starfish.
+		"""
+		for k,v in self.oridata['items'].items():
+			tempLinks = v['links'][:]
+			for link in v['links']:
+				if(self.ignore(v, k, link)):
+					tempLinks.remove(link)
+					v['links'] = tempLinks[:]
+
+	def ignore(self, item, item_id, link_id):
+		""" 
+		Indicates whether or not a particular link is valid within the dataset.
+		Returns true if the link is invalid and should be ignored
+		"""
+		link = self.item(link_id)
+
+		# Ignore if link simply is the author of the doucment
+		if (item.get('author') == link_id):
+			return True
+
+		# Ignore if link is glossary 
+		if (link['type'] == 'Glossary'):
+			return True
+
+		# Ignore if link is simply a document written by person described by document
+		if (item['type'] == 'Person' and link.get('author') == item_id):
+			return True
+
+		return False
+	
+	def proxytag(self,tag):
+		"""
+		Given a tag, returns the proxy tag for the tag's alias equivalence
+		class.
+		"""
+		
+		try:
+			for cluster in self.tag_aliases_classes:
+				if tag in cluster:
+					return cluster[0]  # that is: the proxytag
+			
+		
+		except AttributeError:
+			self.handle_aliases()
+			return proxytag(self,tag)
+		
+	# aliasing 
+	def get_aliases(self,tagid):
+		"""
+		Returns a list of unique tags (by name) which form an equivalence class;
+		the relation is aliasing (synonimy).
+		"""
+		
+		clusters = self.tag_aliases_classes
+		
+		for cluster in clusters:
+			if tagid in cluster:
+				return cluster # should be unique!
+				 
+	def handle_aliases(self):
+		"""
+		Obtains the following situation:
+		
+		there is be only one proxy tag per alias group (many aliases will point to one and only one tag)
+		if any of the alias group has a glossary, the only left tag will take it as string at the 'glossary'
+		dict key.
+		
+		all glossaries will be assigned to their tag or proxy tag this way, and then be deleted as standalone objects.
+		"""
+		import cluster
+		
+		self.tag_aliases_classes = cluster.clusterize1(self.oridata['tags'])
+		newbase = deepcopy(self.oridata)
+		
+		for cluster in self.tag_aliases_classes:
+			
+			proxytag = cluster[0]
+			
+			def hasglossary(tag):
+				if self.oridata['tags'].get(tag):
+					if self.oridata['tags'][tag]['glossary']:
+						return True
+				return False
+			
+			
+			glosses = [ t for t in cluster if hasglossary(t) and t != proxytag ]
+			glossaries_to_merge = []
+			
+			if len(glosses) > 1:
+				#raise Warning('More than one glossary for alias group [{}]'.format(aliasgroup))
+				
+				basegloss = glosses[0]
+				
+				for t in glosses[1:]:
+					glossaries_to_merge.append(self.oridata['tags'][t]['glossary'])
+					# these glossaries will be merged in glosses[0]'s one
+			
+				# Build the new glossary text
+			glostext = ''
+			if len(glosses) != 0: # if at least one of the alias-group has a glossary, we throw it all in glostext
+
+				tag_with_glossary = glosses[0]
+				ID_of_glossary = self.tag(tag_with_glossary)['glossary']
+				dic_of_glossary = self.item(ID_of_glossary)
+
+				glostext += dic_of_glossary['text']  	# we add the raw text of the glossary
+				id_of_author = dic_of_glossary['author'] # we add the name of the author
+				if id_of_author:
+					name_of_author = self.oridata['items'][id_of_author]['name']
+					glostext += ' ' + name_of_author
+				
+				for t in dic_of_glossary['tags']: 
+					glostext += '. ' + split_tag(t)  # we add a few extra likely-to-be-keywords to the raw text
+				
+				if len(glossaries_to_merge) > 0: # if there are multiple glossaries for alias-class:
+					for gloss_id in glossaries_to_merge:
+						gdict = self.oridata['items'][gloss_id]
+						
+						glostext += ' ' + gdict['text']
+						
+						authorid = gdict['author']
+						authorname = self.oridata['items'][authorid]['name']
+						glostext += ' ' + authorname
+						
+						for t in gdict['tags']: 
+							glostext += '. ' + split_tag(t)
+			
+			newbase['tags'][proxytag]['aliased_glossary'] = glostext # does NOT include proxytag's glossary; that one is stored under 'glossary'
+			cl = deepcopy(cluster)
+			cl.remove(proxytag)
+			newbase['tags'][proxytag]['alias_of'] = cl
+
+			for tag in cluster:
+				if tag != proxytag:
+					del newbase['tags'][tag]
+			
+		self.oridata = newbase
+		
+		if self.debug:
+			
+			e = BaseException('Failed')
+			
+			if not len(self.oridata['tags']) == len(self.tag_aliases_classes):
+				raise e # n° of tags != n° of equivalence classes
+			
+			for tag in self.oridata['tags']:
+				clusts_with_tag = 0
+				for cluster in self.tag_aliases_classes:
+					if tag in cluster:
+						clusts_with_tag += 1
+				if clusts_with_tag != 1:
+					raise e # some tag in more than one cluster
+					
+			for cluster in self.tag_aliases_classes:
+				if self.oridata['tags'][cluster[0]]['alias_of'] != [ t for t in  cluster if t != cluster[0] ]:
+					raise e # some tag doesn't alias to its cluster (minus itself)
+		
+		return None	
+	
+	# counter building
+	def induce_words_pairs(self):
+		"""
+		After producing a comprehensive corpus of all text available in 
+		the database, retrieves two-words compounds. This means, pairs of
+		words that often appear together, such as 'free download', 'university
+		amsterdam', 'fuck off'.
+		"""
+		fullcorpus = ' '.join([  grab_text(item) for item in self.items_by_dict()  ])
+		totokens = to_tokens_text(fullcorpus,stem = False, stopwords = True) # we want true words, but no useless ones.
+		
+		wordseqcounter = Counter()
+		
+		for sent in totokens:
+			pos = 0
+			for i in range(len(sent)-2):
+				worda = sent[pos]
+				wordb = sent[pos + 1]
+				if worda != wordb:
+					wordseqcounter[frozenset({worda,wordb})] += 1	
+				pos += 1
+				
+		### now we crop off values less than some threshold, say two.
+		
+		cleanwordseqcounter = {pair:value for pair,value in wordseqcounter.items() if value > 2}
+		
+		self.wordseqcounter = cleanwordseqcounter
+	
+			
+class SemanticSky():
+	"""
+	The Semantic Sky is the background of all clouds; is responsible for some
+	higher-level computations and oversees cloud formation and evolution.
+	It, so to say, where weather forecasts get interesting.
+
+	Is essentially a wrapper for a pickled-export of starfish database.
+	Call SemanticSky on a DataWrapper instance to make it work smooth.
+	"""
+
+	default_data = Data('/home/pietro/Perceptum/code/starfish/similarity/TweedejaarsProject/data/expert_maybe_false.pickle')
+
+	default_stats = {	'number_of_words_in_corpus': 0,
+			'number_of_tags': 0,
+			'number_of_sentences': 0,
+			'language_recognition_threshold' : 0.4,
+			'clouds' : {'depth':2,
+					'density': NotImplemented,
+					'thickness': NotImplemented,
+					'min_coo_threshold': 2,
+					'min_word_freq_threshold' : 2, # not used
+					'max_coo_length': 20,
+					'max_vocab_length': 30,
+					'cloud_hierarchy_inducer_threshold': 2.0/3.0}}
+	
+	### initializers
+	def __init__(self,data = default_data,stats = default_stats,test = True):
+
+		self.counters = {	'coo':None,
+					'word_freq':None,
+					'tag_coo':None}
+		
+		self.data = data	
+		self.stats = stats
+		self.sky = []
+		
+		starttime = time.clock()
+		if not test: # we populate all counters, then the sky.
+			self.populate_counters()
+			
+		stdout.write('Populating sky... \n')
+		stdout.flush()
+		self.populate_sky()
+		stdout.flush()
+		stdout.write('\t*Initialization successful* :: [ {} seconds elapsed]\n'.format( (time.clock() - starttime) ))
+		
+	def populate_counters(self):
+		"""
+		Populates the internal counters.
+		"""
+		
+		stdout.write('Populating sky-level counters: \n\t token co-occurrences... ')
+		stdout.flush()
+
+		self.populate_coo_counter()
+		stdout.write('\t [ Done. ]\n')
+		stdout.flush()
+		stdout.write("\t word frequency... ")
+		stdout.flush()
+		self.populate_word_freq_counter()
+		stdout.write('\t\t [ Done. ]\n')
+		stdout.flush()
+		stdout.write("\t tag co-occurrences... ")
+		stdout.flush()
+		self.populate_tag_coo_counter()
+		stdout.write('\t\t [ Done. ]\n')
+		stdout.flush()
+		stdout.write("\t idf database... ")
+		stdout.flush()
+		self.populate_tag_coo_counter()
+		stdout.write('\t\t [ Done. ]\n')
+		stdout.flush()
+		
+		del self.__tokens_temp # frees the memory
+		
+	def populate_sky(self):
+		"""
+		This function instantiates a cloud per each item in the database,
+		whatever the type, and appends it to the sky.
+		"""
+		
+		if self.sky:
+			return None
+		
+	# ITEM CLOUDS
+		stdout.write('\tItem clouds... 	\t [')
+		i = 0
+		for itemID in self.data.items():
+			item = self.getitem(itemID)
+			item['id'] = itemID # is a long()
+			cloud = Cloud(self,item)
+			self.sky.append(cloud)
+			if i%3 == 0:
+				stdout.write('.')
+				stdout.flush()
+			i += 1
+		stdout.write('] [ {} Clouds. ]\n'.format(i))
+
+	# TAG CLOUDS	
+		stdout.write('\tTag clouds... \t\t [')
+		e = 0
+		for tagID in self.data.tags():
+			tag = self.data.tag(tagID)
+			tag['id'] = tagID # is the name of the tag == a str()
+			cloud = Cloud(self,tag)
+			self.sky.append(cloud)
+			if e%3 == 0:
+				stdout.write('.')
+				stdout.flush()
+			e += 1
+		stdout.write('] [ {} Clouds. ]\n'.format(e) )
+		
+		print('\t Total: [ {} Clouds ] \t : quite a rainy day.'.format(e+i))
+			  
+		return None
+	
+	### iterators
+	def iter_layers(self,layerno = 0, cloud = None):
+		"""
+		Yields all layers [layerno] of all clouds in the sky.
+		If a cloud is given, returns the layer.
+		"""
+
+		if cloud:
+			yield cloud.layers[layerno]
+			return
+		else:
+			for cloud in self.sky:
+				yield clouds.layers[layerno]
+	
+	def get_cloud(self,ID):
+		"""
+		Looks for and returns a cloud with given ID.
+		ID can of course both be an int and a str.
+		
+		If the lookup fails, raises a ValueError
+		"""
+		
+		for cloud in self.clouds():
+			if cloud.ID == ID:
+				return cloud
+		
+		raise ValueError('No cloud with ID {}'.format(ID))
+			
+	def clouds(self):
+		"""
+		Generator for all clouds in the sky.
+		"""
+
+		for cloud in self.sky:
+			yield cloud
+	
+	def clouds_by_id(self):
+		
+		for cloud in self.clouds():
+			yield cloud.item['id']
+	
+	### data gathering functions
+	def getitem(self,ID):
+		"""
+		Returns the DICTIONARY of an item, given its id.
+		
+		Note: doesn't return the cloud, but the item.
+		"""
+		return self.data.item(ID)
+		
+	def gettag(self,ID):
+		"""
+		Returns the dictionary of a tag.
+		"""
+		return self.data.tag(ID)
+		
+	def populate_coo_counter(self):
+		"""
+		Counts co-occurrences in the whole corpus, maybe for weighting or
+		idf purposes.
+		"""
+		
+		DOCS = []
+
+		for item in self.data.items(): # iterates through item IDs
+			itemdict = self.getitem(item) # returns the dictionary of the item, given its ID
+			sents = to_sentences_item(itemdict) # breaks an item down to tokens: [['']]
+			DOCS.append(sents)
+
+		self.__tokens_temp = DOCS
+
+		coo_counter = Counter()
+		
+		for doc in DOCS:
+			for sent in doc:
+				coos = count_coo_sent(sent)
+				for key,value in coos:
+					coo_counter[key] += value
+
+		self.counters['coo'] = coo_counter
+		return None		
+	
+	def populate_word_freq_counter(self):
+		"""
+		Generates a word frequency counter of all the database.
+		"""
+		wfreq_counter = Counter()
+
+		docs = self.__tokens_temp
+		
+		for doc in docs:
+			for sent in doc:
+				for word in sent:
+					wfreq_counter[word] += 1
+		
+		nofwords = sum(wfreq_counter.values())		
+		
+		self.counters['word_freq'] = wfreq_counter
+		
+		self.stats['number_of_words_in_corpus'] = nofwords
+		return None
+
+	def populate_tag_coo_counter(self):
+		"""
+		Generates a tag co-occurrence database: the more two tags co-occur,
+		the more they are likely to be related.
+		"""
+		tag_coo_counter = Counter()
+
+		for itemID in self.data.items():
+			item = self.getitem(itemID) # retrieves the dictionary
+			item_tags = item['tags']
+			c = 1
+			for tag1 in item_tags:
+				for tag2 in item_tags[c:]:
+					if tag1 != tag2:
+						pair = frozenset({tag1,tag2})
+						tag_coo_counter[pair] += 1
+						c += 1
+
+		self.counters['tag_coo'] = tag_coo_counter
+		return None
+	
+	def populate_idf_database(self):
+		"""
+		Populates a database of idf weights: word --> idf
+		(the words are stemmed!)
+		"""
+		
+		idfcounter = Counter()
+		N = len(self.__tokens_temp) # number of documents of the whole database (i.e. no of items)
+			
+		for word in self.counters['word_freq']:
+			for doc in self.__tokens_temp:
+				
+				isthere = False
+				
+				for sent in doc:
+					if word in sent:
+						isthere = True
+						break
+					if isthere:
+						break
+				
+				if isthere:
+					nw += 1
+					
+			idfw = math.log( (N / nw) ,2)
+			idfcounter[word] = idfw
+		
+		self.counters['idf_db'] = idfcounter
+		
+		return None
+	
+	def base_network(self):
+		
+		net = {}
+		
+		for cloud in self.clouds():
+			net[cloud] = cloud.links(False) # will return a list of clouds
+		
+		return net
+		
+class Cloud():
+	"""
+	A Cloud is a semantic web of information, hierarchically ordered
+	from the innermost to the outermost (a relatedness measure already).
+	The cloud's layers can then be compared with other clouds' same-level
+	layers to get a higher-order proximity index.
+	"""
+
+	def __init__(self,sky,item):
+
+			self.item = item
+			self.ID = item['id']
+			self.data = sky.data
+			self.sky = sky
+			self.layers = [[]]
+
+			self.populate()
+	
+	def __repr__(self):
+		return "<Cloud [{}] at {}>".format(self.ID,id(self))
+	
+	def __str__(self):
+		return "Cloud [{}]. Layers >>>{}<<<".format(self.ID, self.layers)
+	
+	@property
+	def depth(self):
+		return len(self.layers)
+	
+	### data_getters
+	def populate(self,depth = None):
+		"""
+		Populates up to depth layers (from the innest to the outmost)
+		with semantic information about the core of the cloud: its item.
+
+		If you want to EXTEND the layer depth by 1 or more levels, use a 
+		different function.
+		"""
+
+		if not self.layers[0]: # we ensure there is a base from which to expand
+			self.retrieve_zero_layer()
+
+		for d in range(self.sky.stats['clouds']['depth'] - 1): # the zero layer counts as depth 1
+
+			base = self.layers[d]
+			self.expand_from_base(base)
+
+		return None
+		
+	def clean(self,listofstr):
+		"""
+		Does the job of cleaning each of the str in listofstr to an
+		uniform and comparable way. To do this:
+
+		1) strips off html tags and strange characters.
+		2) retrieves and removes from the text all urls.
+		3) also retrieves all (Capitalized Tuples of Words)
+
+		returns
+		-------
+
+		{	'text': [],
+			'names' : [],
+			'web_links': set()}
+
+		"""
+		
+		if isinstance(listofstr,str):
+			listofstr = [listofstr]
+		
+		out = {	'text': [],
+			'names' : [],
+			'web_links': set()}
+		
+		re_names_array = [	re.compile(r"[A-Z][a-z]+\s[A-Z][a-z]+\b"), 				# captures "Arianna Betti"
+							re.compile(r"[A-Z][.].*?\s[A-Z][a-z]+\b"),				# captures "J.R. Tolkien", "N. Brouwer" and "A.Cozza".
+							re.compile(r"[A-Z][a-z]+\s[A-Za-z]+\s[A-Z][a-z]+"),		# captures "University of Amsterdam" and "Rosa de Hoog", as well as "Tiziano Caio Mario".		
+							re.compile(r"[A-Z][a-z]+,(?:\s?[A-Z]\.)+?"), 			# captures "Betti, A." these are the last one to be extracted, so that we won't ruin other names
+							re.compile(r"[A-Z]+[A-Z0-9]{1-5}") 						# captures 'FNWI', 'UVA' and 'ECTN', and also 'ECT2N'. also, VU																
+							]
+							
+		#oldarray = [	re.compile(r"[A-Z][a-z]+\s[A-Z][a-z]+\b"), 				
+		#					re.compile(r"[A-Z][.].*?\s[A-Z][a-z]+\b"),			
+		#					re.compile(r"[A-Z][a-z]+\s[A-Za-z]+\s[A-Z][a-z]+"),	
+		#					re.compile(r"[A-Z][a-z]+,(?:\s?[A-Z]\.)*?")	]
+			
+		clean1 = []	
+		@Group
+		def handle_links_and_preprocessing():
+			for string in listofstr:
+				nohtml,links = preprocess(str(string),True)
+				out['web_links'].update(links)
+				if nohtml:
+					clean1.append(nohtml)
+
+		clean2 = []
+		@Group
+		def handle_names():
+			for sent in clean1:
+				if not hasattr(sent,'split'): 
+					raise BaseException('Wat wat wat: s is {}'.format(sent))
+				text_clean_of_names = sent
+				
+				for reg in re_names_array:
+					N = reg.findall(text_clean_of_names)
+					# we purge off implausible names
+					implausible_contents = (re.compile(r"[0-9]"),re.compile(r"\(.*\)"))
+					cleanN = []
+					
+					for name_candidate in N:
+						good = True
+						
+						for reg in implausible_contents:	
+							if reg.findall(name_candidate): # if there is some match
+								good = not good
+								break
+							
+						if good:
+
+							if ',' in name_candidate:
+								cn = name_candidate.split(',')
+								cn.reverse()
+								cn = ' '.join(cn)
+								
+							cn = re.sub(re.compile(r"\s+"),' ',name_candidate)
+							cn = cn.strip()							
+							
+							cleanN.append(cn)
+							#text_clean_of_names = text_clean_of_names.replace(name_candidate, ' ') # we remove the names, for they only add noise.						
+	
+					out["names"].extend(cleanN)
+				clean2.append(text_clean_of_names)
+				
+			# we remove some duplicates
+			out['names'] = list(set(out['names'])) # even though: a name occurring often hints at the relevance of the person!
+			
+		clean3 = []
+		@Group
+		def uniform_text():
+			spaces = re.compile(r"\s+")
+			for s in clean2:
+				nospaces = spaces.sub(' ',s)
+				clean3.append(nospaces)
+
+		out['text'] = clean3
+
+		return out
+	
+	def iter_proximities(self,others):
+		"""
+		This function is a generator.
+		for each Cloud in others:
+		yield proximity(self,other)
+		"""
+		
+		for cloud in others:
+			yield self.proximity(cloud)
+		
+	def proximity(self,other):
+		"""
+		Other must be a Cloud.
+		returns all the common features plus a
+		quick-to-assess number between zero and 1 which will be a more-or
+		-less initial proximity metric.
+
+		returns
+		-------
+
+		tuple(list(),float())
+		"""
+
+	
+		if other is self: # proximity here should be 1, but we don't need a reflexive relation
+			return {'core':1, 'names' :1 ,'tags' :1, "top_coo" :1, 'same_cloud' : True, 'tags':1}
+			
+		out = {}
+		for i in range(min([len(self.layers),len(other.layers)])): # we compare same-level layers
+			mylayer = self.layers[i]
+			otlayer = other.layers[i]
+		
+				# SIMPLE OVERLAP	
+			for simple_overlap in ['core','names','tags']: # for these we take simple overlap
+				out[simple_overlap] = 0
+				if mylayer.get(simple_overlap) and otlayer.get(simple_overlap):
+					mcore = set(mylayer[simple_overlap])
+					ocore = set(otlayer[simple_overlap])
+					out[simple_overlap] = len(mcore.intersection(ocore))
+					# later we will normalize it by dividing per the max possible (self-other) overlap.
+				
+				# SPLITTED OVERLAP
+			for splitted_overlap in ['top_coo']:
+				out[splitted_overlap] = out.get(splitted_overlap,0)
+				if mylayer.get(splitted_overlap) and otlayer.get(splitted_overlap):
+					
+						# thresh = self.sky.stats['clouds']['cloud_hierarchy_inducer_threshold']
+					ovlp_of_coo_counters = overlap_of_coo_counters(mylayer[splitted_overlap],otlayer[splitted_overlap])
+					
+					raw_coo_value, levels4 = ovlp_of_coo_counters
+					
+					out[splitted_overlap] = out[splitted_overlap] + raw_coo_value
+					
+		return out
+	
+	def links(self,numbers = True):
+		
+		if numbers:
+			return self.item.get('links',None)
+		else: 
+			return [self.sky.get_cloud(ID) for ID in self.item.get('links',[])] # list of clouds the cloud's item is linked to
+			
+	### growers
+	def retrieve_zero_layer(self):
+		"""
+		Builds up a zero layer from the item's direct information we have
+		from starfish's database.
+		"""
+
+		zero_layer = {	'core' : [],
+						'words': {},
+						'top_coo' : None,
+						'names': set(),
+						'places': NotImplemented,
+						'language': NotImplemented,
+						'web_sources': set(),
+						'tags' : set() }
+		
+		item = self.item
+
+		if item['type'] == "Person":
+			zero_layer['names'].update([item['name']])
+			
+		nucleus = [self.item.get('text',''),self.item.get('about',''),self.item.get('headline')]
+		
+		if self.item.get('glossary'): # if the item is a tag, crucial part of the description will be the glossary.
+									  # the aliases-handling which took place at DataWrapper level will ensure that
+									  # there is only one tag per alias-group, and that its glossary is a string
+									  
+			glossary = self.item['glossary']
+			nucleus.append(glossary)
+			
+		out = self.clean(nucleus)
+
+		ctexts = out['text']
+		clinks = out['web_links']
+		cnames = out['names']
+
+		zero_layer['web_sources'].update(clinks)
+		zero_layer['names'].update(cnames)
+		zero_layer['tags'].update( self.item.get('tags',[]) )
+		
+		# COO Handling
+		coodict = Counter()
+		for text in ctexts: update_coo_dict_with_raw_text(coodict,text)
+		minfreq = self.sky.stats['clouds']['min_coo_threshold']	
+		maxln = self.sky.stats['clouds']['max_coo_length']
+		coodict = Counter({ el:value for el,value in coodict.most_common(maxln) if coodict[el] >= minfreq })
+		zero_layer['top_coo'] = dict(coodict)
+		
+		# WORD FREQUENCY / LANGUAGE Handling
+		maxfqlen = self.sky.stats['clouds']['max_vocab_length'] # here we might consider to use idf
+		for word,value in most_freq_words_from_raw_texts(ctexts,crop = maxfqlen):
+			zero_layer['words'][word] = value
+		zero_layer['language'] = guess_language( ' '.join(ctexts) )
+
+		self.layers = [zero_layer]
+
+		return None
+		
+	def expand_from_base(self,base):
+		"""
+		Takes as input a base: that is, a dictionary with some information,
+		(such as a layer, typically) and creates a new layer to append to 
+		self.layers.
+
+		returns
+		-------
+
+		the new layer
+
+		"""
+
+		good = base is self.layers[0]
+
+		#neighbours = self.get_closest_items()
+		
+
+
+		return 
+	
+	def is_empty(self):
+		"""
+		Returns true iff the cloud does not contain 'enough' information.
+		Example: if the cloud's center is a person, and the only info we have
+		is his name.
+		"""
+		
+		# naive approach:
+		item = self.item
+		stringitem = [ str(value) for value in item.values() ]
+		
+		if len(stringitem) <= 1000:
+			return True
+		else:
+			return False
+
+	def google_lookup(self,query):
+		"""
+		given a string query, formats it into a google search and retrieves
+		the results. We then compare every result with what we already have.
+		If we don't have anything, we compare it with the clouds'
+		nearest neighbours. If there are too many of them (e.g. all have
+		proximity 0) then we just take the first n results for good.
+		"""
+		
+	def keywords(self):
+		"""
+		Produces a plain list of words that are (very likely to be)
+		keywords for this cloud.
+		"""
+		
+		candidates = Counter()
+		
+		for txt in ('headline','title','name'):
+			if self.item.get(txt):
+				pass
+				
