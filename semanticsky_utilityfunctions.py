@@ -8,7 +8,7 @@ import re,nltk
 WORD_RE = re.compile(r"(?:[^\W\d_]|['’])+")
 dutch_stopwords = []
 eng_stopwords = nltk.corpus.stopwords.words('english')
-eng_stopwords.extend(['free','high','low']) # Extra stops
+eng_stopwords.extend(['free','high','low','although','brief','nevertheless','nonetheless']) # Extra stops
 
 dutch_recognition_re_s = [ 	('het',	re.compile(r'\bhet\b')),
 							('op' ,	re.compile(r'\bop\b')),

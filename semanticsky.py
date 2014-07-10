@@ -6,7 +6,8 @@ Python3 code. Compatible with 2.7 with minor modifications(mainly encoding)
 
 import nltk
 from bs4 import BeautifulSoup, SoupStrainer
-from collections import Counter
+import algorithms
+from algorithms import Counter
 from group import Group
 import re
 import semanticsky_utilityfunctions as utils
@@ -15,6 +16,7 @@ import sys,time
 import pickle
 from sys import stdout
 from copy import deepcopy
+import math
 
 class Data():
 	"""
@@ -264,8 +266,7 @@ class Data():
 		cleanwordseqcounter = {pair:value for pair,value in wordseqcounter.items() if value > 2}
 		
 		self.wordseqcounter = cleanwordseqcounter
-	
-			
+				
 class SemanticSky():
 	"""
 	The Semantic Sky is the background of all clouds; is responsible for some
@@ -295,28 +296,35 @@ class SemanticSky():
 	def __init__(self,data = default_data,stats = default_stats,test = True):
 
 		self.counters = {	'coo':None,
-					'word_freq':None,
-					'tag_coo':None}
+							'word_freq':None,
+							'tag_coo':None,
+							'idf_db':None}
 		
 		self.data = data	
 		self.stats = stats
 		self.sky = []
 		
 		starttime = time.clock()
-		if not test: # we populate all counters, then the sky.
-			self.populate_counters()
+		#if not test: # we populate all counters, then the sky.
+		self.populate_counters()
 			
 		stdout.write('Populating sky... \n')
+		print()
 		stdout.flush()
 		self.populate_sky()
 		stdout.flush()
+		print()
 		stdout.write('\t*Initialization successful* :: [ {} seconds elapsed]\n'.format( (time.clock() - starttime) ))
+		print()
+		print( ' -'*60)
+		print()	
 		
 	def populate_counters(self):
 		"""
 		Populates the internal counters.
 		"""
-		
+		print()
+		print( ' -'*60)
 		stdout.write('Populating sky-level counters: \n\t token co-occurrences... ')
 		stdout.flush()
 
@@ -335,12 +343,13 @@ class SemanticSky():
 		stdout.flush()
 		stdout.write("\t idf database... ")
 		stdout.flush()
-		self.populate_tag_coo_counter()
+		self.populate_idf_database()
 		stdout.write('\t\t [ Done. ]\n')
-		stdout.flush()
-		
+		stdout.flush()		
 		del self.__tokens_temp # frees the memory
-		
+		print( ' -'*60)
+		print()	
+			
 	def populate_sky(self):
 		"""
 		This function instantiates a cloud per each item in the database,
@@ -358,7 +367,7 @@ class SemanticSky():
 			item['id'] = itemID # is a long()
 			cloud = Cloud(self,item)
 			self.sky.append(cloud)
-			if i%3 == 0:
+			if i%4 == 0:
 				stdout.write('.')
 				stdout.flush()
 			i += 1
@@ -377,9 +386,9 @@ class SemanticSky():
 				stdout.flush()
 			e += 1
 		stdout.write('] [ {} Clouds. ]\n'.format(e) )
-		
+		print()
 		print('\t Total: [ {} Clouds ] \t : quite a rainy day.'.format(e+i))
-			  
+		print()
 		return None
 	
 	### iterators
@@ -515,6 +524,7 @@ class SemanticSky():
 		N = len(self.__tokens_temp) # number of documents of the whole database (i.e. no of items)
 			
 		for word in self.counters['word_freq']:
+			nw = 0 # number of docs with word
 			for doc in self.__tokens_temp:
 				
 				isthere = False
@@ -714,37 +724,30 @@ class Cloud():
 
 		tuple(list(),float())
 		"""
+		import algorithms
+		algs = { 			'tf_weighting' : 		algorithms.tf_weighting,
+							'tf_idf_weighting': 	algorithms.tf_idf_weighting,
+							'coo_dicts_overlap': 	algorithms.coo_dicts_overlap,
+							'coo_dicts_neighbour' : algorithms.coo_dicts_neighbour,
+							'tag_overlap': 			algorithms.tag_overlap}
 
-	
 		if other is self: # proximity here should be 1, but we don't need a reflexive relation
-			return {'core':1, 'names' :1 ,'tags' :1, "top_coo" :1, 'same_cloud' : True, 'tags':1}
+			return 1
 			
 		out = {}
-		for i in range(min([len(self.layers),len(other.layers)])): # we compare same-level layers
-			mylayer = self.layers[i]
-			otlayer = other.layers[i]
-		
-				# SIMPLE OVERLAP	
-			for simple_overlap in ['core','names','tags']: # for these we take simple overlap
-				out[simple_overlap] = 0
-				if mylayer.get(simple_overlap) and otlayer.get(simple_overlap):
-					mcore = set(mylayer[simple_overlap])
-					ocore = set(otlayer[simple_overlap])
-					out[simple_overlap] = len(mcore.intersection(ocore))
-					# later we will normalize it by dividing per the max possible (self-other) overlap.
-				
-				# SPLITTED OVERLAP
-			for splitted_overlap in ['top_coo']:
-				out[splitted_overlap] = out.get(splitted_overlap,0)
-				if mylayer.get(splitted_overlap) and otlayer.get(splitted_overlap):
-					
-						# thresh = self.sky.stats['clouds']['cloud_hierarchy_inducer_threshold']
-					ovlp_of_coo_counters = overlap_of_coo_counters(mylayer[splitted_overlap],otlayer[splitted_overlap])
-					
-					raw_coo_value, levels4 = ovlp_of_coo_counters
-					
-					out[splitted_overlap] = out[splitted_overlap] + raw_coo_value
-					
+		for alg in algs:
+			ALG = algs[alg]
+			
+			out[alg] = 0
+			if alg == 'coo_dicts_overlap': 
+				out[alg] = {}
+				for version in [1,2,3]:
+					outcome = ALG(self,other,version)
+					out[alg]['version {}'.format(version)] = outcome
+			else:
+				outcome = ALG(self,other)
+				out[alg] = outcome
+			
 		return out
 	
 	def links(self,numbers = True):
@@ -753,6 +756,9 @@ class Cloud():
 			return self.item.get('links',None)
 		else: 
 			return [self.sky.get_cloud(ID) for ID in self.item.get('links',[])] # list of clouds the cloud's item is linked to
+	
+	def nearest_neighbours(self):
+		return nearestneighbours(self)
 			
 	### growers
 	def retrieve_zero_layer(self):
@@ -762,7 +768,8 @@ class Cloud():
 		"""
 
 		zero_layer = {	'core' : [],
-						'words': {},
+						'words_tfidf': {},
+						'words_tf' : {},
 						'top_coo' : None,
 						'names': set(),
 						'places': NotImplemented,
@@ -775,12 +782,11 @@ class Cloud():
 		if item['type'] == "Person":
 			zero_layer['names'].update([item['name']])
 			
-		nucleus = [self.item.get('text',''),self.item.get('about',''),self.item.get('headline')]
+		nucleus = [self.item.get('text',''),self.item.get('about',''),self.item.get('headline',''),self.item.get('title','')]
 		
 		if self.item.get('glossary'): # if the item is a tag, crucial part of the description will be the glossary.
 									  # the aliases-handling which took place at DataWrapper level will ensure that
 									  # there is only one tag per alias-group, and that its glossary is a string
-									  
 			glossary = self.item['glossary']
 			nucleus.append(glossary)
 			
@@ -799,13 +805,36 @@ class Cloud():
 		for text in ctexts: update_coo_dict_with_raw_text(coodict,text)
 		minfreq = self.sky.stats['clouds']['min_coo_threshold']	
 		maxln = self.sky.stats['clouds']['max_coo_length']
-		coodict = Counter({ el:value for el,value in coodict.most_common(maxln) if coodict[el] >= minfreq })
+		if len(ctexts) < 200:
+			pass # if there is very little text, we are less picky, and keep all coos
+		else:
+			coodict = Counter({ el:value for el,value in coodict.most_common(maxln) if coodict[el] >= minfreq })
 		zero_layer['top_coo'] = dict(coodict)
 		
-		# WORD FREQUENCY / LANGUAGE Handling
-		maxfqlen = self.sky.stats['clouds']['max_vocab_length'] # here we might consider to use idf
-		for word,value in most_freq_words_from_raw_texts(ctexts,crop = maxfqlen):
-			zero_layer['words'][word] = value
+		# WORD FREQUENCY + IDF Handling
+		maxfqlen = self.sky.stats['clouds']['max_vocab_length']
+		idfcount = Counter()
+		tfcount = Counter()
+		for word,wordcount in most_freq_words_from_raw_texts(ctexts,crop = maxfqlen):
+			lentexts = len(' '.join(ctexts).split(' '))
+			wordfreq = wordcount / lentexts
+			
+			tfcount[word] += wordfreq
+			
+			try:
+				wordidf = self.sky.counters['idf_db'][word]
+			except BaseException:
+				self.sky.populate_counters()
+				wordidf = self.sky.counters['idf_db'][word]
+			
+			word_tf_idf = wordfreq * wordidf
+			
+			idfcount[word] +=  word_tf_idf
+		
+		zero_layer['words_tf'] = dict(tfcount)
+		zero_layer['words_tfidf'] = dict(idfcount)
+		
+		# LANGUAGE Handling	
 		zero_layer['language'] = guess_language( ' '.join(ctexts) )
 
 		self.layers = [zero_layer]
