@@ -251,7 +251,7 @@ def update_coo_dict_with_text(coo_dict,text):
 	return totcoo
 
 def count_coo_raw_text(text):
-'	"""
+	"""
 	Takes as input a string of text, which may contain sentences or be a single one.
 	returns a Counter instance.
 	

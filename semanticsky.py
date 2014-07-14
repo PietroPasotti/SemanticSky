@@ -284,8 +284,8 @@ class SemanticSky():
 			'number_of_sentences': 0,
 			'language_recognition_threshold' : 0.4,
 			'clouds' : {'depth':2,
-					'density': NotImplemented,
-					'thickness': NotImplemented,
+					'density': None,
+					'thickness': None,
 					'min_coo_threshold': 2,
 					'min_word_freq_threshold' : 2, # not used
 					'max_coo_length': 20,
@@ -771,7 +771,7 @@ class Cloud():
 						'words_tfidf': {},
 						'words_tf' : {},
 						'top_coo' : None,
-						'communities' : []
+						'communities' : [],
 						'names': set(),
 						'places': [],
 						'language': None,
