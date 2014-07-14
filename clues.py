@@ -37,7 +37,7 @@ class Clue(object):
 		translatevalue = {		1 : 'accurate',
 								-1 : 'inaccurate'}
 		
-		return "< Clue about {} ({}), which was evaluated '{}' by Agent {}.>".format(translateclue[self.cluetype],self.about,int(self.value),self.agent)
+		return "< Clue about {} ({}), which was evaluated '{}' by Agent {}.>".format(translateclue[self.cluetype],self.about,self.value,self.agent)
 	
 	@property
 	def trustworthiness(self):
@@ -91,6 +91,9 @@ class Agent(object):
 		
 		if self.stats['blocked']:
 			return None
+		
+		if howmuch > 1:
+			raise BaseException('Evaluation confidence should not be above one.')
 			
 		myclue = Clue(what,howmuch,self)
 		self.clues.append(myclue)
@@ -105,15 +108,22 @@ class Agent(object):
 		
 		self.stats['trustworthiness'] = ( self.stats['trustworthiness'] + clue.value ) / 2
 	
-	def suggest_link(self,link):
+	def suggest_link(self,link,confidence):
 		"""
 		A link must be of type frozenset({Cloud(),Cloud()}).
 		The belief in that link's validity is clued +1 by the agent.
 		"""
-		if not (isinstance(link, frozenset) and len(link) ==2 and isinstance(link[0],ss.Cloud) and isinstance(link[1],ss.Cloud)):
+		error = False
+		if not (isinstance(link, frozenset) and len(link) == 2):
+			error = True 
+		
+		tuplelink = tuple(link)
+		if not (isinstance(tuplelink[0],ss.Cloud) and isinstance(tuplelink[1],ss.Cloud)):
+			error = True
+		if error:
 			raise BaseException('Bad link type: {} ; frozenset({Cloud(),Cloud()}) needed.'.format(type(link)))
 			
-		self.evaluate(link,1)
+		self.evaluate(link,confidence)
 
 class GuardianAngels(Agent,object):
 	"""
@@ -181,7 +191,9 @@ class GuardianAngels(Agent,object):
 			
 		
 class God(Agent,object):
-	
+	"""
+	The Allmighty.
+	"""
 	def __str__(self):
 		return "< The Lord >"
 	
@@ -192,7 +204,7 @@ class God(Agent,object):
 	
 	def consider_clues(self):
 		"""
-		God will shot a quick glance at the useless complains of the mortals.
+		God will shot a quick glance to the useless complains of the mortals.
 		"""
 		
 		global CLUES
@@ -218,22 +230,122 @@ class God(Agent,object):
 		return target_clue.receive(metaclue) # the metaclue's value will in the end average up or down the target_clue's author's trustworthiness
 		
 	def handle_link(self,linkclue):
-		pass
+		"""
+		where linkclue is a clue about the existence of a link, ( or about
+		the similarity of two clouds, if you wish, this function makes god's
+		ineffable beliefs change (a bit) accordingly.
 		
+		God does listen at his Agents' complaints, but they'll have to scream 
+		aloud enough.
+		"""
+		
+		self.update_beliefs(linkclue)
+	
+	def update_beliefs(self,clue):
+		"""
+		Where clue is a clue about anything believable by god.
+		"""
+		
+		try: 
+			self.beliefs = self.beliefs		
+		except AttributeError:
+			self.beliefs = {}
+
+		if not self.beliefs.get(clue.about,False):
+			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'			
+		previous_belief = self.beliefs[clue.about] 		
+		after_update = previous_belief / (clue.value * clue.trustworthiness)
+		# positive factor: the previous belief. If previous belief was high, to take it down will take some effort.
+		# negative factor: the value of a clue: that is, the strength and direction of the clue.
+		# 	the negative factor in turn is affected by the trustworthiness of he who formulated it.
+		#	by logging these clues' execution, we can know when an Agent gave 'bad' feedback: that is, feedback that was
+		#	later contradicted by many feedbacks on the opposite direction.
+		
+		self.beliefs[clue.about] = after_update		
+		self.log(clue)
+	
+	def log(self,clue):
+		"""
+		Whenever a clue gets processed by God (or otherwise 'consumed'),
+		we log it. Then we will be able to run analyses on the logs, so as
+		to determine whether an agent (or algorithm) gave feedback
+		whose effects (creation of a new link, downweighting of an algorithm
+		or other agent) were appreciated (through more same-direction feedback)
+		by other agents.
+		"""
+		with open('./clues.log','+a') as logs:
+			logline = "[{}] : {}".format( ss.time.ctime(),str(clue))
+			logs.write(str(logline))
+
 	def handle_accuracy(self,clue):
 		"""
 		Handles clues about algorithms.
 		"""
 		
+		algname = clue.about
+		alg = [alg for alg in self.guardianangels if alg.name == algname]
+		alg = alg[0]
+		alg.receive(clue)
+				
 	def spawn_servants(self):
 		"""
 		Creates all GuardianAngels
 		"""	
+
+		self.guardianangels = []
+		for algorithm in algs:
+			GA = GuardianAngel(algorithm)
+			GUARDIANANGELS.append(GA)
+			self.guardianangels.append(GA)
 		
-	
+	def consult_guardian_angels(self):
+		"""
+		Consults all guardian angels asking for their opinion about
+		the whole network.
+		Ideally, this function should be called at the beginning of
+		the whole process only, or if weights get thoroughly screwed
+		up.
+		This function results in God re-virginating his belief states
+		to a GuardianAngel-only informed belief state.
+		
+		Pleas note: computationally very heavy.
+		
+		"""
+		
+		opinions = {}
+		
+		for angel in self.guardianangels: # the list of opinions thus will be in the same order
+			angel.evaluate_all()
+			opinion = angel.evaluation
+			
+			for pair in opinion:
+				judgement = opinion[pair]
+				if not opinions.get(pair):
+					opinions[pair] = []
+				opinions[pair].append(opinion[pair])
+		
+		# now opinion is of list(dict( {frozenset({Cloud(),Cloud()}) : [ int() ] }  )) type. each dict is a frozenset({clouda,cloudb}) --> [0,1] mapping
+		# 	for all links in the database; that is: all possible combinations of clouds.
+				
+		for pair in opinions:
+			judgements = opinions[pair] # a vector of [0,1] floats
+			for i in range(len(judgements)):
+				judgement = judgements[i]
+				author = self.guardianangels[i]
+				newclue = Clue(pair,judgement,author)
+			# now god formulates a clue on the guardian's behalf: this way we don't clog the guardian's logs
+		
+		self.consider_clues()
+
 #	def suggest_link(self,link):
 			
-#def init_base():
+def init_base():
+	global sky
+	sky = ss.SemanticSky()
+	global _god
+	_god = God()
+	
+	
 
 
 
