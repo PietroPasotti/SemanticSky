@@ -9,10 +9,11 @@ def clusterize1(data):
 		if als != None:
 			if isinstance(als,list):
 				aliases.extend(als)
-			elif isinstance(als,str):
+			elif isinstance(als,str):# or isinstance(als, unicode):
 				aliases.append(als)
 			else:
-				raise BaseException('Wrong.')
+				print(tag,data)
+				#raise BaseException('Wrong.')
 			aliases.append(tag)
 		else:
 			aliases = [tag]

@@ -223,7 +223,7 @@ class Data():
 			e = BaseException('Failed')
 			
 			if not len(self.oridata['tags']) == len(self.tag_aliases_classes):
-				raise e # n° of tags != n° of equivalence classes
+				raise e # no of tags != no of equivalence classes
 			
 			for tag in self.oridata['tags']:
 				clusts_with_tag = 0
@@ -771,9 +771,10 @@ class Cloud():
 						'words_tfidf': {},
 						'words_tf' : {},
 						'top_coo' : None,
+						'communities' : []
 						'names': set(),
-						'places': NotImplemented,
-						'language': NotImplemented,
+						'places': [],
+						'language': None,
 						'web_sources': set(),
 						'tags' : set() }
 		

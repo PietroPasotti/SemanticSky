@@ -1,35 +1,87 @@
 from collections import Counter
+from math import sqrt
 
 			# ALGORITHMS
 
+def cosine(veca,vecb):
+	
+	sumnum = 0
+	alla2 = 0
+	allb2 = 0
+	for i in range(len(veca)):
+		ia = veca[i]
+		ib = vecb[i]
+		num = ia * ib
+		sumnum += num
+		
+		ia2 = ia**2
+		alla2 += ia2
+		
+		ib2 = ib**2
+		allb2 += ib2
+	
+	ralla2 = sqrt(alla2)
+	rallb2 = sqrt(allb2)
+	
+	denom = ralla2 * rallb2
+	if denom:
+		cos = sumnum / denom
+	else:
+		cos = 0
+	return cos
 
-def tf_weighting(clouda,cloudb,basedbaddress = 'words_tf'):
+def tf_weighting(clouda,cloudb,basedbaddress = 'words_tf',use_cosine = True,dbg = False):
 	
 	tf_rating = 0	
 	
-	for i in range(len(clouda.layers) - 1):
+	for i in range(len(clouda.layers)):
 		
 		layera = clouda.layers[i]
 		layerb = cloudb.layers[i]
-		
+	
 		aws = layera[basedbaddress]
 		bws = layerb[basedbaddress]
 		
-		allwords = set(aws.keys()).union(set(bws.keys()))
+		if dbg: print(aws,' '*120,bws)
 
-		for word in allwords:
-			atf = aws.get(word,0)
-			btf = bws.get(word,0)
-			
-			tf_rating += float(min( [atf,btf] )) ####### 
-			# or maybe: average?
-			#tf_rating += float(sum( [atf,btf] )) / 2 
+		allwords = set(aws.keys()).union(set(bws.keys()))
 		
+		if use_cosine:
+			veca = []
+			vecb = []
+			
+			for word in allwords:
+				vala = 0
+				valb = 0
+				
+				if aws.get(word):
+					vala = aws[word]	
+				veca.append(vala)
+				
+				if bws.get(word):
+					valb = bws[word]
+				vecb.append(valb)
+			
+			tf_rating += cosine(veca,vecb)
+				
+		else:
+			for word in allwords:
+				atf = aws.get(word,0)
+				btf = bws.get(word,0)
+				
+				if dbg: print(word,' overlap = ', min([atf, btf]))
+
+				tf_rating += float(min( [atf,btf] )) ####### 
+				# or maybe: average?
+				#tf_rating += float(sum( [atf,btf] )) / 2 
+	
+	tf_rating = tf_rating / len(clouda.layers)
+	
 	return tf_rating
 		
-def tf_idf_weighting(clouda,cloudb):
+def tf_idf_weighting(clouda,cloudb,dbg = False):
 	
-	return tf_weighting(clouda,cloudb,'words_idf')
+	return tf_weighting(clouda,cloudb,'words_tfidf',dbg = dbg)
 
 def coo_dicts_all_metrics(clouda,cloudb):
 	
@@ -86,9 +138,10 @@ def coo_dicts_overlap(clouda,cloudb,version = 1,debug = False):
 				
 				totmax += max((wacounter,wbcounter))
 				totmin += min((wacounter,wbcounter))
-				
-			value2_temp += totmin / totmax
-	
+			
+			if totmax:
+				value2_temp += totmin / totmax
+			
 		value3_temp = 0
 		if version == 3 or debug:								# VERSION 3
 			value3_temp += max([value1_temp,value2_temp])
@@ -117,8 +170,9 @@ def coo_dicts_overlap_v2(clouda,cloudb):
 def coo_dicts_neighbour(clouda,cloudb):
 	"""
 	For each word in each pair in a or b's top_coo dicts, we create the set
-	of the word's neighbours (words that coo with them), and we compare these sets'
-	coo-values, and not directly the words' ones.
+	of the word's neighbours (words that often co-occur with them in the 
+	whole corpus), and we compare these sets' coo-values (relative to the 
+	two clouds), and not directly the words' ones.
 	"""
 	
 	out_value = 0
@@ -318,7 +372,8 @@ def nearestneighbours(clouda):
 		
 		# get the most optimistic one, unless it's too optimistic (we avoid 1's) although it should never be.
 		
-		top_proximity = max(proximities.values())
+		nontrivials = [ value for value in proximities.values() if value < 1 and value > 0]
+		top_proximity = max(nontrivials)
 		clues[frozenset({clouda,cloudb})] = top_proximity
 	
 	return clues

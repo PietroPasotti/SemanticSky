@@ -5,7 +5,7 @@ from collections import Counter
 import re,nltk
 
 
-WORD_RE = re.compile(r"(?:[^\W\d_]|['’])+")
+WORD_RE = re.compile(r"(?:[^\W\d_]|['])+")
 dutch_stopwords = []
 eng_stopwords = nltk.corpus.stopwords.words('english')
 eng_stopwords.extend(['free','high','low','although','brief','nevertheless','nonetheless']) # Extra stops
@@ -251,7 +251,7 @@ def update_coo_dict_with_text(coo_dict,text):
 	return totcoo
 
 def count_coo_raw_text(text):
-	"""
+'	"""
 	Takes as input a string of text, which may contain sentences or be a single one.
 	returns a Counter instance.
 	
