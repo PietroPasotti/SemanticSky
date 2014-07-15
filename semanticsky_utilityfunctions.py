@@ -428,3 +428,11 @@ def overlap_of_coo_counters(countera,counterb,thresholds = default_thresholds, c
 			out0 += totvalue
 	
 	return out0,out1
+
+def pair(cloud,cloudb):
+	""" Simply wraps two clouds in a frozenset. """
+	
+	if cloud is cloudb:
+		raise BaseException('Same cloud == No good.')
+		
+	return frozenset((cloud,cloudb))

@@ -63,3 +63,8 @@ def get_community_agent(agent):
 def get_community_item(item):
 	return item['communities']
 		
+def arelinked(id1,id2):
+	if not clues._god:
+		clues.init_base()
+	return clues._god.believes_link_by_id(id1,id2)
+	

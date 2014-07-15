@@ -378,6 +378,26 @@ def nearestneighbours(clouda):
 	
 	return clues
 
+def someonesuggested(clouda,cloudb):
+	"""
+	Naive algorithm that checks whether the two clouds' items were
+	linked in the starfish database.
+	"""
+	
+	
+	data = clouda.data
+	alinks = clouda.item.get('links',[])
+	blinks = cloudb.item.get('links', [])
+	aid = clouda.item['id']
+	bid = cloudb.item['id']
+	
+	if aid in blinks or bid in alinks:
+		return 1
+		
+	else:
+		return 0
+		
+
 ALL_ALGS = [	tf_weighting,
 				tf_idf_weighting,
 				coo_dicts_overlap_v1,

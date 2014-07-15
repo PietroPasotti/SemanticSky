@@ -404,21 +404,7 @@ class SemanticSky():
 		else:
 			for cloud in self.sky:
 				yield clouds.layers[layerno]
-	
-	def get_cloud(self,ID):
-		"""
-		Looks for and returns a cloud with given ID.
-		ID can of course both be an int and a str.
 		
-		If the lookup fails, raises a ValueError
-		"""
-		
-		for cloud in self.clouds():
-			if cloud.ID == ID:
-				return cloud
-		
-		raise ValueError('No cloud with ID {}'.format(ID))
-			
 	def clouds(self):
 		"""
 		Generator for all clouds in the sky.
@@ -440,7 +426,21 @@ class SemanticSky():
 		Note: doesn't return the cloud, but the item.
 		"""
 		return self.data.item(ID)
+
+	def get_cloud(self,ID):
+		"""
+		Looks for and returns a cloud with given ID.
+		ID can of course both be an int and a str.
 		
+		If the lookup fails, raises a ValueError
+		"""
+		
+		for cloud in self.clouds():
+			if cloud.ID == ID:
+				return cloud
+		
+		raise ValueError('No cloud with ID {}'.format(ID))
+			
 	def gettag(self,ID):
 		"""
 		Returns the dictionary of a tag.

@@ -3,6 +3,7 @@ import semanticsky as ss
 from copy import deepcopy
 from group import Group
 from semanticsky import pickle
+from math import sqrt
 
 CLUES = []
 AGENTS = []
@@ -112,6 +113,7 @@ class Clue(object):
 		
 class Agent(object):
 	
+	idcounter = 0
 	clues = []
 	def __init__(self,name = 'Anonymous'):
 		
@@ -132,6 +134,17 @@ class Agent(object):
 	
 	def __str__(self):
 		return "< Agent {}.>".format(self.name)
+	
+	def unique_id(self):
+		"""
+		What if there are two Agent Smith?
+		"""
+		
+		uniqueid = Agent.idcounter
+		Agent.idcounter += 1
+		
+		uniqueid = self.name + '#' + uniqueid
+		return uniqueid
 	
 	def __deepcopy__(self,memo):
 		
@@ -206,6 +219,8 @@ class GuardianAngel(Agent,object):
 	only on behalf of normal agents or god.
 	"""
 	
+	zero = 0
+	nonzero = 0
 	evaluation = {}
 	
 	def __init__(self,algorithm):
@@ -235,7 +250,7 @@ class GuardianAngel(Agent,object):
 			raise e
 		
 		if not evaluation > 0:
-			self.skipped += 1
+			self.zero += 1
 			return None
 				
 		self.evaluation[what] = evaluation # stores the evaluation
@@ -263,8 +278,7 @@ class GuardianAngel(Agent,object):
 				self.evaluate(pair,silent = True) # silent: no clue is spawned
 		
 			i += 1
-			
-		
+				
 class God(Agent,object):
 	"""
 	The Allmighty.
@@ -292,24 +306,8 @@ class God(Agent,object):
 		
 		print('God accepts no feedback, mortal.')
 		return None
-	
-	def consider_clues(self):
-		"""
-		God will shot a quick glance to the useless complains of the mortals.
-		"""
-		
-		global CLUES
-		
-		for clue in CLUES:
-			if clue.cluetype in ['link','accuracy','metaclue','agent_report']:
-				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
-				CLUES.remove(clue)
-				handler(clue) # the handler will handle
-			else:
-				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
-		
-		CLUES = []
-		
+
+	# HANDLERS and LOGGERS
 	def handle_metaclue(self,metaclue):
 		"""
 		This is a handler for clues about clues1: someone is complaining 
@@ -331,33 +329,16 @@ class God(Agent,object):
 		"""
 		
 		self.update_beliefs(linkclue)
-	
-	def update_beliefs(self,clue):
+
+	def handle_accuracy(self,clue):
 		"""
-		Where clue is a clue about anything believable by god.
+		Handles clues about algorithms.
 		"""
 		
-		try: 
-			self.beliefs = self.beliefs		
-		except AttributeError:
-			self.beliefs = {}
-
-		if not self.beliefs.get(clue.about,False):
-			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'			
-		previous_belief = self.beliefs[clue.about] 		
-		try:
-			after_update = previous_belief / (clue.value + clue.trustworthiness/2)
-		except	Exception:
-			after_update = 0.1
-
-		# positive factor: the previous belief. If previous belief was high, to take it down will take some effort.
-		# negative factor: the value of a clue: that is, the strength and direction of the clue.
-		# 	the negative factor in turn is affected by the trustworthiness of he who formulated it.
-		#	by logging these clues' execution, we can know when an Agent gave 'bad' feedback: that is, feedback that was
-		#	later contradicted by many feedbacks on the opposite direction.
-		
-		self.beliefs[clue.about] = after_update		
-		self.log(clue)
+		algname = clue.about
+		alg = [alg for alg in self.guardianangels if alg.name == algname]
+		alg = alg[0]
+		alg.receive(clue)
 	
 	def log(self,clue):
 		"""
@@ -371,17 +352,22 @@ class God(Agent,object):
 		with open('./clues.log','+a') as logs:
 			logline = "[{}] : {}".format( ss.time.ctime(),str(clue))
 			logs.write(str(logline))
-
-	def handle_accuracy(self,clue):
-		"""
-		Handles clues about algorithms.
-		"""
+			
+		if not hasattr(self,'logs'):
+			self.logs = {}
 		
-		algname = clue.about
-		alg = [alg for alg in self.guardianangels if alg.name == algname]
-		alg = alg[0]
-		alg.receive(clue)
-				
+		about = clue.about
+		author = clue.agent.unique_id
+		value = clue.value
+		
+		if not self.logs.get(about):
+			self.logs[about] = []
+		
+		log = (author,)
+		
+		self.logs[about].append(())
+	
+	# GUARDIAN ANGELS, CONSULT and CONSIDER			
 	def spawn_servants(self):
 		"""
 		Creates all GuardianAngels
@@ -397,10 +383,35 @@ class God(Agent,object):
 			GA = GuardianAngel(algorithm)
 			GUARDIANANGELS.append(GA)
 			self.guardianangels.append(GA)
-		
-	def consult_guardian_angels(self,verbose = False,consider = False):
+	
+	def consider(self, number = 0):
 		"""
-		Consults all guardian angels asking for their opinion about
+		God will shot a quick glance to the useless complaints of the mortals.
+		"""
+		
+		global CLUES
+		
+		if not CLUES:
+			raise BaseException('No clue.')
+		
+		if number > 0:
+			restr_clues = CLUES[:number]
+			CLUES = CLUES[number:]	
+			toread = restr_clues
+		else:
+			toread = CLUES
+			
+		for clue in toread:
+			if clue.cluetype in ['link','accuracy','metaclue','agent_report']:
+				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
+				handler(clue) # the handler will handle
+			else:
+				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
+
+					
+	def consult(self,angels = False,verbose=False,consider = False,local = False):
+		"""
+		Consults all or some guardian angels asking for their opinion about
 		the whole network.
 		Ideally, this function should be called at the beginning of
 		the whole process only, or if weights get thoroughly screwed
@@ -408,7 +419,7 @@ class God(Agent,object):
 		This function results in God re-virginating his belief states
 		to a GuardianAngel-only informed belief state.
 		
-		Pleas note: computationally very heavy.
+		Please note: computationally very heavy.
 		
 		"""
 		initime = ss.time.clock()
@@ -421,67 +432,16 @@ class God(Agent,object):
 		if not hasattr(self,'sky'):
 			self.get_sky()
 			
-		clouds = list(self.sky.clouds())
-		
-		for angel in self.guardianangels: # the list of opinions thus will be in the same order
-			
-			if verbose: print('Consulting {}'.format(str(angel)))
-			angel.evaluate_all(clouds)
-			opinion = angel.evaluation
-			
-			for pair in opinion: # pairs of clouds
-				judgement = opinion[pair] # the judg of angel on pair
-				if not opinions.get(pair):
-					opinions[pair] = []
-				opinions[pair].append(opinion[pair])
-		
-		# now opinion is of list(dict( {frozenset({Cloud(),Cloud()}) : [ float() ] }  )) type. each dict is a frozenset({clouda,cloudb}) --> [0,1] mapping
-		# 	for all links in the database; that is: all possible combinations of clouds.
-		
-		if verbose: print('Examinating opinions...')
-		if verbose: 
-			ss.stdout.write('[')
-			ss.stdout.flush()
-		count = 0
-		for pair in opinions:
-			count += 1
-			if verbose:
-				if count % 150 == 0: 
-					ss.stdout.write('.')
-					ss.stdout.flush()
-			judgements = opinions[pair] # a vector of [0,1] floats
-			for i in range(len(judgements)):
-				judgement = judgements[i]
-				author = self.guardianangels[i]
-				newclue = Clue(pair,judgement,author)
-			# now god formulates a clue on the guardian's behalf: this way we don't clog the guardian's logs
-		if verbose: 
-			ss.stdout.write('].  [ {} opinions considered. ]'.format(len(opinions)))
-			ss.stdout.flush()
-		
-		# finally we (can) call a consider_clues: all listed clues (they get queued automatically, when spawned)
-		#	are processed and evaluated by the Lord
-		if consider:
-			self.consider_clues()
-		
-		elapsed = ss.time.clock() - initime
-		if verbose: 
-			print('All Guardian Angels consulted. [ {} elapsed ]'.format(elapsed))
-	
-	def consult_only(self,angels,verbose=False,consider = False):
-		"""
-		Like consult_guardian_angels, but calls on only some angels.
-		For testing.
-		"""
-		initime = ss.time.clock()
-		opinions = {} 	# will collect pairs-of-clouds to [0,1] judgements for each guardianangel
-						# result is of type {frozenset({Cloud(),Cloud()} : [float()] )}
-		
-		if not hasattr(self,'guardianangels'):
-			self.spawn_servants()
-		
-		if not hasattr(self,'sky'):
-			self.get_sky()
+		if isinstance(angels,int) and angels < 0: 	# if we only want to consult angel 2, we call self.consult(-2)
+			angels = [self.guardianangels[int(sqrt(angels ** 2))]]
+		elif isinstance(angels,int):				# if we only want to consult the first three angels, we call self.consult(3)
+			newa = []
+			for i in range(angels):		
+				angel = self.guardianangels[i]
+				newa.append(angel)
+			angels = newa
+		else:										# else: all angels are consulted.
+			angels = self.guardianangels
 			
 		clouds = list(self.sky.clouds())		
 		for angel in angels: # the list of opinions thus will be in the same order
@@ -503,11 +463,14 @@ class God(Agent,object):
 		if verbose: 
 			ss.stdout.write('[')
 			ss.stdout.flush()
+		
+		counter = 0
 		for pair in opinions:
-			if verbose: 
+			counter += 1
+			if verbose and counter % 1000 == 0:
 				ss.stdout.write('.')
 				ss.stdout.flush()
-			judgements = opinions[pair] # a vector of [0,1] floats
+			judgements = opinions[pair] # a vector of [0,1] floats, as long as the angels list is
 			for i in range(len(judgements)):
 				judgement = judgements[i]
 				author = self.guardianangels[i]
@@ -516,35 +479,82 @@ class God(Agent,object):
 		if verbose: 
 			ss.stdout.write('].  [ {} opinions considered. ]'.format(len(opinions)))
 			ss.stdout.flush()
-		# finally we call a consider_clues: all listed clues (they get queued automatically, when spawned)
+		
+		# finally we can call a consider_clues: all listed clues (they get queued automatically, when spawned)
 		#	are processed and evaluated by the Lord
 		
 		if consider:
-			self.consider_clues()
+			self.consider()
 		
 		elapsed = ss.time.clock() - initime
 		
 		angelsno = len(angels)
-		if verbose: print('{} angels consulted. [ {} elapsed ]'.format(angelsno,elapsed))
+		if verbose: print(' {} angels consulted. [ {} elapsed ]'.format(angelsno,elapsed))
+
+	def ask(self,what):
+		"""
+		Opens a new question. A question is a special clue without a
+		'value' attribute. 
+		"""
+
+	def update_beliefs(self,clue):
+		"""
+		Where clue is a clue about anything believable by god.
+		"""
+		
+		try: 
+			self.beliefs = self.beliefs		
+		except AttributeError:
+			self.beliefs = {}
+
+		if not self.beliefs.get(clue.about,False):
+			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'
+					
+		previous_belief = self.beliefs[clue.about] 		
+		try:
+			after_update = ( previous_belief + (clue.value + clue.trustworthiness / 2) ) / 2
+		except	Exception:
+			after_update = 0.0000001
+
+		# positive factor: the previous belief. If previous belief was high, to take it down will take some effort.
+		# negative factor: the value of a clue: that is, the strength and direction of the clue.
+		# 	the negative factor in turn is affected by the trustworthiness of he who formulated it.
+		#	by logging these clues' execution, we can know when an Agent gave 'bad' feedback: that is, feedback that was
+		#	later contradicted by many feedbacks on the opposite direction.
+		
+		self.beliefs[clue.about] = after_update		
+		self.log(clue)
 	
-	def consider_clues_up_to(self,number):
+	# BELIEF MANAGEMENT
+	def believes(self,something):
 		"""
-		As consider_clues, but digests only number clues from the global
-		CLUES list. For testing.
+		Returns the extent to which god believes something. If something
+		is not in the belief set, returns zero.
+		"""
+		return self.beliefs.get(something,0.0)
+	
+	def clean_trivial_beliefs(self):
+		"""
+		Removes from the beliefs zero's: the default IS zero already.
 		"""
 		
-		global CLUES
+		newbeliefs = {}
 		
-		restr_clues = CLUES[:number]
-		CLUES = CLUES[number:]
+		for belief in iter(list(self.beliefs.keys())):
+			if not self.beliefs[belief] > 0:
+				del self.beliefs[belief]
+
+	def believes_link_by_id(self,anid,anotherid):
+		if not hasattr(self,'sky'):
+			self.get_sky()
+			
+		cloud1 = self.sky.get_cloud(anid)
+		cloud2 = self.sky.get_cloud(anotherid)
 		
-		for clue in restr_clues:
-			if clue.cluetype in ['link','accuracy','metaclue']:
-				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
-				handler(clue) # the handler will handle
-			else:
-				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))	
+		pair = ss.pair(cloud1,cloud2)
 		
+		return self.believes(pair)
+				
 #	def suggest_link(self,link):
 			
 def init_base():
