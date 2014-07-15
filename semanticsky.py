@@ -848,10 +848,7 @@ class Cloud():
 		(such as a layer, typically) and creates a new layer to append to 
 		self.layers.
 
-		returns
-		-------
-
-		the new layer
+		Currently empty.
 
 		"""
 
@@ -859,7 +856,6 @@ class Cloud():
 
 		#neighbours = self.get_closest_items()
 		
-
 
 		return 
 	

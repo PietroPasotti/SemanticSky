@@ -70,6 +70,9 @@ class Clue(object):
 		if agent is 'god' and _god is None:
 			Agent('god') 
 		
+		if hasattr(agent,'clues'):
+			agent.clues.append(self)
+		
 		CLUES.append(self)
 	
 	def __deepcopy__(self,memo):
@@ -80,8 +83,7 @@ class Clue(object):
 		
 		c = Clue(ab,va,ag)
 		return c
-		
-		
+				
 	def __str__(self):
 		
 		translateclue = {	'link': 'the validity of a link',
@@ -110,7 +112,7 @@ class Clue(object):
 		"""
 		
 		return self.agent.receive(clue)
-		
+	
 class Agent(object):
 	
 	idcounter = 0
@@ -118,7 +120,7 @@ class Agent(object):
 	def __init__(self,name = 'Anonymous'):
 		
 		self.name = name
-		self.stats = { 	'trustworthiness': 0.5,
+		self.stats = { 	'trustworthiness': 0.6,
 						'expertises': [],
 						'communities': [],
 						'blocked' : False}
@@ -278,7 +280,26 @@ class GuardianAngel(Agent,object):
 				self.evaluate(pair,silent = True) # silent: no clue is spawned
 		
 			i += 1
-				
+	
+	def express(self,number = 0):
+		"""
+		Transforms into clues the evaluations previously produced.
+		"""
+		
+		if not number: 
+			number = len(self.evaluation.keys())
+		
+		if not len(self.evaluation.keys()) > 0:
+			return False
+		
+		for i in range(number):
+			pair = list(self.evaluation.keys())[i]
+			value = self.evaluation[pair]
+			clue = Clue(pair,value,self)
+		
+		return True
+			
+			
 class God(Agent,object):
 	"""
 	The Allmighty.
@@ -306,6 +327,7 @@ class God(Agent,object):
 		
 		print('God accepts no feedback, mortal.')
 		return None
+
 
 	# HANDLERS and LOGGERS
 	def handle_metaclue(self,metaclue):
@@ -350,23 +372,83 @@ class God(Agent,object):
 		by other agents.
 		"""
 		with open('./clues.log','+a') as logs:
-			logline = "[{}] : {}".format( ss.time.ctime(),str(clue))
+			logline = "time::<{}> clue::<{}>\n".format( ss.time.ctime(),str(clue)) # markers for re retrieving
 			logs.write(str(logline))
 			
 		if not hasattr(self,'logs'):
 			self.logs = {}
 		
 		about = clue.about
-		author = clue.agent.unique_id
-		value = clue.value
+		#author = clue.agent.unique_id
+		#value = clue.value
 		
 		if not self.logs.get(about):
 			self.logs[about] = []
 		
-		log = (author,)
+		log = clue
 		
-		self.logs[about].append(())
+		self.logs[about].append(log)
+
+	def get_clues(self,about):
+		"""
+		Retrieves all clues that had some impact on god's current
+		belief state about about.
+		"""
+		
+		if not hasattr(self,'logs'):
+			print('Impossible to fetch logs right now. Will need to access the file(?)')
+		
+		return self.logs[about] # a list of clues
 	
+	def get_agents(self,about,flat = False):
+		"""
+		Fetches all responsibles for a certain belief: that is, all agents
+		who took part to some extent in the current state, divided along 
+		the criterion: did they vote for more or less than the current
+		state?
+		
+		If flat is true, returns a simple list of the authors
+		
+		"""
+		
+		uppers = 'uppers'
+		downers = 'downers'
+		
+		
+		out = {uppers : [], downers: []}
+		
+		allc = self.get_clues(about)
+		
+		if flat:
+			return [c.agent for c in allc]
+		else:
+			for c in allc:
+				if c.value >= self.beliefs[about]:
+					out[uppers].append(c.agent)
+				else:
+					out[downers].append(c.agent)
+			
+		return out
+
+	def clear_all(self):
+		"""
+		Clears all logs of himself and all his guardian angels.
+		"""
+		
+		self.beliefs = {}
+		self.logs = {}
+		for guardian in self.guardianangels:
+			guardian.clues = []
+			guardian.stats['trustworthiness'] = 1
+		
+		global AGENTS
+			
+		for agent in AGENTS:
+			agent.stats['trustworthiness'] = 0.6
+			
+		return True
+			
+		
 	# GUARDIAN ANGELS, CONSULT and CONSIDER			
 	def spawn_servants(self):
 		"""
@@ -387,19 +469,36 @@ class God(Agent,object):
 	def consider(self, number = 0):
 		"""
 		God will shot a quick glance to the useless complaints of the mortals.
+		
+		Number can be a positive integer, a list of clues
+		or a single clue.
+		
+		- int+: will consider (up to) number clues from the global queue
+		CLUES
+		
+		- clue: will only consider the clue.
+		
+		- list of clues: will consider them all.
+		
 		"""
 		
 		global CLUES
 		
 		if not CLUES:
-			raise BaseException('No clue.')
+			print('No clue.')
+			return None
 		
 		if number > 0:
 			restr_clues = CLUES[:number]
 			CLUES = CLUES[number:]	
 			toread = restr_clues
+		elif isinstance(number,Clue):
+			toread = [number]
+		elif isinstance(number,list) and isinstance(number[0],Clue):
+			toread = number
 		else:
 			toread = CLUES
+			CLUES = []
 			
 		for clue in toread:
 			if clue.cluetype in ['link','accuracy','metaclue','agent_report']:
@@ -407,7 +506,6 @@ class God(Agent,object):
 				handler(clue) # the handler will handle
 			else:
 				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
-
 					
 	def consult(self,angels = False,verbose=False,consider = False,local = False):
 		"""
@@ -416,7 +514,7 @@ class God(Agent,object):
 		Ideally, this function should be called at the beginning of
 		the whole process only, or if weights get thoroughly screwed
 		up.
-		This function results in God re-virginating his belief states
+	This function results in God re-virginating his belief states
 		to a GuardianAngel-only informed belief state.
 		
 		Please note: computationally very heavy.
@@ -431,17 +529,23 @@ class God(Agent,object):
 		
 		if not hasattr(self,'sky'):
 			self.get_sky()
-			
-		if isinstance(angels,int) and angels < 0: 	# if we only want to consult angel 2, we call self.consult(-2)
+		
+		if angels is False:							# default: all angels are consulted.
+			angels = self.guardianangels			
+		elif isinstance(angels,int) and angels < 0: 	# if we only want to consult angel 2, we call self.consult(-2)
 			angels = [self.guardianangels[int(sqrt(angels ** 2))]]
-		elif isinstance(angels,int):				# if we only want to consult the first three angels, we call self.consult(3)
+		elif isinstance(angels,int) and angels is not False:	# if we only want to consult the first three angels, we call self.consult(3)
 			newa = []
 			for i in range(angels):		
 				angel = self.guardianangels[i]
 				newa.append(angel)
 			angels = newa
-		else:										# else: all angels are consulted.
-			angels = self.guardianangels
+		elif isinstance(angels,list):					# if a list of angels is explicitly provided
+			angels = angels
+		else:
+			raise TypeError('Unrecognized input type: {}'.format(type(angels)))
+					
+		if verbose: print('angels is ',angels)
 			
 		clouds = list(self.sky.clouds())		
 		for angel in angels: # the list of opinions thus will be in the same order
@@ -494,7 +598,9 @@ class God(Agent,object):
 	def ask(self,what):
 		"""
 		Opens a new question. A question is a special clue without a
-		'value' attribute. 
+		'value' attribute.
+		
+		Questions are open for answering by agents.
 		"""
 
 	def update_beliefs(self,clue):
@@ -512,7 +618,7 @@ class God(Agent,object):
 					
 		previous_belief = self.beliefs[clue.about] 		
 		try:
-			after_update = ( previous_belief + (clue.value + clue.trustworthiness / 2) ) / 2
+			after_update = ( previous_belief + (clue.value + clue.trustworthiness) / 2 ) / 2
 		except	Exception:
 			after_update = 0.0000001
 
@@ -524,6 +630,7 @@ class God(Agent,object):
 		
 		self.beliefs[clue.about] = after_update		
 		self.log(clue)
+
 	
 	# BELIEF MANAGEMENT
 	def believes(self,something):
@@ -554,7 +661,10 @@ class God(Agent,object):
 		pair = ss.pair(cloud1,cloud2)
 		
 		return self.believes(pair)
-				
+	
+
+		
+			
 #	def suggest_link(self,link):
 			
 def init_base():
@@ -562,6 +672,12 @@ def init_base():
 	sky = ss.SemanticSky()
 	global _god
 	_god = God()
+	
+	knower = GuardianAngel(algs.someonesuggested)
+	_god.consult([knower],consider = True)
+	_god.consult(consider = True)
+	
+	print('[ all done. ]')
 	
 	
 
