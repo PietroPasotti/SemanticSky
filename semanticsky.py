@@ -239,6 +239,35 @@ class Data():
 		
 		return None	
 	
+	# linking
+	def make_links_symmetric(self):
+		"""
+		As per the handle_aliases function, we sort of clusterize the links
+		into equivalence classes.
+		"""
+		
+		for part in ['items','tags']:
+			
+			for item in self.oridata[part].values():
+				links = item.get('links')
+				if not links:
+					continue
+				
+				allinks = []
+				allinks.extend(links)
+				
+				for link in links:
+					itemlink = self.oridata['items'][link] # the item to which the link points
+					nlinks = itemlink.get('links') # the links of the linked item(s)
+					if nlinks: allinks.extend(nlinks)
+				
+				item['links'] = allinks
+				for link in allinks:
+					itemlink = self.oridata['items'][link]
+					itemlink['links'] = allinks
+				
+		return True
+				
 	# counter building
 	def induce_words_pairs(self):
 		"""
@@ -418,6 +447,19 @@ class SemanticSky():
 		for cloud in self.clouds():
 			yield cloud.item['id']
 	
+	def iter_pairs(self):
+		"""
+		A generator for all pairwise-coupled clouds.
+		"""
+		
+		i = 0 
+		for clouda in self.sky:
+			for cloudb in self.sky[i:]:
+				if clouda is not cloudb:
+					yield pair(clouda,cloudb)
+
+			i += 1
+
 	### data gathering functions
 	def getitem(self,ID):
 		"""
@@ -446,7 +488,8 @@ class SemanticSky():
 		Returns the dictionary of a tag.
 		"""
 		return self.data.tag(ID)
-		
+	
+	### counters population functions
 	def populate_coo_counter(self):
 		"""
 		Counts co-occurrences in the whole corpus, maybe for weighting or
@@ -546,6 +589,7 @@ class SemanticSky():
 		
 		return None
 	
+	### networking functions
 	def base_network(self):
 		
 		net = {}

@@ -342,7 +342,17 @@ def coo_dicts_extended_neighbour(clouda,cloudb,debug = False):
 	return out		
 	
 def tag_overlap(clouda,cloudb):
-	return 0
+	
+	atags = clouda.item.get('tags',[])
+	btags = cloudb.item.get('tags',[])
+	
+	satags = set(atags)
+	sbtags = set(btags)
+	
+	overlap = satags.intersection(sbtags)
+	unio = satags.union(sbtags)
+	
+	return len(overlap) / max(1,len(unio))
 
 def all_algs_check(clouda,cloudb):
 	
@@ -378,10 +388,13 @@ def nearestneighbours(clouda):
 	
 	return clues
 
-def someonesuggested(clouda,cloudb):
+def someonesuggested(clouda,cloudb,weight = 1):
 	"""
 	Naive algorithm that checks whether the two clouds' items were
 	linked in the starfish database.
+	
+	Weight can be used to fine-tune the confidence of the algorithm into
+	the informed guess that clouda and cloudb are related.
 	"""
 	
 	
@@ -392,7 +405,7 @@ def someonesuggested(clouda,cloudb):
 	bid = cloudb.item['id']
 	
 	if aid in blinks or bid in alinks:
-		return 1
+		return weight
 		
 	else:
 		return 0

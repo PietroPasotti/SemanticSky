@@ -56,15 +56,19 @@ class Clue(object):
 		if isinstance(about,frozenset):
 			self.cluetype = 'link' 
 		elif about in algs.ALL_ALGS:
-			self.cluetype = 'accuracy' # the clue is about an algorithm's accuracy
+			self.cluetype = 'feedback' # the clue is about an algorithm's trustworthiness
 		elif isinstance(about,Clue): 
-			self.cluetype = 'metaclue' # the clue is about the validity of another clue.	
+			self.cluetype = 'metaclue' # the clue is about the validity of another clue.
+		elif isinstance(about,Agent):
+			self.cluetype = 'feedback' # the clue is about an agent's trustworthiness
 		else:
 			raise BaseException('Unrecognized about input: {}.'.format(about))	
 			
 		self.about = about
 		self.value = value
 		self.agent = agent
+		
+		self.handled = False # flag that goes true whenever the clue is processed by God and 'consumed'
 		
 		global _god
 		if agent is 'god' and _god is None:
@@ -112,6 +116,10 @@ class Clue(object):
 		"""
 		
 		return self.agent.receive(clue)
+	
+	def weightedvalue(self):
+		
+		return (self.trustworthiness + self.value) / 2
 	
 class Agent(object):
 	
@@ -298,14 +306,21 @@ class GuardianAngel(Agent,object):
 			clue = Clue(pair,value,self)
 		
 		return True
-			
-			
+					
 class God(Agent,object):
 	"""
 	The Allmighty.
 	"""
 	beliefs = {} # a belief is a facts --> [0,1] confidences mapping
 	
+	def __init__(self,sky = None):
+		super().__init__()
+		
+		if sky:
+			self.sky = sky
+		
+		self.whisperers = []
+		
 	def get_sky(self):
 		"""
 		If a semanticsky has already been instantiated, loads it as god's
@@ -338,6 +353,7 @@ class God(Agent,object):
 		"""
 		
 		target_clue = metaclue.about # the clue which is rated by the metaclue
+		metaclue.handled = True
 		return target_clue.receive(metaclue) # the metaclue's value will in the end average up or down the target_clue's author's trustworthiness
 		
 	def handle_link(self,linkclue):
@@ -349,18 +365,25 @@ class God(Agent,object):
 		God does listen at his Agents' complaints, but they'll have to scream 
 		aloud enough.
 		"""
+		linkclue.handled = True
+		return self.update_beliefs(linkclue)
 		
-		self.update_beliefs(linkclue)
-
-	def handle_accuracy(self,clue):
+	def handle_feedback(self,clue):
 		"""
-		Handles clues about algorithms.
+		Handles clues about algorithms and agents.
 		"""
+		about = clue.about
 		
-		algname = clue.about
-		alg = [alg for alg in self.guardianangels if alg.name == algname]
-		alg = alg[0]
-		alg.receive(clue)
+		if isinstance(about, Agent):
+			clue.handled = True
+			return	about.receive(clue)
+			
+		elif isinstance(about,str):
+			algname = about
+			alg = [alg for alg in self.guardianangels if alg.name == algname]
+			alg = alg[0]
+			clue.handled = True
+			return alg.receive(clue)
 	
 	def log(self,clue):
 		"""
@@ -400,12 +423,12 @@ class God(Agent,object):
 		
 		return self.logs[about] # a list of clues
 	
-	def get_agents(self,about,flat = False):
+	def get_agents(self,about,flat = False): # deprecated
 		"""
 		Fetches all responsibles for a certain belief: that is, all agents
 		who took part to some extent in the current state, divided along 
-		the criterion: did they vote for more or less than the current
-		state?
+		the criterion: they voted for more or less than the current
+		state
 		
 		If flat is true, returns a simple list of the authors
 		
@@ -447,8 +470,93 @@ class God(Agent,object):
 			agent.stats['trustworthiness'] = 0.6
 			
 		return True
-			
+
+	
+	# WHISPERING
+	def update_whisperers(self):
+		"""
+		Updates god's whisperers list. That is: all agents or algorithms
+		that have the power to start a backpropagation.
+		"""
+		global AGENTS
 		
+		self.whisperers = [agent for agent in AGENTS if agent.stats['blocked'] is False]
+	
+	def whisperer(self,agent):
+		"""
+		Adds agent to self.whisperers.
+		Now agent can whisper to God.
+		"""
+		
+		if isinstance(agent,Agent):
+			self.whisperers.append(agent)
+		else:
+			raise TypeError('Unrecognized input type for God.whisperer: {}'.format(type(agent)))
+		return None
+	
+	def whisperpipe(self,clue):
+		"""
+		Easy-access iswhisperer + whisper combo. 
+		"""
+		
+		if self.iswhisperer(clue.agent):
+			return self.whisper(clue)
+		else:
+			return None
+	
+	def iswhisperer(self,agent):
+		"""
+		Boolean.
+		"""
+		
+		if agent in self.whisperers:
+			return True
+		else:
+			return False
+	
+	def whisper(self,clue):
+		"""
+		The crucial bit of the whole whispering stuff.
+		This function takes a clue and compares its contents with the current
+		belief state.
+		Then, it takes the previous value and backpropagates a feedback,
+		influencing its main (?) authors' trustworthiness.
+		"""
+		
+		whispering = clue.agent
+		
+		targets = []
+		
+		hist = self.logs.get(clue.about) 	# we check whether the clue's about is logged
+									# suppose for example that god has a strong belief (1) in x, due to A's very confident +1 suggestion. (logged)
+									# then a whisperer rates x 0.4, which is lower than 1.
+									# then, since A is a whisperer, the (x,0.4) clue will be whispered and not just considered 
+		
+		responsibles = {c.agent for c in hist}
+		
+		responsibilities = {} # will map responsibles to their clue(s' average) value
+		
+		for responsible in responsibles:
+			allhisclues = [c for c in hist if c.agent is responsible] # in case this agent spawned multiple clues about this item...
+			if len(allhisclues) > 1:
+				val = sum([c.value for c in allhisclues]) / len(allhisclues)
+			else:
+				val = allhisclues[0].value
+			responsibilities[responsible] = val
+			
+		for responsible in responsibilities:
+			# now we automatically spawn a clue about the agent: we will grade him up or down depending on how much was his clue close to this one..
+			
+			vals = (clue.value,responsibilities[responsible])
+			
+			our_rating = 1 - (max(vals) - min(vals)) # between 0 and 1, depends on how much the two evaluations differ 
+			
+			Clue(responsible, our_rating, agent = whispering)
+				# we spawn a clue on the whisperer's behalf, about the responsible's trustworthiness
+			
+		return None
+	
+
 	# GUARDIAN ANGELS, CONSULT and CONSIDER			
 	def spawn_servants(self):
 		"""
@@ -501,7 +609,7 @@ class God(Agent,object):
 			CLUES = []
 			
 		for clue in toread:
-			if clue.cluetype in ['link','accuracy','metaclue','agent_report']:
+			if clue.cluetype in ['link','feedback','metaclue']:
 				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
 				handler(clue) # the handler will handle
 			else:
@@ -514,7 +622,7 @@ class God(Agent,object):
 		Ideally, this function should be called at the beginning of
 		the whole process only, or if weights get thoroughly screwed
 		up.
-	This function results in God re-virginating his belief states
+		This function results in God re-virginating his belief states
 		to a GuardianAngel-only informed belief state.
 		
 		Please note: computationally very heavy.
@@ -545,7 +653,7 @@ class God(Agent,object):
 		else:
 			raise TypeError('Unrecognized input type: {}'.format(type(angels)))
 					
-		if verbose: print('angels is ',angels)
+		if verbose: print('angels is: ',' '.join([str(angie) for angie in angels]))
 			
 		clouds = list(self.sky.clouds())		
 		for angel in angels: # the list of opinions thus will be in the same order
@@ -563,7 +671,7 @@ class God(Agent,object):
 		# now opinion is of list(dict( {frozenset({Cloud(),Cloud()}) : [ float() ] }  )) type. each dict is a frozenset({clouda,cloudb}) --> [0,1] mapping
 		# 	for all links in the database; that is: all possible combinations of clouds.
 		
-		if verbose: print('Examinating opinions...')
+		if verbose: print('Examining opinions...')
 		if verbose: 
 			ss.stdout.write('[')
 			ss.stdout.flush()
@@ -602,21 +710,46 @@ class God(Agent,object):
 		
 		Questions are open for answering by agents.
 		"""
-
+	
+	def has_already_guessed(self,clue):
+		"""
+		Looks up for the about in god's beliefs and checks the history:
+		if the clue's agent has already clued on the same topic, returns
+		the previous clue.
+		Else, returns False.
+		"""
+		about = clue.about
+		if about in self.beliefs:
+			cluelist = self.beliefs[about]
+		else:
+			cluelist = []
+			
+		agent = clue.agent
+		hisclues = [c for c in cluelist if c.agent == agent]
+		if hisclues:
+			return hisclues[0]
+		else:
+			return False
+	
 	def update_beliefs(self,clue):
 		"""
 		Where clue is a clue about anything believable by god.
 		"""
 		
-		try: 
-			self.beliefs = self.beliefs		
-		except AttributeError:
+		if not getattr(self,'beliefs'):
 			self.beliefs = {}
-
+			
 		if not self.beliefs.get(clue.about,False):
 			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'
 					
-		previous_belief = self.beliefs[clue.about] 		
+		previous_belief = self.beliefs[clue.about]
+		
+		preclue = self.has_already_guessed(clue)
+		if preclue: # if the agent has already clue'd about that link or object, we assume he has changed his mind:
+			self.logs[clue.about].remove(prelue)	# his previous clue is erased from the history
+													# and the value of the belief in about is updated to the average of the values still in the history
+			self.beliefs[clue.about] = sum([c.weightedvalue() for c in self.logs[clue.about]]) / len(self.logs[clue.about])
+		
 		try:
 			after_update = ( previous_belief + (clue.value + clue.trustworthiness) / 2 ) / 2
 		except	Exception:
@@ -670,12 +803,12 @@ class God(Agent,object):
 def init_base():
 	global sky
 	sky = ss.SemanticSky()
-	global _god
-	_god = God()
+	global god
+	god = God()
 	
 	knower = GuardianAngel(algs.someonesuggested)
-	_god.consult([knower],consider = True)
-	_god.consult(consider = True)
+	god.consult([knower],consider = True)
+	god.consult(consider = True)
 	
 	print('[ all done. ]')
 	
