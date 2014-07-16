@@ -12,7 +12,7 @@ from group import Group
 import re
 import semanticsky_utilityfunctions as utils
 from semanticsky_utilityfunctions import * # all functions such as sentence splitting, language recognition, tokenization...
-import sys,time
+import sys,time,random
 import pickle
 from sys import stdout
 from copy import deepcopy
@@ -55,7 +55,7 @@ class Data():
 		
 		return self.oridata['items'][ID]
 		
-	def items(self,ID = None):
+	def items(self):
 
 		for itemid in self.oridata['items']:
 			yield itemid
@@ -322,7 +322,7 @@ class SemanticSky():
 					'cloud_hierarchy_inducer_threshold': 2.0/3.0}}
 	
 	### initializers
-	def __init__(self,data = default_data,stats = default_stats,test = True):
+	def __init__(self,data = default_data,stats = default_stats,empty = False,god = None):
 
 		self.counters = {	'coo':None,
 							'word_freq':None,
@@ -332,6 +332,13 @@ class SemanticSky():
 		self.data = data	
 		self.stats = stats
 		self.sky = []
+		
+		if empty:
+			return
+		
+		if god is not None:
+			self.god = god
+			return self.init_from_god()
 		
 		starttime = time.clock()
 		#if not test: # we populate all counters, then the sky.
@@ -347,6 +354,38 @@ class SemanticSky():
 		print()
 		print( ' -'*60)
 		print()	
+	
+	def init_from_god(self):
+		"""
+		If a god is given, we retrieve as many clouds as we can from his
+		internal database and spawn the rest.
+		"""
+		
+		allclouds = []
+		for pair in self.god.beliefs:
+			if isinstance(pair,frozenset):
+				allclouds.extend(pair)
+		
+		self.sky = allclouds
+		
+		ids = []
+		for cloud in allclouds:
+			ids.append(cloud.item['id'])
+			
+		allids = [i for i in self.data.items()]
+		allids.extend([i for i in self.data.tags()])
+		
+		nothere = [i for i in allids if i not in ids]
+		
+		for i in nothere:
+			try:
+				item = self.data.item(i)
+			except KeyError:
+				item = self.data.tag(i)
+			
+			cloud = Cloud(self,item)
+		
+		return None
 		
 	def populate_counters(self):
 		"""
@@ -409,7 +448,6 @@ class SemanticSky():
 			tag = self.data.tag(tagID)
 			tag['id'] = tagID # is the name of the tag == a str()
 			cloud = Cloud(self,tag)
-			self.sky.append(cloud)
 			if e%3 == 0:
 				stdout.write('.')
 				stdout.flush()
@@ -614,9 +652,12 @@ class Cloud():
 			self.data = sky.data
 			self.sky = sky
 			self.layers = [[]]
-
+			
 			self.populate()
-	
+			
+			if self not in sky.sky:
+				sky.sky.append(self)
+			
 	def __repr__(self):
 		return "<Cloud [{}] at {}>".format(self.ID,id(self))
 	
@@ -627,6 +668,7 @@ class Cloud():
 	def depth(self):
 		return len(self.layers)
 	
+
 	### data_getters
 	def populate(self,depth = None):
 		"""
@@ -803,6 +845,25 @@ class Cloud():
 	
 	def nearest_neighbours(self):
 		return nearestneighbours(self)
+	
+	def core(self):
+		"""
+		Produces a plain list of words that are (very likely to be)
+		keywords for this cloud.
+		"""
+		
+		allws = []
+		for i in range(len(self.layers)):
+			allws.extend(self.layers[i]['core'])
+		
+		if not allws:
+			self.get_words()
+		
+		for i in range(len(self.layers)):
+			allws.extend(self.layers[i]['core'])		
+		
+		return allws
+		
 			
 	### growers
 	def retrieve_zero_layer(self):
@@ -883,7 +944,7 @@ class Cloud():
 		zero_layer['language'] = guess_language( ' '.join(ctexts) )
 
 		self.layers = [zero_layer]
-
+		
 		return None
 		
 	def expand_from_base(self,base):
@@ -928,15 +989,36 @@ class Cloud():
 		proximity 0) then we just take the first n results for good.
 		"""
 		
-	def keywords(self):
+	def get_core(self):
 		"""
 		Produces a plain list of words that are (very likely to be)
 		keywords for this cloud.
 		"""
 		
-		candidates = Counter()
+		candidates = []
 		
-		for txt in ('headline','title','name'):
-			if self.item.get(txt):
-				pass
-				
+		idfs = []
+		for i in range(len(self.layers)):
+			idfdict = self.layers[i]['words_tfidf']
+			idflist = list(idfdict.keys())
+			
+			idflist.sort(key = lambda x: idfdict[x]) 
+			idflist.reverse() # from max to min 
+			
+			idfs.extend(idflist) # deeper layers go automatically below
+		
+		header = self.item.get('title',self.item.get('headline',''))
+		body = self.item.get('about',self.item.get('text',''))
+		
+		s_tokheader = to_tokens_text(header)
+		tokheader = []
+		for s in s_tokheader:
+			tokheader.extend(s)
+		
+		for word in idfs[:min((len(idfs),30))]:
+			if word in tokheader: # can return [] or [[str()]] types
+				candidates.append(word)
+		
+		for i in range(len(self.layers)):
+			self.layers[i]['core'] = candidates[:min((len(candidates),15))]
+	

@@ -35,6 +35,10 @@ def clean_destemdb():
 		
 		revert_destemdb[transl] = word
 
+def destem(word):
+
+	return destemdb[word]
+
 def split_tag(tag,tolist = False):
 	"""
 	given "AnyCamelTag"

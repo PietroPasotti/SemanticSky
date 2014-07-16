@@ -8,7 +8,9 @@ from math import sqrt
 CLUES = []
 AGENTS = []
 GUARDIANANGELS = []
-_god = None
+god = None
+
+inertia = 0.2 # percent of the previous belief which is maintained no-matter-what
 
 @Group
 def load_clues_from_default():
@@ -23,7 +25,6 @@ def load_clues_from_default():
 	except Exception:
 		return None
 
-	
 def export_clues():
 	f = open('export_clues.pickle','a+')
 	global CLUES
@@ -51,7 +52,10 @@ class Clue(object):
 	on her own clues.)
 	"""
 	
-	def __init__(self,about,value,agent = 'god'):
+	def __init__(self,about,value,agent = 'god',autoconsider = True):
+		"""
+		Autoconsider: toggles queuing of clues.
+		"""
 		
 		if isinstance(about,frozenset):
 			self.cluetype = 'link' 
@@ -70,14 +74,17 @@ class Clue(object):
 		
 		self.handled = False # flag that goes true whenever the clue is processed by God and 'consumed'
 		
-		global _god
-		if agent is 'god' and _god is None:
+		global god
+		if agent is 'god' and god is None:
 			Agent('god') 
 		
 		if hasattr(agent,'clues'):
 			agent.clues.append(self)
 		
 		CLUES.append(self)
+		
+		if autoconsider:
+			god.consider()
 	
 	def __deepcopy__(self,memo):
 		
@@ -136,6 +143,7 @@ class Agent(object):
 		self.item = None 	# this can be set to the agent's corresponding starfish item (a dict),
 							# 	if the agent's user has a page
 		
+		self.logs = [] 		# will store all feedback clues received by the agent
 						
 		if not isinstance(self,GuardianAngel) and not isinstance(self,God):
 			AGENTS.append(self)
@@ -168,13 +176,13 @@ class Agent(object):
 		
 	def make_god(self):
 		
-		global _god
+		global god
 		
-		if _god is None:
+		if god is None:
 			self = God()
-			_god = self
+			god = self
 		else:
-			self = _god
+			self = god
 			
 	def evaluate(self,what,howmuch):
 		"""
@@ -198,7 +206,14 @@ class Agent(object):
 		automatically generated that rate its clues.
 		"""
 		
-		self.stats['trustworthiness'] = ( self.stats['trustworthiness'] + clue.value ) / 2
+		global inertia
+		
+		inertial_trust = self.stats['trustworthiness'] * inertia
+		
+		tw = ( self.stats['trustworthiness'] + clue.value ) / 2 + inertial_trust
+		self.stats['trustworthiness'] = min([ tw, 1.0 ])
+		
+		self.logs.append(clue)
 	
 	def suggest_link(self,link,confidence):
 		"""
@@ -273,10 +288,13 @@ class GuardianAngel(Agent,object):
 		self.nonzero += 1
 		return myclue
 	
-	def evaluate_all(self,iterable_clouds):
+	def evaluate_all(self,iterable_clouds,express = False):
 		"""
 		Tells the GuardianAngel to do a full evaluation:
 		evaluates each pair of clouds in the iterable (subscriptable).
+		
+		evaluate_all(express = False) + express() is equivalent
+		to evaluate_all()
 		"""
 				
 		for clouda in iterable_clouds:
@@ -285,8 +303,12 @@ class GuardianAngel(Agent,object):
 				if clouda is cloudb:
 					continue
 				pair = frozenset({clouda,cloudb})
-				self.evaluate(pair,silent = True) # silent: no clue is spawned
-		
+				if express:
+					self.evaluate(pair) # silent: no clue is spawned
+				else:
+					self.evaluate(pair,silent = True) 
+				
+				
 			i += 1
 	
 	def express(self,number = 0):
@@ -304,13 +326,16 @@ class GuardianAngel(Agent,object):
 			pair = list(self.evaluation.keys())[i]
 			value = self.evaluation[pair]
 			clue = Clue(pair,value,self)
+			self.clues.append(clue)
 		
 		return True
+
 					
 class God(Agent,object):
 	"""
 	The Allmighty.
 	"""
+	
 	beliefs = {} # a belief is a facts --> [0,1] confidences mapping
 	
 	def __init__(self,sky = None):
@@ -319,6 +344,7 @@ class God(Agent,object):
 		if sky:
 			self.sky = sky
 		
+		self.birthdate = ss.time.gmtime()
 		self.whisperers = []
 		
 	def get_sky(self):
@@ -344,7 +370,7 @@ class God(Agent,object):
 		return None
 
 
-	# HANDLERS and LOGGERS
+	# HANDLERS
 	def handle_metaclue(self,metaclue):
 		"""
 		This is a handler for clues about clues1: someone is complaining 
@@ -385,6 +411,72 @@ class God(Agent,object):
 			clue.handled = True
 			return alg.receive(clue)
 	
+	def has_already_guessed(self,clue):
+		"""
+		Looks up for the about in god's beliefs and checks the history:
+		if the clue's agent has already clued on the same topic, returns
+		the previous clue.
+		Else, returns False.
+		"""
+		about = clue.about
+		cluelist = self.logs.get(about,[])
+			
+		agent = clue.agent
+		hisclues = [c for c in cluelist if c.agent == agent]
+		if hisclues:
+			return hisclues[0]
+		else:
+			return False
+	
+	def update_beliefs(self,clue):
+		"""
+		Where clue is a clue about anything believable by god.
+		"""
+		
+		if not getattr(self,'beliefs'):
+			self.beliefs = {}
+			
+		if not self.beliefs.get(clue.about,False):
+			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'
+					
+		previous_belief = self.beliefs[clue.about]
+		
+		preclue = self.has_already_guessed(clue)
+		if preclue: # if the agent has already clue'd about that link or object, we assume he has changed his mind:
+			self.logs[clue.about].remove(prelue)	# his previous clue is erased from the history
+													# and the value of the belief in about is updated to the average of the values still in the history
+			self.beliefs[clue.about] = 0
+			
+			if self.logs[clue.about]: 
+				self.consider(self.logs[clue.about])
+		
+		###### UPDATE ALGORITHM
+		
+		global inertia
+		
+		inertial_belief = previous_belief * inertia  # e.g. if previous belief is 0.8 and inertia is 0.1, it'll store 0.08 
+		
+		if not previous_belief > 0:
+			au = (clue.value + clue.trustworthiness) / 2
+		else:
+			au = ( previous_belief + (clue.value + clue.trustworthiness) / 2 ) / 2 + inertial_belief
+			
+		after_update = min( [ au , 1.0 ] ) # capped at 1.0
+		
+		#####
+
+
+		# positive factor: the previous belief. If previous belief was high, to take it down will take some effort.
+		# negative factor: the value of a clue: that is, the strength and direction of the clue.
+		# 	the negative factor in turn is affected by the trustworthiness of he who formulated it.
+		#	by logging these clues' execution, we can know when an Agent gave 'bad' feedback: that is, feedback that was
+		#	later contradicted by many feedbacks on the opposite direction.
+		
+		self.beliefs[clue.about] = after_update		
+		self.log(clue)
+	
+	
+	# LOGGERS
 	def log(self,clue):
 		"""
 		Whenever a clue gets processed by God (or otherwise 'consumed'),
@@ -394,7 +486,7 @@ class God(Agent,object):
 		or other agent) were appreciated (through more same-direction feedback)
 		by other agents.
 		"""
-		with open('./clues.log','+a') as logs:
+		with open('./clues.log','w+') as logs:
 			logline = "time::<{}> clue::<{}>\n".format( ss.time.ctime(),str(clue)) # markers for re retrieving
 			logs.write(str(logline))
 			
@@ -519,6 +611,9 @@ class God(Agent,object):
 		The crucial bit of the whole whispering stuff.
 		This function takes a clue and compares its contents with the current
 		belief state.
+		
+		Can also be used to override the whisperers list.
+		
 		Then, it takes the previous value and backpropagates a feedback,
 		influencing its main (?) authors' trustworthiness.
 		"""
@@ -615,7 +710,7 @@ class God(Agent,object):
 			else:
 				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
 					
-	def consult(self,angels = False,verbose=False,consider = False,local = False):
+	def consult(self,angels = False,verbose=True,consider = False,local = False):
 		"""
 		Consults all or some guardian angels asking for their opinion about
 		the whole network.
@@ -710,59 +805,6 @@ class God(Agent,object):
 		
 		Questions are open for answering by agents.
 		"""
-	
-	def has_already_guessed(self,clue):
-		"""
-		Looks up for the about in god's beliefs and checks the history:
-		if the clue's agent has already clued on the same topic, returns
-		the previous clue.
-		Else, returns False.
-		"""
-		about = clue.about
-		if about in self.beliefs:
-			cluelist = self.beliefs[about]
-		else:
-			cluelist = []
-			
-		agent = clue.agent
-		hisclues = [c for c in cluelist if c.agent == agent]
-		if hisclues:
-			return hisclues[0]
-		else:
-			return False
-	
-	def update_beliefs(self,clue):
-		"""
-		Where clue is a clue about anything believable by god.
-		"""
-		
-		if not getattr(self,'beliefs'):
-			self.beliefs = {}
-			
-		if not self.beliefs.get(clue.about,False):
-			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'
-					
-		previous_belief = self.beliefs[clue.about]
-		
-		preclue = self.has_already_guessed(clue)
-		if preclue: # if the agent has already clue'd about that link or object, we assume he has changed his mind:
-			self.logs[clue.about].remove(prelue)	# his previous clue is erased from the history
-													# and the value of the belief in about is updated to the average of the values still in the history
-			self.beliefs[clue.about] = sum([c.weightedvalue() for c in self.logs[clue.about]]) / len(self.logs[clue.about])
-		
-		try:
-			after_update = ( previous_belief + (clue.value + clue.trustworthiness) / 2 ) / 2
-		except	Exception:
-			after_update = 0.0000001
-
-		# positive factor: the previous belief. If previous belief was high, to take it down will take some effort.
-		# negative factor: the value of a clue: that is, the strength and direction of the clue.
-		# 	the negative factor in turn is affected by the trustworthiness of he who formulated it.
-		#	by logging these clues' execution, we can know when an Agent gave 'bad' feedback: that is, feedback that was
-		#	later contradicted by many feedbacks on the opposite direction.
-		
-		self.beliefs[clue.about] = after_update		
-		self.log(clue)
 
 	
 	# BELIEF MANAGEMENT
@@ -795,11 +837,47 @@ class God(Agent,object):
 		
 		return self.believes(pair)
 	
-
+	
+	# IGNORE and REASSESS
+	def ignore(self,agents):
+		"""
+		Produces a new god whose logs have been cleaned of all agents' clues
+		and calls a rededuce() so that the new belief state is newly produced
+		from the remaining clues.
 		
+		returns the new god, and stores it in a temporary global.
+		"""
+		
+		newgod = God()
+		
+		for belief in self.beliefs:
+			newgod.logs[belief] = [ clue for clue in self.beliefs[belief] if clue.agent not in agents ]
+		
+		newgod.reassess()
+		
+		global _temp_newgod
+		_temp_newgod = newgod
+		
+		return newgod
+	
+	def reassess(self,listofitems = None):
+		"""
+		Forces god to re-assess his belief state. If for example we removed
+		a key clue from a well-grounded belief, then we may ask him to reassess
+		the belief in order to check the new value of the belief.
+		"""
+				
+		for belief in self.beliefs:
 			
-#	def suggest_link(self,link):
-			
+			bclues = self.logs[belief] # all the clues which led to the current belief's value
+			del self.beliefs[belief] # we delete the old one
+			self.consider(bclues) # and create an updated one
+		
+		return None
+		
+
+
+
 def init_base():
 	global sky
 	sky = ss.SemanticSky()

@@ -388,7 +388,7 @@ def nearestneighbours(clouda):
 	
 	return clues
 
-def someonesuggested(clouda,cloudb,weight = 1):
+def someonesuggested(clouda,cloudb = None,weight = 1):
 	"""
 	Naive algorithm that checks whether the two clouds' items were
 	linked in the starfish database.
@@ -397,6 +397,9 @@ def someonesuggested(clouda,cloudb,weight = 1):
 	the informed guess that clouda and cloudb are related.
 	"""
 	
+	
+	if cloudb is None:
+		clouda,cloudb = clouda # first arg can be a pair
 	
 	data = clouda.data
 	alinks = clouda.item.get('links',[])
@@ -409,6 +412,61 @@ def someonesuggested(clouda,cloudb,weight = 1):
 		
 	else:
 		return 0
+
+def naive_name_comparison(clouda,cloudb):
+	"""
+	1) retrieve a's names and b's names
+	2) return the overlap, normalized into [0,1]
+	"""	
+	
+	tot = 0
+	
+	for i in range(len(clouda.layers)):
+		anames = set(clouda.layers[0]['names'])
+		bnames = set(cloudb.layers[0]['names'])		
+		
+		tot += len(anames.intersection(bnames)) / len(anames.union(bnames))
+		
+	return tot / len(clouda.layers)
+		
+def extended_name_comparison(clouda,cloudb):
+	"""
+	1) retrieve a's names and b's names
+	2) make a list of often-related-with-name keywords from other clouds
+	3) compare a and b through the lists of keywords
+	"""
+	
+	tot = 0
+	
+	for i in range(len(clouda.layers)):
+		anames = set(clouda.layers[0]['names'])
+		bnames = set(cloudb.layers[0]['names'])
+		
+		sky = clouda.sky
+		
+		relevanttoa = []
+		relevanttob = []
+		
+		for cloud in sky.clouds():
+			if cloud is clouda or cloud is cloudb:
+				continue
+			cnames = set(cloud.layers[0]['names'])
+			if cnames.intersection(anames):
+				relevanttoa.append(cloud)
+			if cnames.intersection(bnames):
+				relevanttob.append(cloud)
+		
+		bowa = set()
+		bowb = set()
+		
+		for cloud in relevanttoa:
+			bowa.extend(cloud.words())
+		for cloud in relevanttob:
+			bowb.extend(cloud.words())
+	
+		tot += len(bowa.intersection(bowb)) / (len(bowa) + len(bowb))
+	
+	return tot / len(clouda.layers)
 		
 
 ALL_ALGS = [	tf_weighting,
