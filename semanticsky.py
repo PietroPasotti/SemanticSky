@@ -368,6 +368,12 @@ class SemanticSky():
 		print( ' -'*60)
 		print()	
 	
+	def __repr__(self):
+		return '< SemanticSky :: {} clouds. >'.format(len(self.sky))
+	
+	def __str__(self):
+		return '< SemanticSky :: {} clouds. >'.format(len(self.sky))
+	
 	def init_from_god(self):
 		"""
 		If a god is given, we retrieve as many clouds as we can from his

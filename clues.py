@@ -10,7 +10,7 @@ AGENTS = []
 GUARDIANANGELS = []
 god = None
 
-inertia = 0.2 # percent of the previous belief which is maintained no-matter-what
+inertia = 0.2 # pertenth of the previous belief which is maintained no-matter-what
 
 @Group
 def load_clues_from_default():
@@ -93,16 +93,13 @@ class Clue(object):
 			god.consider()
 				
 	def __str__(self):
-		
-		translateclue = {	'link': 'the validity of a link',
-							'feedback': 'the accuracy of an agent',
-							'metaclue' : 'the usefulness of another clue'}
-							
-		translatevalue = {		1 : 'accurate',
-								-1 : 'inaccurate'}
-		
-		return "< Clue about {} ({}), which was evaluated '{}' by Agent {}.>".format(translateclue[self.cluetype],self.about,self.value,self.agent)
+
+		return "< {}-type Clue about {}, valued {} by {}. >".format(self.cluetype,self.about,self.value,self.agent)
 	
+	def __repr__(self):
+		
+		return "< {}-type Clue about {}, valued {} by {}. >".format(self.cluetype,self.about,self.value,self.agent)
+
 	@property
 	def trustworthiness(self):
 		"""
@@ -124,6 +121,35 @@ class Clue(object):
 	def weightedvalue(self):
 		
 		return self.trustworthiness * self.value
+	
+	def delete(self):
+		"""
+		Removes the clue from wherever it may be.
+		"""
+		
+																		# CLUES
+		if self in CLUES: CLUES.remove(self)
+				
+																		# GOD LOGS
+		if self in god.logs[self.about]: god.logs[self.about].remove(self)
+		
+																		# AGENT.clues
+		self.agent.clues.remove(self)
+
+																		# target agent's .logs
+		if self.cluetype == 'feedback':
+			self.about.logs.remove(self)
+			
+		# self.__dict__ = {} ### risky, and horrible. But makes sure that calling on the clue again will raise an error
+		
+		return None	
+		
+	def revaluate(self):
+		"""
+		Forces its agent to revaluate the about.
+		"""
+		
+		return self.agent.revaluate(self)
 	
 class Agent(object):
 	
@@ -148,6 +174,9 @@ class Agent(object):
 			self.make_god()
 	
 	def __str__(self):
+		return "< Agent {}.>".format(self.name)
+	
+	def __repr__(self):
 		return "< Agent {}.>".format(self.name)
 	
 	def unique_id(self):
@@ -196,11 +225,25 @@ class Agent(object):
 		#self.clues.append(myclue) # Clue already does it
 		return clue
 	
+	def revaluate(self,clue):
+		"""
+		Asks an agent to reconsider his clue.
+		"""
+		
+		if clue not in self.clues:
+			raise Warning('Not a clue of mine: {}. I am {}.'.format(clue,self))
+			return None
+			
+		if clue.value > 0:
+			self.nonzero -= 1
+		
+		clue.delete()
+		
 	def receive(self,clue):
 		"""
 		An agent is the ultimate recipient of a clue: his own trustworthiness
-		depends on received clues (that is: clues formulated by others or)
-		automatically generated that rate its clues.
+		depends on received clues (that is: clues formulated by others or
+		automatically generated that rate its clues.)
 		"""
 		
 		global inertia
@@ -285,12 +328,15 @@ class GuardianAngel(Agent,object):
 		self.stats['trustworthiness'] = 1 # by default, an algorithm's trustworthiness is always one.
 		self.clues = [] # Clues objects
 		
-		del self.item
+		GUARDIANANGELS.append(self)
 		
 	def __str__(self):
 		return "< GuardianAngel {} >".format(self.name)
 		
-	def evaluate(self,what,silent = False):
+	def __repr__(self):
+		return "< GuardianAngel {} >".format(self.name)
+		
+	def evaluate(self,what,silent = False,consider = True):
 		"""
 		what must be a pair-of-clouds instance, for the moment.
 		
@@ -318,11 +364,11 @@ class GuardianAngel(Agent,object):
 		if silent:
 			return None
 				
-		myclue = Clue(what,evaluation,self)
+		myclue = Clue(what,evaluation,self,autoconsider = consider)
 		
 		return myclue
 	
-	def evaluate_all(self,iterable_clouds = None,express = True,verbose = True):
+	def evaluate_all(self,iterpairs = None,express = True,verbose = True):
 		"""
 		Tells the GuardianAngel to do a full evaluation:
 		evaluates each pair of clouds in the iterable (subscriptable).
@@ -331,19 +377,18 @@ class GuardianAngel(Agent,object):
 		to evaluate_all()
 		"""
 		
-		if iterable_clouds is None:
-			global sky
-			iterable_clouds = list(sky.clouds())
-		
-		ss.stdout.write('{} is evaluating... \n\t\t['.format(str(self)))
-		top = len(iterable_clouds)
+		if iterpairs is None:
+			iterpairs = sky.iter_pairs()
 		
 		i = 0
-		for pair in sky.iter_pairs():
+		
+		v = verbose
+		if v: ss.stdout.write('[')
+		for pair in iterpairs:
 			
 			if i % 1500 == 0:
-				ss.stdout.write('.')
-				ss.stdout.flush()
+				if v: ss.stdout.write('.')
+				if v: ss.stdout.flush()
 				
 			if express:
 				self.evaluate(pair) 
@@ -353,8 +398,25 @@ class GuardianAngel(Agent,object):
 				
 			i += 1
 		
-		ss.stdout.write(']\n')
-		ss.stdout.flush()
+		if v: ss.stdout.write(']\n')
+		if v: ss.stdout.flush()
+	
+	def revaluate_all(self,iterable_clouds = None, express = True, verbose = True):
+		"""
+		Deletes all angel's clues and reruns an evaluate_all on the clues' abouts
+		"""
+		
+		allinks = [clue.about for clue in self.clues]
+		
+		def customiter(linkslist):
+			 for link in linkslist:
+				 yield link
+			
+		for clue in self.clues:
+			clue.delete()
+		
+		return self.evaluate_all(customiter(allinks))
+		
 		
 	def express(self,number = 0):
 		"""
@@ -408,6 +470,9 @@ class God(Agent,object):
 			return False
 	
 	def __str__(self):
+		return "< The Lord >"
+	
+	def __repr__(self):
 		return "< The Lord >"
 	
 	def receive(self,clue):
@@ -496,14 +561,24 @@ class God(Agent,object):
 		
 		global inertia
 		
-		inertial_belief = previous_belief * inertia  # e.g. if previous belief is 0.8 and inertia is 0.1, it'll store 0.08 
+		VALUE = clue.weightedvalue()
 		
-		if not previous_belief > 0:
-			au = (clue.value + clue.trustworthiness) / 2
+		if not previous_belief > 0: # no previous belief: inertia doesn't apply
+			after_update = 	VALUE
+		
 		else:
-			au = ( previous_belief + (clue.value + clue.trustworthiness) / 2 ) / 2 + inertial_belief
+			if VALUE > previous_belief: # the belief is growing:
+				# inertia will push it down
+				inertia_strength = (VALUE - previous_belief) * inertia # if inertia is 0.3, the 30% of all 'changes of mind' will be ignored
 			
-		after_update = min( [ au , 1.0 ] ) # capped at 1.0
+			elif previous_belief > VALUE: # belief is being devaluated
+				
+				inertia_strength = (previous_belief - VALUE) * inertia
+			
+			else:
+				inertia_strength = 0
+			
+			after_update = ( (VALUE + previous_belief) / 2 ) - inertia_strength
 		
 		#####
 
@@ -793,7 +868,7 @@ class God(Agent,object):
 			GUARDIANANGELS.append(GA)
 			self.guardianangels.append(GA)
 	
-	def consider(self, number = 0):
+	def consider(self, number = False):
 		"""
 		God will shot a quick glance to the useless complaints of the mortals.
 		
@@ -814,7 +889,7 @@ class God(Agent,object):
 		if not CLUES:
 			return None
 		
-		if number > 0:
+		if isinstance(number, int):
 			restr_clues = CLUES[:number]
 			CLUES = CLUES[number:]	
 			toread = restr_clues
@@ -953,6 +1028,44 @@ class God(Agent,object):
 		
 		return allc
 	
+	def refresh(self,topno = 0,verbose = True):
+		"""
+		For each logged clue, takes the author and asks him to reassess
+		the clue's value.
+		"""
+		
+		so = ss.stdout
+		if verbose: 
+			so.write('[')
+			so.flush()
+		
+		i = 0
+		for belief in self.logs:
+			if verbose:
+				if i > len(self.logs) / 100:
+					i -= i
+					so.write('.')
+					so.flush()
+				
+			del self.beliefs[belief]
+			prelogs = deepcopy(self.logs[belief]) # previously existing logs
+			del self.logs[belief] # delete the entry
+			
+			for clue in prelogs:
+				clue.revaluate()
+							
+			if topno and i >= topno:
+				break
+			
+			i += 1
+		
+		if verbose:
+			if topno:
+				so.write('] [ Done {}. ]'.format(topno))
+			else:
+				so.write('] [ Done. ]')
+			so.flush()
+
 	
 	# IGNORE and REASSESS
 	def ignore(self,agents):

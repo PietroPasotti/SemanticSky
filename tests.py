@@ -448,8 +448,9 @@ def variousnumbers():
 	print('Average number of clues per pair: {}.'
 	 '\n Average number of clues if at least one is present: {}'.format(cluesperpair,avgsomeclue))
 	print()
-	for entry in clues.god.rankcounter():
-		print('\tThere were {} pairs with {} clues.'.format(clues.god.rankcounter(entry),entry))
+	ranks = clues.god.rankcounter()
+	for entry in ranks:
+		print('\tThere were {} pairs with {} clues.'.format(ranks[entry],entry))
 	print()
 
 # long tests
@@ -559,7 +560,8 @@ def load_god(nameoffile = 'mostrecent'):
 									return False
 							
 			loopcount += 1
-			if loopcount > 10000:
+			if loopcount > 1000000:
+				print('max loops hit')
 				return False
 			pass
 				
@@ -647,7 +649,8 @@ def load_sky(nameoffile = None):
 									return False
 							
 			loopcount += 1
-			if loopcount > 10000:
+			if loopcount > 1000000:
+				print('max loops hit')
 				return False
 			pass
 				
