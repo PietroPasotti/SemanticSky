@@ -425,7 +425,10 @@ def naive_name_comparison(clouda,cloudb):
 		anames = set(clouda.layers[0]['names'])
 		bnames = set(cloudb.layers[0]['names'])		
 		
-		tot += len(anames.intersection(bnames)) / len(anames.union(bnames))
+		den = len(anames.union(bnames))
+		if not den: den = 1
+		
+		tot += len(anames.intersection(bnames)) / den
 		
 	return tot / len(clouda.layers)
 		
@@ -460,14 +463,104 @@ def extended_name_comparison(clouda,cloudb):
 		bowb = set()
 		
 		for cloud in relevanttoa:
-			bowa.extend(cloud.words())
+			bowa.update(cloud.core())
 		for cloud in relevanttob:
-			bowb.extend(cloud.words())
-	
-		tot += len(bowa.intersection(bowb)) / (len(bowa) + len(bowb))
+			bowb.update(cloud.core())
+		
+		tbows = len(bowa) + len(bowb)
+		if not tbows: tbows = 1
+		tot += len(bowa.intersection(bowb)) / tbows
 	
 	return tot / len(clouda.layers)
-		
+
+def tag_similarity_naive(clouda,cloudb,v = False):
+	"""
+	Returns the overlap of pages with tag
+	"""
+	
+	istaglink = lambda x: isinstance(x[0].item['id'],str) and isinstance(x[1].item['id'],str)
+	
+	if not istaglink((clouda,cloudb)):
+		if v: print('nontag')
+		return 0
+	
+	taga = clouda.item['id']
+	tagb = cloudb.item['id']	
+	
+	if v: print (taga,tagb)
+	
+	data = clouda.sky.data	
+	itaggeda = set(data.items_per_tag(taga))
+	itaggedb = set(data.items_per_tag(tagb))	
+	
+	ovlp = set.intersection(itaggeda,itaggedb)
+	smm = set.union(itaggeda,itaggedb)
+	
+	if not smm : return 0
+	else:
+		return len(ovlp) / len(smm)
+	
+def tag_similarity_extended(clouda,cloudb,v = False):
+	"""
+	Similarity measure only for tag clouds: measures the overlap of the
+	sets of clouds marked by the two tags and return an averaged confidence
+	of the relations of these links.
+	
+	Example
+	
+	tag a ---> [cloud1, cloud2]
+	tag b ---> [cloud1, cloud3]
+	tag c ---> [cloud4,	cloud5]
+	
+	clearly, similarity(cloud1,cloud1) == 1, so tag a and be will be at 
+	least 0.5 related since they share half of their clouds; more if cloud2
+	and cloud3 are related in gods' beliefs.
+	
+	then suppose cloud1 and cloud4 are believed to be related by 0.4, and 
+	cloud5, cloud2, are related by 0.6, but cloud5 and cloud3 are totally
+	unrelated.
+	
+	then tag c will be much closer to tag a than to tag b.
+	
+	This analysis is available only when god already has a complete belief set
+	"""
+	
+	istaglink = lambda x: isinstance(x[0].item['id'],str) and isinstance(x[1].item['id'],str)
+	
+	if not istaglink((clouda,cloudb)):
+		if v: print('nontag')
+		return 0
+	
+	taga = clouda.item['id']
+	tagb = cloudb.item['id']
+	
+	if v: print(taga,tagb)
+	
+	data = clouda.sky.data
+	
+	itaggeda = data.items_per_tag(taga)
+	itaggedb = data.items_per_tag(tagb)
+	
+	cloudstaggeda = [clouda.sky.get_cloud(iid) for iid in itaggeda] # clouds for all items tagged with taga
+	cloudstaggedb = [cloudb.sky.get_cloud(iid) for iid in itaggedb]
+	
+	from semanticsky_utilityfunctions import pair
+	from clues import god
+	
+	bels = {}
+	for a in cloudstaggeda:
+		for b in cloudstaggedb:
+			if a is not b:
+				link = pair(a,b)
+				bels[link] = god.believes(link)
+	
+	denom = len(bels.keys())
+	if not denom: denom = 1
+	avgres = sum(bels.values()) / denom
+	return avgres
+
+
+	
 
 ALL_ALGS = [	tf_weighting,
 				tf_idf_weighting,
@@ -475,6 +568,10 @@ ALL_ALGS = [	tf_weighting,
 				coo_dicts_overlap_v2,
 				coo_dicts_neighbour,
 				coo_dicts_extended_neighbour,
-				tag_overlap		]	
+				tag_overlap,
+				extended_name_comparison,
+				naive_name_comparison,
+				tag_similarity_naive,
+				tag_similarity_extended		]	
 	
 

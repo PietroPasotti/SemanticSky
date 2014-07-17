@@ -433,6 +433,15 @@ def overlap_of_coo_counters(countera,counterb,thresholds = default_thresholds, c
 	
 	return out0,out1
 
+def ispair(pair):
+	if isinstance(pair,frozenset) and len(pair) == 2:
+		pair = tuple(pair)
+		import semanticsky as ss
+		if isinstance(pair[0],ss.Cloud) and isinstance(pair[1],ss.Cloud):
+			return True
+			
+	return False
+
 def pair(cloud,cloudb):
 	""" Simply wraps two objects in a frozenset. """
 	

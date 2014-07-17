@@ -125,6 +125,19 @@ class Data():
 		except AttributeError:
 			self.handle_aliases()
 			return proxytag(self,tag)
+	
+	def items_per_tag(self,tag):
+		"""
+		Returns a list of all items (by their id) which are tagged with tag.
+		"""
+		allitems = []
+		
+		for itemid in self.items():
+			if tag in self.item(itemid)['tags']:
+				allitems.append(itemid)
+		
+		return allitems
+		
 		
 	# aliasing 
 	def get_aliases(self,tagid):
@@ -527,6 +540,23 @@ class SemanticSky():
 		"""
 		return self.data.tag(ID)
 	
+	def pair_by_id(self,ID1,ID2=None):
+		"""
+		Returns a link, given two ids as a tuple or as two separate values.
+		"""
+		
+		if (isinstance(ID1,int) or  isinstance(ID1,str)) and ID2 is None:
+			raise TypeError('Need two values.')
+		elif ID2 is not None:
+			pass
+		else:
+			ID1,ID2 = ID1
+		
+		clouda = self.get_cloud(ID1)
+		cloudb = self.get_cloud(ID2)
+		
+		return pair(clouda,cloudb)
+	
 	### counters population functions
 	def populate_coo_counter(self):
 		"""
@@ -857,13 +887,20 @@ class Cloud():
 			allws.extend(self.layers[i]['core'])
 		
 		if not allws:
-			self.get_words()
+			self.get_core()
 		
 		for i in range(len(self.layers)):
 			allws.extend(self.layers[i]['core'])		
 		
 		return allws
 		
+	def istagcloud(self):
+		
+		if isinstance(self.item['id'],str):
+			return True
+		else:
+			return False
+
 			
 	### growers
 	def retrieve_zero_layer(self):
