@@ -905,8 +905,8 @@ class Cloud():
 		if not allws:
 			self.get_core()
 		
-		for i in range(len(self.layers)):
-			allws.extend(self.layers[i]['core'])		
+			for i in range(len(self.layers)):
+				allws.extend(self.layers[i]['core'])		
 		
 		return allws
 		

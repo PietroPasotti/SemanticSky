@@ -263,19 +263,22 @@ def coo_dicts_extended_neighbour(clouda,cloudb,debug = False):
 		cooa = Counter(clouda.layers[i]['top_coo'])
 		coob = Counter(cloudb.layers[i]['top_coo'])
 		
+		if not cooa or not coob:
+			continue
+		
 		bowa = [] # all words appearing in cooa
 		bowb = [] 
 		
 		for pair in cooa: bowa.extend(pair)
 		for pair in coob: bowb.extend(pair)
 		
-		expandedbowa = [] # all neighbours (in the whole corpus) of all words in cooa
-		expandedbowb = []
+		expandedbowa = set() # all neighbours (in the whole corpus) of all words in cooa
+		expandedbowb = set()
 		
 		for word in bowa:
-			expandedbowa.extend(neighbours[word])
+			expandedbowa.update(neighbours[word])
 		for word in bowb:
-			expandedbowb.extend(neighbours[word])
+			expandedbowb.update(neighbours[word])
 		
 		if debug:
 			print(expandedbowa)
@@ -288,33 +291,60 @@ def coo_dicts_extended_neighbour(clouda,cloudb,debug = False):
 		avalues = Counter() # vector
 		bvalues = Counter()
 		
-		def weight(cooa,coob,bvalues,expandedbowb):
-			for pair in cooa:
-				wa,wb = pair
-				if pair in coob:
-					bvalues[pair] += coob[pair] # full weight
-					continue
-				
-				if wa in bowb and wb in bowb:
-					bvalues[pair] += coob[pair]*0.75 # 3/4 weight
-					continue
-				
-				if wa in bowb or wb in bowb:
-					bvalues[pair] += coob[pair]*0.5 # half weight
-					continue	 
-				
-				if wa in expandedbowb and wb in expandedbowb:
-					bvalues[pair] += coob[pair]*0.25 # quarter weight
-					continue		
-				
-				if wa in expandedbowb or wb in expandedbowb: # only a common neighbour
-					bvalues[pair] += coob[pair]*0.10 # very little weight
-					continue
+
+		for pair in cooa: # all pairs in COOA: we use it to weight COOA's vector
+			wa,wb = pair
+			if pair in coob: # same pair
+				avalues[pair] += cooa[pair] # full weight
+				continue
+			
+			if wa in bowb and wb in bowb: # both in other's bow
+				basevalue = coob[pair]
+				if not basevalue: # if the pair is not there, but both words are,
 					
-				bvalues[pair] += 0
+				bvalues[pair] += coob[pair]*0.75 # 3/4 weight
+				continue
+			
+			if wa in bowb or wb in bowb: # just one in other's bow
+				bvalues[pair] += coob[pair]*0.5 # half weight
+				continue	 
+			
+			if wa in expandedbowb and wb in expandedbowb: # both in expandedbow
+				bvalues[pair] += coob[pair]*0.25 # quarter weight
+				continue		
+			
+			if wa in expandedbowb or wb in expandedbowb: # only a common neighbour
+				bvalues[pair] += coob[pair]*0.10 # very little weight
+				continue
+				
+			bvalues[pair] += 0
 		
-		weight(cooa,coob,bvalues,expandedbowb) # updates bvalues
-		weight(coob,cooa,avalues,expandedbowa) # updates avalues
+		#weight(cooa,coob,bvalues,bowa,bowb,expandedbowa,expandedbowb) # updates bvalues
+		#weight(coob,cooa,avalues,bowb,bowa,expandedbowb,expandedbowa) # updates avalues		
+		for pair in coo1:
+			wa,wb = pair
+			if pair in coo2:
+				values2[pair] += coob[pair] # full weight
+				continue
+			
+			if wa in bow1 and wb in bow2:
+				values2[pair] += coo2[pair]*0.75 # 3/4 weight
+				continue
+			
+			if wa in bow1 or wb in bow2:
+				values2[pair] += coo2[pair]*0.5 # half weight
+				continue	 
+			
+			if wa in expandedbow1 and wb in expandedbow2:
+				values2[pair] += coo2[pair]*0.25 # quarter weight
+				continue		
+			
+			if wa in expandedbow1 or wb in expandedbow2: # only a common neighbour
+				values2[pair] += coo2[pair]*0.10 # very little weight
+				continue
+				
+			bvalues[pair] += 0
+
 		
 		# now avalues and bvalues are the weighted vectors we wanted, and we can apply Grefenstette
 		
@@ -559,7 +589,39 @@ def tag_similarity_extended(clouda,cloudb,v = False):
 	avgres = sum(bels.values()) / denom
 	return avgres
 
-
+def naive_core_overlap(clouda,cloudb):
+	"""
+	Simple overlap of the two clouds' cores.
+	"""
+	
+	out = 0
+	for i in range(len(clouda.layers)):
+		acore = set(clouda.layers[i]['core'])
+		bcore = set(cloudb.layers[i]['core'])
+		
+		ovlp = acore.intersection(bcore)
+		union = acore.union(bcore)
+		
+		if union:
+			out += len(ovlp) / len(union)
+		
+	return out / len(clouda.layers)
+	
+def extended_core_overlap(clouda,cloudb):
+	"""
+	The core's words are used to make a larger bag of probably-related words
+	and then these bags are compared.
+	"""
+	out = 0
+	for i in range(len(clouda.layers)):
+		acore = set(clouda.layers[i]['core'])
+		bcore = set(cloudb.layers[i]['core'])
+		
+		
+	
+	
+	
+	
 	
 
 ALL_ALGS = [	tf_weighting,

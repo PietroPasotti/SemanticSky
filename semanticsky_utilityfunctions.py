@@ -193,7 +193,7 @@ def to_tokens_sent(sentence,word_len_thresh = 3,stem = True,stopwords = True):
 	"""
 	global destemdb
 	
-	punct = re.compile(r"""\.|\,|\\|\/|\d|\[|\]|\||\{|\}|\(|\)|\"|\'|\>|\<""")
+	punct = re.compile(r'[\_\-\.\,\;\:\!\?\=\^\"\'\`,\@\#\*\[\]\(\)\|\{\}\$\%\&\<\>]')
 
 	W = nltk.tokenize.PunktWordTokenizer()
 	towords = W.tokenize(sentence) # now a list of strings
@@ -201,7 +201,7 @@ def to_tokens_sent(sentence,word_len_thresh = 3,stem = True,stopwords = True):
 	
 	for word in towords:
 		word = punct.sub(' ', word) # we strip off weird things
-		word = word.strip()
+		word = word.strip() # we strip off spaces
 		if (word not in ['', ' ']) and len(word) > word_len_thresh and not word.isdigit() and not isstopword(word.lower()):
 			if stem:
 				stemmer = nltk.stem.LancasterStemmer()

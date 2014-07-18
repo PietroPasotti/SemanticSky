@@ -9,8 +9,14 @@ from collections import Counter
 Collection of tests to be run on the framework.
 """
 
+def cropfloat(fl,no = 4):
+	return float(str(fl)[no:])
+
 
 # randoms
+
+def randomcloud():
+	return random.choice(sky.sky)
 
 def randomlink():
 	"""
@@ -184,9 +190,8 @@ def interactive_error_analysis():
 	
 	def gonext():
 		nerror = next(errors)
-		print('The system made some mistakes while evaluating links for cloud id {}'.format(nerror))
 		cloud = clues.sky.get_cloud(nerror)
-		print('The cloud wraps the item [{}]\n'.format(cloud.get_header()))
+		print('The system made some mistakes while evaluating links for cloud id [{}], that is: [{}].'.format(nerror,cloud.get_header()))
 		sugg = clues.compared_results[nerror]['suggested_links_ranked']
 		actual = clues.compared_results[nerror]['actual_links']
 		print('Predicted links (ranked): [{}]\n'.format(sugg))
@@ -196,15 +201,26 @@ def interactive_error_analysis():
 		print('Caught links: [{}]'.format( list(ints) ))
 		print('\t (Percent of total: [{}])'.format(len( ints ) / len(set(actual).union(set(sugg)))))
 				
-		gbels = {} # from link to god belief' in pair (link,nerror)
+		gbels = {} # from link (int) to god belief' in the pair (link,nerror)
 		for link in ints:
 			pair = sky.pair_by_id(link,nerror) # the cloudpair
 			bel = god.believes(pair) 
+			bel = float(str(bel)[:4])
 			gbels[link] = bel
 			
-		print('Confidence ratios (that the item were linked to item [{}]) were:\n'.format(nerror))
+		print('Confidence ratios (that the item were linked to item [{}]) *and responsibles* were:\n'.format(nerror))
 		for entry in gbels:
-			print('\t\t {} --> {}'.format((entry,nerror),gbels[entry]))
+			
+			logs = god.logs[ sky.pair_by_id(entry,nerror) ]
+			if not logs:
+				print(entry,nerror,'FUCK',sky.pair_by_id(entry,nerror), sky.pair_by_id(entry,nerror) in god.beliefs,sky.pair_by_id(entry,nerror) in god.logs )
+				return
+			
+			agents = set(log.agent for log in logs)
+			
+			responsibles = clues.ss.lsum([agent.name + ' ' for agent in agents])
+			
+			print('\t\t {} --> {}\t\t [{}]'.format((entry,nerror),gbels[entry],responsibles))
 		
 		vals = list(gbels.values())
 		if vals:
@@ -256,9 +272,9 @@ def interactive_error_analysis():
 			if out in funcs:
 				out()
 			elif out is None:
-				if out == 'e':
+				if choice == 'e':
 					break
-				elif out == '':
+				elif choice == '':
 					gonext()
 			
 			
@@ -501,6 +517,10 @@ def variousnumbers():
 	accuracy = Counter()
 	
 	for log in god.logs:
+		
+		if not clues.ss.ispair(log):
+			continue
+		
 		cluelist = god.logs[log]
 		agents = [clue.agent.name for clue in cluelist]
 		redict.update(agents)
@@ -550,7 +570,8 @@ def variousnumbers():
 	print()
 	ranks = clues.god.rankcounter()
 	for entry in ranks:
-		print('\tThere were {} pairs with {} clues.'.format(ranks[entry],entry))
+		correct = len( clue for clue in god.flowlogs() if clues.algs.someonesuggested(clue.about) and len(god.locate(clue)) )
+		print('\tThere were {} pairs with {} clues. Of them, {} were actually correct.'.format(ranks[entry],entry,correct))
 	print()
 
 # long tests

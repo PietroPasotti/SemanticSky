@@ -57,11 +57,12 @@ class Clue(object):
 			
 		self.about = about
 		self.value = value
-		self.agent = agent
 		
 		global god
-		if agent is 'god' and god is None:
-			self.agent = Agent('god')
+		if agent == 'god' and god is None:
+			agent = Agent('god')
+		
+		self.agent = agent
 		
 		god.log(self)  #('   <<< [Warning:] unlogged Clue. God is missing. >>>')
 		
@@ -421,6 +422,48 @@ class GuardianAngel(Agent,object):
 			clue = Clue(pair,value,self)
 		
 		return True
+	
+	# comparison functions
+	def agrees(self,other = None):
+		"""
+		Returns a count of the percent of links he agrees about with all
+		other angels.
+		"""
+		
+		if not other:
+			others = god.guardianangels
+		
+		if other:
+			if not isinstance(other,list):
+				others = [other]
+		
+		out = {}
+		
+		for angel in others:
+			
+			
+			if angel is self:
+				continue
+
+			outangel = {}
+			
+			pairsagreedon = 0
+			agreement = 0
+			for pair in angel.evaluation:
+				if self.evaluation.get(pair):
+					myeval = self.evaluation[pair]
+					hiseval = angel.evaluation[pair]
+					agreement += min(myeval,hiseval)
+					pairsagreedon += 1
+					
+			totpairs = len(set(angel.evaluation).union(set(self.evaluation)))
+	
+			outangel['average agreement'] = agreement / totpairs
+			outangel['pairs agreed upon'] = pairsagreedon
+			
+			out[angel] = outangel
+		
+		return out
 			
 class God(Agent,object):
 	"""
@@ -516,8 +559,12 @@ class God(Agent,object):
 			
 		agent = clue.agent
 		hisclues = [c for c in cluelist if c.agent == agent]
-		if hisclues:
-			return hisclues[0]
+		
+		# since a clue logs herself as soon as it's created,
+		# we'll need to return only the second one, if there is one
+		
+		if len(hisclues) == 2:
+			return hisclues[0] # at the second place there will be the next one
 		else:
 			return False
 	
@@ -605,7 +652,16 @@ class God(Agent,object):
 		log = clue
 		
 		self.logs[about].append(log)
-
+	
+	def lenlogs(self):
+		"""
+		Calculates the number of logs stored.
+		"""
+		
+		return len(ss.lsum(list(self.logs.values())))
+		
+		
+	
 	def get_clues(self,about):
 		"""
 		Retrieves all clues that had some impact on god's current
