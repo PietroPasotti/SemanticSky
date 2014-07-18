@@ -447,34 +447,31 @@ class SemanticSky():
 			return None
 		
 	# ITEM CLOUDS
-		stdout.write('\tItem clouds... 	\t [')
+		noitems = len(self.data.oridata['items'])
+		stdout.write('\tItem clouds... 	\t')
 		i = 0
 		for itemID in self.data.items():
 			item = self.getitem(itemID)
 			item['id'] = itemID # is a long()
 			cloud = Cloud(self,item)
-			self.sky.append(cloud)
-			if i%4 == 0:
-				stdout.write('.')
-				stdout.flush()
+			
+			bar(i/noitems)
 			i += 1
-		stdout.write('] [ {} Clouds. ]\n'.format(i))
+		stdout.write('\n\t [ {} Clouds. ]\n'.format(i))
 
-	# TAG CLOUDS	
-		stdout.write('\tTag clouds... \t\t [')
+	# TAG CLOUDS
+		notags = len(self.data.oridata['tags'])
+		stdout.write('\tTag clouds... \t\t')
 		e = 0
 		for tagID in self.data.tags():
 			tag = self.data.tag(tagID)
 			tag['id'] = tagID # is the name of the tag == a str()
 			cloud = Cloud(self,tag)
-			if e%3 == 0:
-				stdout.write('.')
-				stdout.flush()
+			
+			bar(e/notags)
 			e += 1
-		stdout.write('] [ {} Clouds. ]\n'.format(e) )
-		print()
-		print('\t Total: [ {} Clouds ] \t : quite a rainy day.'.format(e+i))
-		print()
+		stdout.write('\n\t [ {} Clouds. ]\n'.format(e) )
+		print('\n\t Total: [ {} Clouds ] \t : quite a rainy day.\n'.format(e+i))
 		return None
 	
 	### iterators
@@ -508,14 +505,16 @@ class SemanticSky():
 		"""
 		A generator for all pairwise-coupled clouds.
 		"""
-		
-		i = 0 
+
+		i = 0
+
 		for clouda in self.sky:
 			for cloudb in self.sky[i:]:
-				if clouda is not cloudb:
+				if clouda != cloudb:
 					yield pair(clouda,cloudb)
-
+			
 			i += 1
+
 
 	### data gathering functions
 	def getitem(self,ID):
@@ -562,6 +561,7 @@ class SemanticSky():
 		cloudb = self.get_cloud(ID2)
 		
 		return pair(clouda,cloudb)
+
 	
 	### counters population functions
 	def populate_coo_counter(self):
@@ -695,15 +695,25 @@ class Cloud():
 				sky.sky.append(self)
 			
 	def __repr__(self):
-		return "<Cloud [{}] at {}>".format(self.ID,id(self))
+		return "< Cloud [{}] at {} >".format(self.ID,id(self))
 	
 	def __str__(self):
-		return "Cloud [{}]. Layers >>>{}<<<".format(self.ID, self.layers)
+		return "< Cloud [{}]. [ {} layers. ] >".format(self.ID, len(self.layers))
 	
 	@property
 	def depth(self):
 		return len(self.layers)
+	@property
+	def itemtype(self):
+		return self.item['type']
+	@property
+	def cloudtype(self):
 	
+		if isinstance(self.item['id'],str):
+			return 'tags'
+		else:
+			return 'items'
+				
 
 	### data_getters
 	def populate(self,depth = None):
@@ -906,8 +916,17 @@ class Cloud():
 			return True
 		else:
 			return False
-
+	
+	def get_header(self):
+		"""
+		Returns a useful short description of the item, for human recognition.
+		"""
+		
+		if self.cloudtype == 'tags':
+			return self.item['id']
 			
+		return self.item.get('name',self.item.get('title'))
+		
 	### growers
 	def retrieve_zero_layer(self):
 		"""

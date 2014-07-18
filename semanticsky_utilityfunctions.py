@@ -2,7 +2,7 @@
 from group import Group
 from bs4 import BeautifulSoup,SoupStrainer
 from collections import Counter
-import re,nltk
+import re,nltk,sys
 
 
 WORD_RE = re.compile(r"(?:[^\W\d_]|['])+")
@@ -20,6 +20,17 @@ destemdb = {}
 # word --> stem dictionary
 revert_destemdb = {}
 # stem --> word dictionary (it's a mapping)
+def lsum(*lists): # list merging tool
+
+        out = []
+
+        if len(lists) == 1:
+                unpack = lists[0]
+                return lsum(*unpack)
+        else:
+                for l in lists:
+                        out += l
+        return out
 
 def clean_destemdb():
 	
@@ -432,6 +443,36 @@ def overlap_of_coo_counters(countera,counterb,thresholds = default_thresholds, c
 			out0 += totvalue
 	
 	return out0,out1
+
+def bar(progress,barlength=100):
+	barLength = barlength # Modify this to change the length of the progress bar
+	status = ""
+	progress = float(progress)
+
+	if progress < 0:
+		progress = 0
+		status = " [ Halt. ]\r\n"
+	if progress >= 1:
+		progress = 1
+		status = " [ Done. ]\r\n"
+
+		
+	percentage = str(progress*100)
+	
+	if len(percentage) > 3:
+		displayedp = percentage[:2]+"%"
+	else:
+		displayedp = percentage+"%"
+	
+	block = int(round(barLength*progress))
+	
+	if progress == 1:
+		displayedp = "100%"
+		status = " [ Done. ]\r\n"
+	
+	text = "\rProgress: [{}] {} {}".format( "."*block + " "*(barLength-block), displayedp,status)
+	sys.stdout.write(text)
+	sys.stdout.flush()
 
 def ispair(pair):
 	if isinstance(pair,frozenset) and len(pair) == 2:

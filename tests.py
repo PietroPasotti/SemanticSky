@@ -166,6 +166,105 @@ def downertest():
 	print('post:\n')
 	print(god.trusts())
 
+def interactive_error_analysis():
+	
+	if not hasattr(clues,'compared_results'):
+		compare_god_beliefs_against_actual_links()
+		
+	cr = clues.compared_results
+	errors = ( cloudid for cloudid in cr if set(cr[cloudid]['suggested_links_ranked']) != set(cr[cloudid]['actual_links']) )
+	
+	def center(string,width = 100,space = ' '):
+		ls = len(string)
+		sp = (width - ls) // 2
+		return sp * space + string + sp * space
+	
+	print('-'*100 + '\n' + center('Interactive Error Spotter v0.1',100) + '\n' + '-'*100)
+	
+	
+	def gonext():
+		nerror = next(errors)
+		print('The system made some mistakes while evaluating links for cloud id {}'.format(nerror))
+		cloud = clues.sky.get_cloud(nerror)
+		print('The cloud wraps the item [{}]\n'.format(cloud.get_header()))
+		sugg = clues.compared_results[nerror]['suggested_links_ranked']
+		actual = clues.compared_results[nerror]['actual_links']
+		print('Predicted links (ranked): [{}]\n'.format(sugg))
+		print('Actual links (unsorted): [{}]\n'.format(actual))
+		
+		ints = set(actual).intersection(set(sugg))
+		print('Caught links: [{}]'.format( list(ints) ))
+		print('\t (Percent of total: [{}])'.format(len( ints ) / len(set(actual).union(set(sugg)))))
+				
+		gbels = {} # from link to god belief' in pair (link,nerror)
+		for link in ints:
+			pair = sky.pair_by_id(link,nerror) # the cloudpair
+			bel = god.believes(pair) 
+			gbels[link] = bel
+			
+		print('Confidence ratios (that the item were linked to item [{}]) were:\n'.format(nerror))
+		for entry in gbels:
+			print('\t\t {} --> {}'.format((entry,nerror),gbels[entry]))
+		
+		vals = list(gbels.values())
+		if vals:
+			avg = sum(gbels.values()) / len(gbels.values())
+		else:
+			avg = 'n/a'
+			
+		print('\t .. averaging to {}.'.format(avg))
+		
+		false_positives = set(sugg).difference(set(actual)) # suggested which are not true
+		
+		if false_positives:
+			wavg = sum([god.believes(sky.pair_by_id(t,nerror)) for t in false_positives]) / len(false_positives)
+		else:
+			wavg = 'n/a'
+			
+	
+		false_negatives = set(actual).difference(set(sugg)) # true links which were not suggested
+
+		
+		print('Confidence ratios *on false positives* averaged to {}.'.format(wavg))
+		print('\t And they were {}.\n'.format(list(false_positives)))
+		print('False negatives were {}.\n'.format(list(false_negatives)))
+		
+		print()
+		
+	def moredata():
+		print('Nope yet.')
+		
+	def writeinsult():
+		insult = random.choice(['fuck off','bastard','sucker','fucker','motherfucker','idiot','you stink'])
+		print(insult)
+	
+	while True:
+		avail = {	'n': gonext,
+					'e' : None,
+					'm': moredata,
+					'f': writeinsult,
+					'' : None}
+		
+		funcs = [gonext,moredata,writeinsult]
+		
+		print("'n' or Enter: next, 'e':exit, 'm': more analyses, 'f': more functions")
+		choice = input(' >>> ')
+		print(' chosen "{}"'.format(choice))
+		
+		if choice in avail:
+			out = avail[choice] # call the function
+			if out in funcs:
+				out()
+			elif out is None:
+				if out == 'e':
+					break
+				elif out == '':
+					gonext()
+			
+			
+			
+	
+
 # setups
 
 def setup_full_sky():
@@ -211,8 +310,8 @@ def fastsetup():
 	to = gas[6]
 	tf = gas[0]
 	
-	god.consult(to,consider = True,verbose = True)
-	god.consult(tf,consider = True,verbose = True)
+	god.consult(to,consider = True)
+	god.consult(tf,consider = True)
 	
 	return True
 
@@ -222,7 +321,6 @@ def lastsetup():
 	clues.ss.stdout.flush()
 	clues.ss.stdout.write('  [{}] '.format(load_god()))
 
-	
 	
 # analysis of god belief state
 
@@ -273,9 +371,10 @@ def compare_god_beliefs_against_actual_links():
 		clues.compared_results[cloud.item['id']]['actual_links'] = links
 		
 		second_item_of = lambda x : x[1]
-		clues.compared_results[cloud.item['id']]['suggested_links_ranked'] = [ocloud.item['id'] for ocloud in 
-											[second_item_of(result) for result in clues.results.get(cloud,[])]
-																										]
+		sranked = [ocloud.item['id'] for ocloud in [second_item_of(result) for result in clues.results.get(cloud,[])] ]
+		sranked = list(set(sranked))
+		clues.compared_results[cloud.item['id']]['suggested_links_ranked'] = sranked
+																		
 	del clues.results
 	
 	print('output saved to clues.compared_results')																							
@@ -392,8 +491,9 @@ def variousnumbers():
 	if t: avgnolinks_thresh = diffnlinks / t
 	else: avgnolinks_thresh = 0
 	
-	print('average number of links per cloud: ',avgnolinks)
-	print('average number of links per cloud, if the cloud has at least one: ',avgnolinks_thresh)
+	print('  average number of links per cloud: ',avgnolinks)
+	print('  average number of links per cloud, if the cloud has at least one: ',avgnolinks_thresh)
+	print()
 	
 	
 	redict = Counter()
@@ -426,7 +526,7 @@ def variousnumbers():
 		confidence = sum(weights) / max(len(angel.clues),1)
 		minconf = min(weights)
 		maxconf = max(weights)
-		print('Algorithm {}: \n\tspawned a total of {} clues; of which {} were unique. {} of them were accurate (according to starfish links)'.format(a,b,c,d))
+		print(' @Algorithm {}: \n\tspawned a total of {} clues; of which {} were unique. {} of them were accurate (according to starfish links)'.format(a,b,c,d))
 		print('\tAverage confidence of algorithm was {}, with min: {} and max: {}. Trustworthiness = {}.'.format(confidence,minconf,maxconf, angel.stats['trustworthiness']))
 	
 	cluesperpair = 0
@@ -445,8 +545,8 @@ def variousnumbers():
 	if someclue: avgsomeclue = somecluelen / someclue
 	else: avgsomeclue = '(n/a)'
 		
-	print('Average number of clues per pair: {}.'
-	 '\n Average number of clues if at least one is present: {}'.format(cluesperpair,avgsomeclue))
+	print('  Average number of clues per pair: {}.'
+	 '\n  Average number of clues if at least one is present: {}'.format(cluesperpair,avgsomeclue))
 	print()
 	ranks = clues.god.rankcounter()
 	for entry in ranks:
@@ -467,10 +567,11 @@ def longtest():
 	
 	god.spawn_servants()
 	
+	global exceptions
 	exceptions = []
 	for angel in god.guardianangels:
 		god.consult([angel],verbose = True,consider = True)
-		store_belief_set(god)
+		store_belief_set(god,'tempbeliefset_afterangel_{}.log'.format(angel.name))
 		try:
 			fullcompare()
 		except BaseException as e:
