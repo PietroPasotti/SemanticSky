@@ -4,6 +4,12 @@ import random
 from itertools import permutations
 from collections import Counter
 
+"""
+Collection of tests to be run on the framework.
+"""
+
+# Utilities
+
 class color:
 	
 	blue = "\033[1;34;40m"
@@ -15,9 +21,10 @@ def wrap(string,col):
 		getattr(color,col)
 		return getattr(color,col) + string + color.end
 
-"""
-Collection of tests to be run on the framework.
-"""
+def center(string,width = 100,space = ' '):
+	ls = len(string)
+	sp = (width - ls) // 2
+	return sp * space + string + sp * space
 
 def cropfloat(fl,no = 4):
 	return float(str(fl)[:no])
@@ -41,7 +48,8 @@ def crop_at_nonzero(fl,bot = 2):
 			return float(out)
 			
 	return fl
-# randoms
+
+# randomizers
 
 def randomcloud():
 	return random.choice(sky.sky)
@@ -177,10 +185,12 @@ def analyse_islands():
 
 def test_algorithm_impact(algorithm):
 	"""
-	Creates a GuardianAngel on the algorithm and checks various staff
+	Creates a GuardianAngel on the algorithm and checks various stuff
 	pre and post its evaluation cycle.
 	"""
 	
+	print(center('> Testing impact of algorithm {} <'.format(algorithm.__name__),space = '-'))
+
 	ga = clues.GuardianAngel(algorithm)
 
 def downertest():
@@ -207,11 +217,6 @@ def interactive_error_analysis():
 		
 	cr = clues.compared_results
 	errors = ( cloudid for cloudid in cr if set(cr[cloudid]['suggested_links_ranked']) != set(cr[cloudid]['actual_links']) )
-	
-	def center(string,width = 100,space = ' '):
-		ls = len(string)
-		sp = (width - ls) // 2
-		return sp * space + string + sp * space
 	
 	print('-'*100 + '\n' + center('Interactive Error Spotter v0.1',100) + '\n' + '-'*100)
 	
@@ -288,8 +293,7 @@ def interactive_error_analysis():
 		print('Confidence ratios *on false positives* averaged to {}.'.format(wavg))
 		print('\t And they were {}.\n'.format(list(false_positives)))
 		print('False negatives were {}.\n'.format(list(false_negatives)))
-
-		
+	
 	def moredata():
 		print()
 		print(center('> more data <',100,'-'))
@@ -419,10 +423,6 @@ def interactive_error_analysis():
 			print("\tAgent {} clue'd {} times; with an avg confidence (unweighted) of {}."
 			"".format(i,reportdict['false positive'][i][0],crop_at_nonzero(reportdict['false positive'][i][1])))
 		
-	def writeinsult():
-		insult = random.choice(['fuck off','bastard','sucker','fucker','motherfucker','idiot','you stink'])
-		print(insult)
-	
 	### Main Loop
 	
 	while True:
@@ -430,11 +430,12 @@ def interactive_error_analysis():
 					'e' : None,
 					'm': moredata,
 					'f': writeinsult,
+					'F': fullcompare,
 					'' : None}
 		
 		funcs = [gonext,moredata,writeinsult]
 		print()
-		print("'n' or Enter: next, 'e':exit, 'm': more data, 'f': more functions")
+		print("'n' or Enter: next, 'e':exit, 'm': more data, 'F': full compare (unspecific)")
 		print()
 		
 		choice = input(' :) ')
@@ -457,8 +458,7 @@ def interactive_error_analysis():
 					print(center('',space = '-'))
 					gonext()
 
-					
-					
+						
 # setups
 
 def setup_full_sky():
