@@ -209,256 +209,7 @@ def downertest():
 	
 	print('post:\n')
 	print(god.trusts())
-
-def interactive_error_analysis():
-	
-	if not hasattr(clues,'compared_results'):
-		compare_god_beliefs_against_actual_links()
-		
-	cr = clues.compared_results
-	errors = ( cloudid for cloudid in cr if set(cr[cloudid]['suggested_links_ranked']) != set(cr[cloudid]['actual_links']) )
-	
-	print('-'*100 + '\n' + center('Interactive Error Spotter v0.1',100) + '\n' + '-'*100)
-	
-	global CURERROR
-	CURERROR = None
-	
-	def gonext():
-		nerror = next(errors)
-		global CURERROR
-		CURERROR = nerror
-		cloud = clues.sky.get_cloud(nerror)
-		
-		print('The system made some mistakes while evaluating links for cloud id [{}], that is: [{}].'.format(nerror,cloud.get_header()))
-		sugg = clues.compared_results[nerror]['suggested_links_ranked']
-		actual = clues.compared_results[nerror]['actual_links']
-		
-		
-		
-		print('Predicted links (ranked): {}\n'.format(sugg))
-		print('Actual links (unsorted): {}\n'.format(actual))
-		
-		ints = set(actual).intersection(set(sugg))
-		print('Caught links: [{}]'.format( list(ints) ))
-		print('\t (Accuracy: [{}])'.format(len( ints ) / len(set(actual).union(set(sugg)))))
-		
-		try:
-			print('\t (Recall: [{}])'.format(  len( ints.intersection(set(actual)) ) / len(ints) ))
-		except ZeroDivisionError:
-			print('(Nothing to recall.)')
-			
-		print()
-		print(center(' CONFIDENCE RATIOS BY ALGORITHM '))
-		
-		gbels = {} # from link (int) to god belief' in the pair (link,nerror)
-		for link in ints:
-			pair = sky.pair_by_id(link,nerror) # the cloudpair
-			bel = god.believes(pair) 
-			bel = float(str(bel)[:4])
-			gbels[link] = bel
-			
-		print('Confidence ratios (on wrong links containing item [{}]) *and responsibles* are:\n'.format(nerror))
-		for entry in gbels:
-			
-			logs = god.logs[ sky.pair_by_id(entry,nerror) ]
-			if not logs:
-				print(entry,nerror,'FUCK',sky.pair_by_id(entry,nerror), sky.pair_by_id(entry,nerror) in god.beliefs,sky.pair_by_id(entry,nerror) in god.logs )
-				return
-			
-			agents = set(log.agent for log in logs)
-			
-			responsibles = ', '.join([agent.name for agent in agents])
-			
-			print('\t\t {} --> {}\t\t [{}]'.format((entry,nerror),gbels[entry],responsibles))
-		
-		vals = list(gbels.values())
-		if vals:
-			avg = sum(gbels.values()) / len(gbels.values())
-		else:
-			avg = 'n/a'
-			
-		print('\t .. averaging to {}.'.format(avg))
-		
-		false_positives = set(sugg).difference(set(actual)) # suggested which are not true
-		
-		if false_positives:
-			wavg = sum([god.believes(sky.pair_by_id(t,nerror)) for t in false_positives]) / len(false_positives)
-		else:
-			wavg = 'n/a'
-			
-	
-		false_negatives = set(actual).difference(set(sugg)) # true links which were not suggested
-
-		
-		print('Confidence ratios *on false positives* averaged to {}.'.format(wavg))
-		print('\t And they were {}.\n'.format(list(false_positives)))
-		print('False negatives were {}.\n'.format(list(false_negatives)))
-	
-	def moredata():
-		print()
-		print(center('> more data <',100,'-'))
-		print()
-		global CURERROR
-		error = CURERROR
-		
-		cloud = clues.sky.get_cloud(error)
-		
-		sugg = clues.compared_results[error]['suggested_links_ranked']
-		actual = clues.compared_results[error]['actual_links']		
-		
-		missed = set(actual).difference(set(sugg)) # false negatives
-		caught = set(actual).intersection(set(sugg)) # right
-		excess = set(sugg).difference(set(actual)) # false positives
-		
-		cmissed = tuple(sky.get_cloud(cid) for cid in missed)
-		ccaught = tuple(sky.get_cloud(cid) for cid in caught)
-		cexcess = tuple(sky.get_cloud(cid) for cid in excess)
-		
-		m = Counter(cid.item['type'] for cid in cmissed)
-		c = Counter(cid.item['type'] for cid in ccaught)
-		e = Counter(cid.item['type'] for cid in cexcess)
-		
-		print('By type: ')
-		for counter in [(m,'false negatives'),(c,'correct links'),(e,'false positives')]:
-			if not counter[0]:
-				continue
-			print('\t [{}] links by type:'.format(counter[1]))
-			print('\t\t    ',counter[0])
-		
-		gt = clues.ss.grab_text
-		erritem = sky.data.item(error)
-		lerror = len(gt(erritem,list(erritem.keys())))
-		
-		em = tuple(len(gt(cloud.item,list(cloud.item.keys()))) for cloud in cmissed)
-		ec = tuple(len(gt(cloud.item,list(cloud.item.keys()))) for cloud in ccaught)
-		ee = tuple(len(gt(cloud.item,list(cloud.item.keys()))) for cloud in cexcess)
-		
-		print('By approximate quantity of text: ')
-		print('\t ( item {} had {} characters of text )'.format(error,lerror))
-		print()
-		for count in [(em,'false negatives'),(ec,'correct links'),(ee,'false positives')]:
-			
-			print('\t for [{}]:'.format(count[1]))
-			
-			if not count[0]:
-				print('\t\t Nothing to report.')
-				continue
-			
-			if count[0]:
-				avg = sum(count[0])/len(count[0])
-				print('\t\t average: {}'.format(avg))
-			
-			def approx(num,steps = [10,100,500,1000,1500,2000,2500,3000,3500,4000,5000,8000,10000],numeric = False,upperbound = False):
-				
-				if num < min(steps):
-					if upperbound: return min(steps)
-					if numeric: return (0,num,min(steps))
-					return '{} < {} (min)'.format(num,min(steps))
-				
-				if num > max(steps):
-					if upperbound: return max(steps)
-					if numeric: return (steps[len(steps)-2],num,max(steps))
-					return '{} > {} (max)'.format(num,max(steps))
 					
-				prestep = 0
-				for step in steps:
-					
-					if num <= step:
-						if upperbound: return step
-						if numeric: return (prestep,num,step)
-						return '{} < {} < {}'.format(prestep,num,step)
-					
-					prestep -= prestep
-					prestep += step
-					
-				raise BaseException("Shouldn't reach this.")
-			
-			upperbounds = Counter(approx(lencount,upperbound = True) for lencount in count[0])
-			
-			print("\t\t length of text // number of items:")
-			print()
-			for ub in upperbounds.most_common(): # [(key,value)]
-				print("\t\t\t >> {} items had less than {} characters.".format(ub[1],ub[0]))
-		
-		print()
-		print(center(' MAIN RESPONSIBLES FOR FALSE POSITIVES '))
-		
-		sugg = clues.compared_results[error]['suggested_links_ranked']
-		actual = clues.compared_results[error]['actual_links']
-		
-		reportdict = {'false positive': {}} # false positives and false negatives
-		falsepos = set(sugg).difference(set(actual))
-		
-		for i in falsepos: # these are all false positives for this error! That is: all other cloud IDs who ever were wrongly paired with error.
-			
-			# agents who clue'd on (i,error) link
-			
-			link = sky.pair_by_id(i,error)
-			cluelist = god.logs.get(link)
-
-			agnames = tuple(clue.agent.name for clue in cluelist)
-		
-			for agent in agnames:
-				if agent in reportdict['false positive']:
-					errtimes = reportdict['false positive'][agent][0] # agent clue'd one time on a wrong link of that category
-				else:
-					errtimes = 0
-					
-				errtimes += 1
-				
-				hisclues = [clue for clue in cluelist if clue.agent.name == agent]
-				hisclue = hisclues[0]
-				value = hisclue.value
-				
-				if agent in reportdict['false positive']:
-					preavg = reportdict['false positive'][agent][1]
-					avg = (preavg + value) / 2
-				else:
-					avg = value
-					
-				reportdict['false positive'][agent] = (errtimes,avg) # number of times agent mistaked, average confidence in his mistakes
-					
-		print()
-		for i in reportdict['false positive']:	
-			print("\tAgent {} clue'd {} times; with an avg confidence (unweighted) of {}."
-			"".format(i,reportdict['false positive'][i][0],crop_at_nonzero(reportdict['false positive'][i][1])))
-		
-	### Main Loop
-	
-	while True:
-		avail = {	'n': gonext,
-					'e' : None,
-					'm': moredata,
-					'f': writeinsult,
-					'F': fullcompare,
-					'' : None}
-		
-		funcs = [gonext,moredata,writeinsult]
-		print()
-		print("'n' or Enter: next, 'e':exit, 'm': more data, 'F': full compare (unspecific)")
-		print()
-		
-		choice = input(' :) ')
-		choice = choice.strip()
-		print(center(' chosen "{}" '.format(choice),space = '#'))
-		print()
-		
-		if choice in avail:
-			out = avail[choice] 
-			if hasattr(out,'__call__'):
-				out() # call the function
-			else:
-				if choice == 'e':
-					print()
-					print('exiting')
-					print()
-					break
-				elif choice == '':
-					print(center('building report for next item... '))
-					print(center('',space = '-'))
-					gonext()
-
-						
 # setups
 
 def setup_full_sky():
@@ -728,6 +479,8 @@ def variousnumbers():
 		b = redict[a]
 		c = uniquec[a]
 		
+		if entry == 'someonesuggested':
+			continue
 		angel = nametoangel[entry]
 		d = accuracy[angel]
 		weights = [clue.weightedvalue() for clue in angel.clues]
@@ -756,6 +509,9 @@ def variousnumbers():
 	
 	for pair in clues.god.logs:
 		
+		if not clues.ss.ispair(pair):
+			continue
+		
 		lenlog = len(clues.god.logs[pair])
 		cluesperpair += lenlog
 		if clues.algs.someonesuggested(pair):
@@ -779,7 +535,12 @@ def variousnumbers():
 	ranks = clues.god.rankcounter()
 	for entry in ranks:
 		correct = nologs_to_nopairs_if_correct[entry] # number of correct links with (entry) number of logged clues
-		print('\tThere were {} pairs with {} clues. Of them, {} were actually correct.'.format(ranks[entry],entry,correct))
+		if correct:
+			pcorrect = cropfloat(correct/ranks[entry],5)
+		else:
+			pcorrect = 0
+			
+		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%)'.format(ranks[entry],entry,correct,pcorrect))
 	print()
 
 def find_duplicates(vb=False):
@@ -798,6 +559,254 @@ def find_duplicates(vb=False):
 					print('ERROR: log {}; agent {} is logged {} times.'.format(clue,name,duplicates[name]))	
 		if vb:
 			print(names)
+
+def interactive_error_analysis():
+	
+	if not hasattr(clues,'compared_results'):
+		compare_god_beliefs_against_actual_links()
+		
+	cr = clues.compared_results
+	errors = ( cloudid for cloudid in cr if set(cr[cloudid]['suggested_links_ranked']) != set(cr[cloudid]['actual_links']) )
+	
+	print('-'*100 + '\n' + center('Interactive Error Spotter v0.1',100) + '\n' + '-'*100)
+	
+	global CURERROR
+	CURERROR = None
+	
+	def gonext():
+		nerror = next(errors)
+		global CURERROR
+		CURERROR = nerror
+		cloud = clues.sky.get_cloud(nerror)
+		
+		print('The system made some mistakes while evaluating links for cloud id [{}], that is: [{}].'.format(nerror,cloud.get_header()))
+		sugg = clues.compared_results[nerror]['suggested_links_ranked']
+		actual = clues.compared_results[nerror]['actual_links']
+		
+		
+		
+		print('Predicted links (ranked): {}\n'.format(sugg))
+		print('Actual links (unsorted): {}\n'.format(actual))
+		
+		ints = set(actual).intersection(set(sugg))
+		print('Caught links: [{}]'.format( list(ints) ))
+		print('\t (Accuracy: [{}])'.format(len( ints ) / len(set(actual).union(set(sugg)))))
+		
+		try:
+			print('\t (Recall: [{}])'.format(  len( ints.intersection(set(actual)) ) / len(ints) ))
+		except ZeroDivisionError:
+			print('(Nothing to recall.)')
+			
+		print()
+		print(center(' CONFIDENCE RATIOS BY ALGORITHM '))
+		
+		gbels = {} # from link (int) to god belief' in the pair (link,nerror)
+		for link in ints:
+			pair = sky.pair_by_id(link,nerror) # the cloudpair
+			bel = god.believes(pair) 
+			bel = float(str(bel)[:4])
+			gbels[link] = bel
+			
+		print('Confidence ratios (on wrong links containing item [{}]) *and responsibles* are:\n'.format(nerror))
+		for entry in gbels:
+			
+			logs = god.logs[ sky.pair_by_id(entry,nerror) ]
+			if not logs:
+				print(entry,nerror,'FUCK',sky.pair_by_id(entry,nerror), sky.pair_by_id(entry,nerror) in god.beliefs,sky.pair_by_id(entry,nerror) in god.logs )
+				return
+			
+			agents = set(log.agent for log in logs)
+			
+			responsibles = ', '.join([agent.name for agent in agents])
+			
+			print('\t\t {} --> {}\t\t [{}]'.format((entry,nerror),gbels[entry],responsibles))
+		
+		vals = list(gbels.values())
+		if vals:
+			avg = sum(gbels.values()) / len(gbels.values())
+		else:
+			avg = 'n/a'
+			
+		print('\t .. averaging to {}.'.format(avg))
+		
+		false_positives = set(sugg).difference(set(actual)) # suggested which are not true
+		
+		if false_positives:
+			wavg = sum([god.believes(sky.pair_by_id(t,nerror)) for t in false_positives]) / len(false_positives)
+		else:
+			wavg = 'n/a'
+			
+	
+		false_negatives = set(actual).difference(set(sugg)) # true links which were not suggested
+
+		
+		print('Confidence ratios *on false positives* averaged to {}.'.format(wavg))
+		print('\t And they were {}.\n'.format(list(false_positives)))
+		print('False negatives were {}.\n'.format(list(false_negatives)))
+	
+	def moredata():
+		print()
+		print(center('> more data <',100,'-'))
+		print()
+		global CURERROR
+		error = CURERROR
+		
+		cloud = clues.sky.get_cloud(error)
+		
+		sugg = clues.compared_results[error]['suggested_links_ranked']
+		actual = clues.compared_results[error]['actual_links']		
+		
+		missed = set(actual).difference(set(sugg)) # false negatives
+		caught = set(actual).intersection(set(sugg)) # right
+		excess = set(sugg).difference(set(actual)) # false positives
+		
+		cmissed = tuple(sky.get_cloud(cid) for cid in missed)
+		ccaught = tuple(sky.get_cloud(cid) for cid in caught)
+		cexcess = tuple(sky.get_cloud(cid) for cid in excess)
+		
+		m = Counter(cid.item['type'] for cid in cmissed)
+		c = Counter(cid.item['type'] for cid in ccaught)
+		e = Counter(cid.item['type'] for cid in cexcess)
+		
+		print('By type: ')
+		for counter in [(m,'false negatives'),(c,'correct links'),(e,'false positives')]:
+			if not counter[0]:
+				continue
+			print('\t [{}] links by type:'.format(counter[1]))
+			print('\t\t    ',counter[0])
+		
+		gt = clues.ss.grab_text
+		erritem = sky.data.item(error)
+		lerror = len(gt(erritem,list(erritem.keys())))
+		
+		em = tuple(len(gt(cloud.item,list(cloud.item.keys()))) for cloud in cmissed)
+		ec = tuple(len(gt(cloud.item,list(cloud.item.keys()))) for cloud in ccaught)
+		ee = tuple(len(gt(cloud.item,list(cloud.item.keys()))) for cloud in cexcess)
+		
+		print('By approximate quantity of text: ')
+		print('\t ( item {} had {} characters of text )'.format(error,lerror))
+		print()
+		for count in [(em,'false negatives'),(ec,'correct links'),(ee,'false positives')]:
+			
+			print('\t for [{}]:'.format(count[1]))
+			
+			if not count[0]:
+				print('\t\t Nothing to report.')
+				continue
+			
+			if count[0]:
+				avg = sum(count[0])/len(count[0])
+				print('\t\t average: {}'.format(avg))
+			
+			def approx(num,steps = [10,100,500,1000,1500,2000,2500,3000,3500,4000,5000,8000,10000],numeric = False,upperbound = False):
+				
+				if num < min(steps):
+					if upperbound: return min(steps)
+					if numeric: return (0,num,min(steps))
+					return '{} < {} (min)'.format(num,min(steps))
+				
+				if num > max(steps):
+					if upperbound: return max(steps)
+					if numeric: return (steps[len(steps)-2],num,max(steps))
+					return '{} > {} (max)'.format(num,max(steps))
+					
+				prestep = 0
+				for step in steps:
+					
+					if num <= step:
+						if upperbound: return step
+						if numeric: return (prestep,num,step)
+						return '{} < {} < {}'.format(prestep,num,step)
+					
+					prestep -= prestep
+					prestep += step
+					
+				raise BaseException("Shouldn't reach this.")
+			
+			upperbounds = Counter(approx(lencount,upperbound = True) for lencount in count[0])
+			
+			print("\t\t length of text // number of items:")
+			print()
+			for ub in upperbounds.most_common(): # [(key,value)]
+				print("\t\t\t >> {} items had less than {} characters.".format(ub[1],ub[0]))
+		
+		print()
+		print(center(' MAIN RESPONSIBLES FOR FALSE POSITIVES '))
+		
+		sugg = clues.compared_results[error]['suggested_links_ranked']
+		actual = clues.compared_results[error]['actual_links']
+		
+		reportdict = {'false positive': {}} # false positives and false negatives
+		falsepos = set(sugg).difference(set(actual))
+		
+		for i in falsepos: # these are all false positives for this error! That is: all other cloud IDs who ever were wrongly paired with error.
+			
+			# agents who clue'd on (i,error) link
+			
+			link = sky.pair_by_id(i,error)
+			cluelist = god.logs.get(link)
+
+			agnames = tuple(clue.agent.name for clue in cluelist)
+		
+			for agent in agnames:
+				if agent in reportdict['false positive']:
+					errtimes = reportdict['false positive'][agent][0] # agent clue'd one time on a wrong link of that category
+				else:
+					errtimes = 0
+					
+				errtimes += 1
+				
+				hisclues = [clue for clue in cluelist if clue.agent.name == agent]
+				hisclue = hisclues[0]
+				value = hisclue.value
+				
+				if agent in reportdict['false positive']:
+					preavg = reportdict['false positive'][agent][1]
+					avg = (preavg + value) / 2
+				else:
+					avg = value
+					
+				reportdict['false positive'][agent] = (errtimes,avg) # number of times agent mistaked, average confidence in his mistakes
+					
+		print()
+		for i in reportdict['false positive']:	
+			print("\tAgent {} clue'd {} times; with an avg confidence (unweighted) of {}."
+			"".format(i,reportdict['false positive'][i][0],crop_at_nonzero(reportdict['false positive'][i][1])))
+		
+	### Main Loop
+	
+	while True:
+		avail = {	'n': gonext,
+					'e' : None,
+					'm': moredata,
+					'F': fullcompare,
+					'' : None}
+		
+		funcs = [gonext,moredata]
+		print()
+		print("'n' or Enter: next, 'e':exit, 'm': more data, 'F': full compare (unspecific)")
+		print()
+		
+		choice = input(' :) ')
+		choice = choice.strip()
+		print(center(' chosen "{}" '.format(choice),space = '#'))
+		print()
+		
+		if choice in avail:
+			out = avail[choice] 
+			if hasattr(out,'__call__'):
+				out() # call the function
+			else:
+				if choice == 'e':
+					print()
+					print('exiting')
+					print()
+					break
+				elif choice == '':
+					print(center('building report for next item... '))
+					print(center('',space = '-'))
+					gonext()
+
 
 # long tests
 
@@ -842,7 +851,7 @@ def store_belief_set(god = None,nameoffile=None):
 	time = clues.ss.time.gmtime()
 	
 	if nameoffile is None:
-		nameoffile = 'god_belief_set_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(time.tm_mday,time.tm_mon,time.tm_year,time.tm_hour,time.tm_min,time.tm_sec))
+		nameoffile = './gods/god_belief_set_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(time.tm_mday,time.tm_mon,time.tm_year,time.tm_hour,time.tm_min,time.tm_sec))
 	
 	with open(nameoffile,'ab+') as storage:
 		
@@ -874,7 +883,7 @@ def load_god(nameoffile = 'mostrecent'):
 		
 		while True:
 
-			nameoffile = 'god_belief_set_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(day,month,year,hour,minu,sec))
+			nameoffile = './gods/god_belief_set_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(day,month,year,hour,minu,sec))
 			
 			try:
 				doc = open(nameoffile,'rb')
@@ -912,7 +921,6 @@ def load_god(nameoffile = 'mostrecent'):
 				return False
 			pass
 				
-		
 	else:
 		doc = open(nameoffile,'rb')
 	
@@ -932,7 +940,7 @@ def store_sky(sky = None,nameoffile = None):
 	time = clues.ss.time.gmtime()
 
 	if nameoffile is None:
-		nameoffile = 'sky_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(time.tm_mday,time.tm_mon,time.tm_year,time.tm_hour,time.tm_min,time.tm_sec))
+		nameoffile = './gods/sky_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(time.tm_mday,time.tm_mon,time.tm_year,time.tm_hour,time.tm_min,time.tm_sec))
 	
 	with open(nameoffile,'ab+') as storage:
 		
@@ -963,7 +971,7 @@ def load_sky(nameoffile = None):
 		
 		while True:
 
-			nameoffile = 'sky_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(day,month,year,hour,minu,sec))
+			nameoffile = './gods/sky_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(day,month,year,hour,minu,sec))
 			
 			try:
 				doc = open(nameoffile,'rb')

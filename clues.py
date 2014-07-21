@@ -10,6 +10,7 @@ AGENTS = []
 GUARDIANANGELS = []
 god = None
 
+feedback_inertia = 0.02 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
 inertia = 0.2 # pertenth of the previous belief which is maintained no-matter-what
 
 class Clue(object):
@@ -138,9 +139,7 @@ class Clue(object):
 	
 class Agent(object):
 	
-	idcounter = 0
-	clues = []
-	
+	idcounter = 0	
 	def __init__(self,name = 'Anonymous'):
 		
 		self.name = name
@@ -189,17 +188,7 @@ class Agent(object):
 			a.item = deepcopy(self.item)
 		
 		return a
-		
-	def make_god(self):
-		
-		global god
-		
-		if god is None:
-			self = God()
-			god = self
-		else:
-			self = god
-			
+
 	def evaluate(self,what,howmuch):
 		"""
 		Formulates a Clue about what, judging it howmuch.
@@ -236,11 +225,18 @@ class Agent(object):
 		automatically generated that rate its clues.)
 		"""
 		
-		global inertia
+		global feedback_inertia
 		
-		inertial_trust = self.stats['trustworthiness'] * inertia
+		self.logs = [c for c in self.logs if c.agent != clue.agent] # no multiple feedback	
+		inertial_trust = self.stats['trustworthiness'] * feedback_inertia # this will be retained no-matter-what
+		# reevaluate everything (?)
 		
-		tw = ( self.stats['trustworthiness'] + clue.value ) / 2 + inertial_trust
+		tw = 1
+		for logged in self.logs:
+			ow = tw
+			tw -= tw
+			tw += (( ow + logged.weightedvalue() ) / 2 )+ inertial_trust
+		
 		self.stats['trustworthiness'] = min([ tw, 1.0 ])
 		
 		self.logs.append(clue)
@@ -370,6 +366,12 @@ class GuardianAngel(Agent,object):
 			algs.someonesuggested: 'know'}
 			
 		return transdict.get(self.alg,'Notanalgorithm')	
+	
+	
+	# consultation and evaluation functions
+	def consult(self):
+		global god
+		return god.consult(self)
 			
 	def evaluate(self,what,silent = False,consider = True):
 		"""
@@ -512,7 +514,37 @@ class GuardianAngel(Agent,object):
 			out[angel] = outangel
 		
 		return out
+	
+	def give_feedback(self,agent,refresh = False,topno = None):
+		"""
+		Takes all agent's clues and gives his own feedback to them (if his
+		judgement is nonzero).
+		Overrides whisperpipe.
+		"""
+		
+		if not isinstance(agent, Agent):
+			raise TypeError()
+		
+		cluestovalue = agent.clues
+		
+		for clue in cluestovalue:
 			
+			if topno:
+				if topno > cluestovalue.index(clue):
+					return True
+			
+			if refresh or clue.about not in self.evaluation:
+				eva = self.evaluate(clue.about,silent = True) # refreshes the evaluation
+			
+			else:
+				eva = self.evaluation.get(clue.about)
+		
+			# self's opinion on the clue's about.
+			if eva is not None: # if evaluation is none, self just doesn't know what the clue's about
+				feedback = Clue(agent,eva,self)
+		
+		return True
+		
 class God(Agent,object):
 	"""
 	The Allmighty.
@@ -940,7 +972,7 @@ class God(Agent,object):
 				
 			vals = (clue.value,responsibilities[responsible])
 			
-			our_rating = 1 - (max(vals) - min(vals)) # between 0 and 1, depends on how much the two evaluations differ 
+			our_rating = (max(vals) - min(vals)) # between 0 and 1, depends on how much the two evaluations differ 
 			
 			Clue(responsible, our_rating, agent = whispering)
 				# we spawn a clue on the whisperer's behalf, about the responsible's trustworthiness
@@ -949,21 +981,25 @@ class God(Agent,object):
 	
 
 	# GUARDIAN ANGELS, CONSULT and CONSIDER			
-	def spawn_servants(self):
+	def spawn_servants(self,overwrite = False):
 		"""
 		Creates all GuardianAngels
 		"""	
 		
 		global GUARDIANANGELS
-		GUARDIANANGELS = []
-		self.guardianangels = []
+		if overwrite: GUARDIANANGELS = []
+		if overwrite: self.guardianangels = []
 		
 		algos = algs.ALL_ALGS # plain list of all algorithms defined in algorithms
 		
+		gasbyalg = [ga.algorithm for ga in self.guardianangels]
+		
 		for algorithm in algos:
-			GA = GuardianAngel(algorithm)
-			GUARDIANANGELS.append(GA)
-			self.guardianangels.append(GA)
+			if algorithm not in gasbyalg:
+				GA = GuardianAngel(algorithm)
+				GUARDIANANGELS.append(GA)
+				self.guardianangels.append(GA)
+		return True
 	
 	def consider(self, number = False,verbose = False):
 		"""
@@ -1085,7 +1121,7 @@ class God(Agent,object):
 		"""
 		
 		for angel in self.guardianangels:
-			if not angel.consulted:
+			if isinstance(angel,GuardianAngel) and not angel.consulted:
 				return self.consult(angel,verbose,consider,local)
 		
 	def consult_missing(self,verbose = True, consider = False,local = False):
@@ -1097,7 +1133,7 @@ class God(Agent,object):
 		reg = self.consultations_registry()
 		toconsult = []
 		for ga in reg:
-			if not reg[ga]:
+			if not reg[ga] and isinstance(ga,GuardianAngel):
 				toconsult.append(ga)
 		
 		self.consult(toconsult,verbose,consider,local)
@@ -1111,8 +1147,13 @@ class God(Agent,object):
 		registry = {}
 		
 		for ga in self.guardianangels:
-			
 			registry[ga] = ga.consulted
+		
+		gasbyname = [ga.name for ga in self.guardianangels]
+		
+		for alg in algs.algsbyname:
+			if alg not in gasbyname:
+				registry[alg] = 0
 		
 		return registry
 	
