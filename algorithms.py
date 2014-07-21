@@ -624,7 +624,7 @@ def extended_core_overlap(clouda,cloudb):
 	and then these bags are compared.
 	"""
 	
-	coodict = sky.counters['coo']
+	coodict = clouda.sky.counters['coo']
 	
 	neighbours = {}
 	for pair in coodict:
@@ -644,14 +644,19 @@ def extended_core_overlap(clouda,cloudb):
 		acore = set(clouda.layers[i]['core'])
 		bcore = set(cloudb.layers[i]['core'])
 		
+		nacore = set()
+		nbcore = set()
+		
 		for word in acore:
-			acore.update(neighbours.get(word,[]))
+			nacore.update(neighbours.get(word,[]))
+			nacore.add(word)
 		
 		for word in bcore:
-			bcore.update(neighbours.get(word,[]))
+			nbcore.update(neighbours.get(word,[]))
+			nbcore.add(word)
 			
-		ovlp = acore.intersection(bcore)
-		unio = acore.union(bcore)
+		ovlp = len(nacore.intersection(nbcore))
+		unio = len(nacore.union(nbcore))
 		
 		if unio:
 			out += ovlp / unio
