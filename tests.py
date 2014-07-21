@@ -4,6 +4,8 @@ import random
 from itertools import permutations
 from collections import Counter
 
+someonesuggested = clues.algs.Algorithm.builtin_algs.someonesuggested
+
 """
 Collection of tests to be run on the framework.
 """
@@ -212,7 +214,9 @@ def downertest():
 					
 # setups
 
-def setup_full_sky():
+def setup_full():
+	
+	print('hold comfy... this will take a long while.')
 		
 	clues.sky = ss.SemanticSky()
 	clues.god = God(sky)
@@ -237,7 +241,7 @@ def consult_actual_links():
 	This may be the first step for a backpropagation.
 	"""
 	
-	knower = clues.GuardianAngel(clues.algs.someonesuggested)
+	knower = clues.GuardianAngel(someonesuggested)
 	clues.god.consult([knower],consider = True)
 	return True
 
@@ -398,7 +402,7 @@ def percent_related_items():
 	noflinks = len([ p for p in permutations(clues.sky.sky,2) ])
 	
 	iterpairs = clues.sky.iter_pairs()
-	ap = len([ pair for pair in iterpairs if clues.algs.someonesuggested(*pair) ]) / noflinks
+	ap = len([ pair for pair in iterpairs if someonesuggested(*pair) ]) / noflinks
 	
 	pp = len(clues.god.beliefs) / noflinks
 	
@@ -409,7 +413,7 @@ def variousnumbers():
 	
 	print( '(creating the Knower...)')
 	 
-	knower = clues.GuardianAngel(clues.algs.someonesuggested)
+	knower = clues.GuardianAngel(someonesuggested)
 	knower.evaluate_all(express = False)
 	print()
 	
@@ -468,7 +472,7 @@ def variousnumbers():
 		if len(agents) == 1:
 			uniquec.update(agents)
 		
-		if clues.algs.someonesuggested(log): # if the link was actually suggested...
+		if someonesuggested(log): # if the link was actually suggested...
 			for clue in set(cluelist):
 				accuracy[clue.agent] += 1
 	
@@ -492,7 +496,7 @@ def variousnumbers():
 			perc = perc[:4]
 			
 		avconf_corr = 0
-		corrclues = [clue.weightedvalue() for clue in angel.clues if clues.algs.someonesuggested(clue.about)]
+		corrclues = [clue.weightedvalue() for clue in angel.clues if someonesuggested(clue.about)]
 		avconf_corr = sum(corrclues) / len(corrclues) if corrclues else 'n/a'
 			
 		print(' @Algorithm {}: \n\tspawned a total of {} clues; of which {} were unique. {} of them were accurate (according to starfish links) ( {} %)'.format(a,b,c,d,perc))
@@ -514,7 +518,7 @@ def variousnumbers():
 		
 		lenlog = len(clues.god.logs[pair])
 		cluesperpair += lenlog
-		if clues.algs.someonesuggested(pair):
+		if someonesuggested(pair):
 			corspotted += 1
 			corclues += lenlog
 		

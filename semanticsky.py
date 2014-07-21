@@ -21,6 +21,17 @@ import math
 class Data():
 	"""
 	reimplementation of Tweedejaars' DataWrapper
+	Handles the interaction starfish db - semanticsky.
+	Can be easily adapted to fit different data structures.
+	
+	The default one however has the following form:
+	
+	{'data': {'some_unique_id': { information }}
+	'tags':{}}
+	
+	requirement: the data structure should be a dictionary from unique IDs
+	to dictionaries.
+
 	"""
 	def __init__(self,filepath,fill = True,debug = False):
 		
@@ -40,6 +51,10 @@ class Data():
 	def wrap(self):
 		"""
 		Loads the pickled export, and gives to each item its own id.
+		
+		requirement: the data structure should be a dictionary from unique IDs
+		to dictionaries.
+		
 		"""
 		
 		f = open(self.filepath,'rb')
@@ -52,11 +67,15 @@ class Data():
 	
 	# DataWrapper functions							
 	def item(self,ID):
-		
+		"""
+		Yields an item in the data, given its unique ID
+		"""
 		return self.oridata['items'][ID]
 		
 	def items(self):
-
+		"""
+		Generator of IDs of all items.
+		"""
 		for itemid in self.oridata['items']:
 			yield itemid
 	
@@ -950,8 +969,7 @@ class Cloud():
 		if item['type'] == "Person":
 			zero_layer['names'].update([item['name']])
 			
-		nucleus = [self.item.get('text',''),self.item.get('about',''),self.item.get('headline',''),self.item.get('title','')]
-		
+		nucleus = [self.item.get('text',''),self.item.get('about',''),self.item.get('headline',''),self.item.get('title',''),self.item.get('aliased_glossary','')]		
 		if self.item.get('glossary'): # if the item is a tag, crucial part of the description will be the glossary.
 									  # the aliases-handling which took place at DataWrapper level will ensure that
 									  # there is only one tag per alias-group, and that its glossary is a string
@@ -967,6 +985,7 @@ class Cloud():
 		zero_layer['web_sources'].update(clinks)
 		zero_layer['names'].update(cnames)
 		zero_layer['tags'].update( self.item.get('tags',[]) )
+		zero_layer['tags'].update( self.item.get('alias_of',[]) )
 		
 		# COO Handling
 		coodict = Counter()
@@ -1084,3 +1103,49 @@ class Cloud():
 		for i in range(len(self.layers)):
 			self.layers[i]['core'] = candidates[:min((len(candidates),15))]
 	
+class SuperCloud(Cloud):
+	
+	def __init__(self,cloudlist,automerge = True):
+		
+		if not isinstance(cloudlist,list):
+			raise TypeError()
+		
+		for cloud in cloudlist:
+			if not isinstance(cloud,Cloud):
+				raise TypeError()
+		
+		self.cloudlist = cloudlist
+		self.IDlist = tuple(cloud.item['id'] for cloud in cloudlist)
+		if automerge: self.merge()
+		
+	def merge(self):
+		
+		"""
+		Makes its layers be the sum of the underlying clouds' layers.
+		"""
+		
+		for cloud in self.cloudlist:
+			for i in range(len(cloud.layers)):
+				
+				for key in cloud.layers[i]:
+					try:
+						self.layers[i][key] += cloud.layers[i]
+						continue
+					except BaseException():
+						pass
+					try:
+						self.layers[i][key].update( cloud.layers[i] )
+						continue
+					except BaseException():
+						pass					
+
+					try:
+						self.layers[i][key].extend(cloud.layers[i])
+						continue
+					except BaseException():
+						pass
+						
+		
+			
+		
+		

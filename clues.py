@@ -11,7 +11,7 @@ GUARDIANANGELS = []
 god = None
 
 feedback_inertia = 0.02 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
-inertia = 0.2 # pertenth of the previous belief which is maintained no-matter-what
+belief_inertia = 0.2 # pertenth of the previous belief which is maintained no-matter-what
 
 class Clue(object):
 	"""
@@ -32,6 +32,17 @@ class Clue(object):
 	a clue is its INTENDED strength. Its effective strength depends on its
 	author's trustworthiness (which yes, depends on the feedback received
 	on her own clues.)
+	
+	Example usage:
+	
+	# you can create a custom agent: pietro = clues.Agent('pietro')
+	# and then myclue = Clue(link,0.3,pietro)
+	# or better pietro.evaluate(link,0.3)
+	# if agent is not given, author of the clue will be 'Anonymous'
+	myclue = Clue(link,0.3)
+	# myclue will be considered by god and it's beliefstate will be influenced
+	# by its weighted value; that is: a combination of its confidence (0.3
+	# in this case) and the trustworthiness of its author, by default 0.6.
 	"""
 	
 	def __init__(self,about,value,agent = 'god',autoconsider = True):
@@ -560,8 +571,10 @@ class God(Agent,object):
 		
 		del self.item
 		self.birthdate = ss.time.gmtime()
+		self.guardianangels = []
 		self.whisperers = []
 		self.logs = {}
+		self.name = 'Yahweh'
 		self.stats['trustworthiness'] = 1
 		
 	def get_sky(self):
@@ -672,7 +685,8 @@ class God(Agent,object):
 		
 		###### UPDATE ALGORITHM
 		
-		global inertia
+		global belief_inertia
+		inertia = belief_inertia
 		
 		VALUE = clue.weightedvalue()
 		
@@ -813,11 +827,11 @@ class God(Agent,object):
 		Useful for pickling god.
 		"""
 		
-		global CLUES,AGENTS,inertia
+		global CLUES,AGENTS,belief_inertia
 		
 		self.CLUES = CLUES
 		self.AGENTS = AGENTS
-		self.inertia = inertia
+		self.inertia = belief_inertia
 		
 		return True
 	
@@ -1332,17 +1346,6 @@ class God(Agent,object):
 		
 		return None
 		
-def init_base():
-	global sky
-	sky = ss.SemanticSky()
-	global god
-	god = God()
-	
-	knower = GuardianAngel(algs.someonesuggested)
-	god.consult([knower],consider = True)
-	god.consult(consider = True)
-	
-	print('[ all done. ]')
 	
 	
 
