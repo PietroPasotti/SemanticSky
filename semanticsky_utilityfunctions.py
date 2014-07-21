@@ -170,7 +170,19 @@ def grab_text(item,keys = ('name','title','about','text','headline')):
 	"""
 	Takes as input an item's dictionary; outputs a string.
 	"""
-	val = ' '.join([item.get(k, '') for k in keys])
+	
+	val = ''
+	if 'tags' in keys:
+		keys.remove('tags')
+		for tag in item['tags']:
+			val += tag + ' '
+	
+	for k in keys:
+		v = item.get(k,'')
+		if v:
+			vs = str(v)
+			val += vs
+
 	return preprocess(val) 
 
 def to_sentences_text(item):

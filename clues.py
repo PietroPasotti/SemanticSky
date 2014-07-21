@@ -140,6 +140,7 @@ class Agent(object):
 	
 	idcounter = 0
 	clues = []
+	
 	def __init__(self,name = 'Anonymous'):
 		
 		self.name = name
@@ -147,6 +148,9 @@ class Agent(object):
 						'expertises': [],
 						'communities': [],
 						'blocked' : False}
+		
+		Agent.idcounter += 1
+		self.ID = deepcopy(Agent.idcounter)
 						
 		self.item = None 	# this can be set to the agent's corresponding starfish item (a dict),
 							# 	if the agent's user has a page
@@ -155,8 +159,6 @@ class Agent(object):
 						
 		if not isinstance(self,GuardianAngel) and not isinstance(self,God):
 			AGENTS.append(self)
-		if self.name == 'god':
-			self.make_god()
 	
 	def __str__(self):
 		return "< Agent {}.>".format(self.name)
@@ -164,16 +166,19 @@ class Agent(object):
 	def __repr__(self):
 		return "< Agent {}.>".format(self.name)
 	
-	def unique_id(self):
+	def __hash__(self):
+		
+		return self.ID
+	
+	def unique_name(self):
 		"""
 		What if there are two Agent Smith?
 		"""
-		
-		uniqueid = Agent.idcounter
-		Agent.idcounter += 1
-		
-		uniqueid = self.name + '#' + str(uniqueid)
+		uniqueid = self.name + '#' + str(self.ID)
 		return uniqueid
+	
+	def shortname(self):
+		return 'Agent#{}'.self.ID
 	
 	def __deepcopy__(self,memo):
 		
@@ -302,6 +307,8 @@ class GuardianAngel(Agent,object):
 	- GuardianAngel can't reinforce or weaken each other: they can take feedback
 	only on behalf of normal agents or god.
 	"""
+	
+	guardianid = 0
 
 	def __init__(self,algorithm):
 		super().__init__(algorithm.__name__)
@@ -314,6 +321,9 @@ class GuardianAngel(Agent,object):
 		self.clues = [] # Clues objects
 		self.consulted = False
 		
+		GuardianAngel.guardianid += 1 # counts the GA's spawned
+		self.ID = deepcopy(GuardianAngel.guardianid)
+		
 		GUARDIANANGELS.append(self)
 		
 	def __str__(self):
@@ -321,7 +331,46 @@ class GuardianAngel(Agent,object):
 		
 	def __repr__(self):
 		return "< GuardianAngel {} >".format(self.name)
+	
+	def __eq__(self,other):
+		"""
+		Returns true iff the NAME of the two angels is the same; that's
+		equivalent to 'having the same algorithm'. 
+		"""
 		
+		try:
+			if self.name == other.name or self.algorithm == other.algorithm:
+				return True
+		except BaseException:
+			pass
+			
+		return False
+	
+	def __hash__(self):
+		return self.ID
+	
+	def shortname(self):
+		"""
+		Returns a max 4-characters name.
+		"""
+		
+		transdict = {algs.tf_weighting : 'tf',
+			algs.tf_idf_weighting: 'idf',
+			algs.coo_dicts_overlap_v1 : 'coo1',
+			algs.coo_dicts_overlap_v2 : 'coo2',
+			algs.coo_dicts_neighbour : 'cooN',
+			algs.coo_dicts_extended_neighbour: 'Ecoo',
+			algs.tag_overlap:'tago',
+			algs.extended_name_comparison: 'Enam', 
+			algs.naive_name_comparison: 'name',
+			algs.tag_similarity_naive: 'tags',
+			algs.tag_similarity_extended : 'Etag',
+			algs.naive_core_overlap : 'core',
+			algs.extended_core_overlap : 'corE',
+			algs.someonesuggested: 'know'}
+			
+		return transdict.get(self.alg,'Notanalgorithm')	
+			
 	def evaluate(self,what,silent = False,consider = True):
 		"""
 		what must be a pair-of-clouds instance, for the moment.
@@ -367,9 +416,8 @@ class GuardianAngel(Agent,object):
 			iterpairs = sky.iter_pairs()
 			self.consulted = True
 			
-		pairlist = list(iterpairs)
+		pairlist = tuple(iterpairs)
 		li = len(pairlist)
-		
 		
 		print('>judging over a {}-item cloud pairlist.<'.format(li))
 		
@@ -660,7 +708,14 @@ class God(Agent,object):
 		
 		return len(ss.lsum(list(self.logs.values())))
 		
+	def flowlogs(self):
+		"""
+		Returns a generator for all clues in god's logs.
+		"""
 		
+		for loglist in self.logs.values():
+			for log in loglist:
+				yield log
 	
 	def get_clues(self,about):
 		"""
@@ -1061,6 +1116,43 @@ class God(Agent,object):
 		
 		return registry
 	
+	def get_angel_plus(self,algorithm):
+		"""
+		Like get_angel, but also creates the angel and appends it to self.
+		guardianangels if not present already.
+		"""
+		
+		if not hasattr(algorithm,'__call__') and not getattr(algs,algorithm.__name__): # checks that algorithm is really an algorithm
+			raise TypeError('Bad input type: I need an algorithm from algorithms, got an {} instead'.format(type(algorithm)))
+			
+		
+		angel = [ga for ga in self.guardianangels if ga.name == algorithm.__name__]
+		
+		if len(angel) != 1:
+			raise BaseException("Something wrong: angel is {}".format(angel))
+		
+		if not angel:
+			angel = GuardianAngel(algorithm)
+			self.guardianangels.append(angel)
+		else:
+			angel = angel[0]
+			
+		return angel
+	
+	def get_angel(self,algorithm):
+		"""
+		Returns the guardianangel with the given algorithm.
+		If he hasn't it, returns false.
+		"""
+		angel = [ga for ga in self.guardianangels if ga.name == algorithm.__name__]
+		
+		if len(angel) != 1:
+			raise BaseException("Something wrong: angel is {}".format(angel))
+	
+		angel = angel[0]
+			
+		return angel
+		
 	
 	# BELIEF MANAGEMENT
 	def believes(self,something):
