@@ -2,13 +2,14 @@ import algorithms as algs
 import semanticsky as ss
 from copy import deepcopy
 from group import Group
-from semanticsky import pickle
-from math import sqrt
+pickle = ss.pickle
+sqrt = algs.sqrt
 
 CLUES = []
 AGENTS = []
 GUARDIANANGELS = []
 god = None
+anonymous = None
 
 feedback_inertia = 0.02 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
 belief_inertia = 0.2 # pertenth of the previous belief which is maintained no-matter-what
@@ -45,7 +46,7 @@ class Clue(object):
 	# in this case) and the trustworthiness of its author, by default 0.6.
 	"""
 	
-	def __init__(self,about,value,agent = 'god',autoconsider = True):
+	def __init__(self,about,value,agent = 'Anonymous',autoconsider = True):
 		"""
 		Autoconsider: toggles queuing of clues.
 		"""
@@ -74,12 +75,18 @@ class Clue(object):
 		if agent == 'god' and god is None:
 			agent = Agent('god')
 		
+		if not isinstance(agent,Agent):
+			agent = Agent('Anonymous')
+			
 		self.agent = agent
-		
 		god.log(self)  #('   <<< [Warning:] unlogged Clue. God is missing. >>>')
 		
-		if hasattr(agent,'clues'):
-			agent.clues.append(self)
+		if self.cluetype == 'feedback':
+			if hasattr(agent,'feedbackclues'):
+				agent.feedbackclues.append(self)
+		else:	
+			if hasattr(agent,'clues'):
+				agent.clues.append(self)
 			
 		if autoconsider:
 			god.consider(self)
@@ -93,7 +100,7 @@ class Clue(object):
 	def __repr__(self):
 		
 		return "< {}-type Clue about {}, valued {} by {}. >".format(self.cluetype,self.about,self.value,self.agent)
-
+		
 	@property
 	def trustworthiness(self):
 		"""
@@ -130,7 +137,7 @@ class Clue(object):
 		if self in god.logs[self.about]: god.logs[self.about].remove(self)
 		if self in god.logs[self.about]: print(shit,2)
 																		# AGENT.clues
-		self.agent.clues.remove(self)
+		if self in self.agent.clues: self.agent.clues.remove(self)
 		if self in self.agent.clues: print(shit,3)
 																		# target agent's .logs
 		if self.cluetype == 'feedback':
@@ -165,6 +172,7 @@ class Agent(object):
 		self.item = None 	# this can be set to the agent's corresponding starfish item (a dict),
 							# 	if the agent's user has a page
 		
+		self.feedbackclues = []
 		self.logs = [] 		# will store all feedback clues received by the agent
 						
 		if not isinstance(self,GuardianAngel) and not isinstance(self,God):
@@ -228,6 +236,7 @@ class Agent(object):
 			self.nonzero -= 1
 		
 		clue.delete()
+		self.evaluate(clue.about)
 		
 	def receive(self,clue):
 		"""
@@ -237,8 +246,11 @@ class Agent(object):
 		"""
 		
 		global feedback_inertia
+	
 		
-		self.logs = [c for c in self.logs if c.agent != clue.agent] # no multiple feedback	
+		self.logs.append(clue) # we add the clue to logs.
+		
+		#self.logs = [c for c in self.logs if c.agent != clue.agent] # no multiple feedback	
 		inertial_trust = self.stats['trustworthiness'] * feedback_inertia # this will be retained no-matter-what
 		# reevaluate everything (?)
 		
@@ -249,8 +261,6 @@ class Agent(object):
 			tw += (( ow + logged.weightedvalue() ) / 2 )+ inertial_trust
 		
 		self.stats['trustworthiness'] = min([ tw, 1.0 ])
-		
-		self.logs.append(clue)
 	
 	def suggest_link(self,link,confidence):
 		"""
@@ -317,7 +327,7 @@ class GuardianAngel(Agent,object):
 	
 	guardianid = 0
 
-	def __init__(self,algorithm):
+	def __init__(self,algorithm,ghost = False,whisperer = False):
 		super().__init__(algorithm.__name__)
 		
 		self.zero = 0
@@ -333,6 +343,15 @@ class GuardianAngel(Agent,object):
 		
 		GUARDIANANGELS.append(self)
 		
+		if ghost: # we tell god to ignore self.
+			if not hasattr(god,'ignoreds'):
+				god.ignoreds = [] # for backwards compatibility
+			god.ignore(self)
+			self.ghost = True
+			
+		if whisperer:
+			self.makewhisperer()
+
 	def __str__(self):
 		return "< GuardianAngel {} >".format(self.name)
 		
@@ -412,9 +431,11 @@ class GuardianAngel(Agent,object):
 		if silent:
 			return None
 				
-		myclue = Clue(what,evaluation,self,autoconsider = consider)
-		
-		return myclue
+		if not self.ghost:
+			myclue = Clue(what,evaluation,self,autoconsider = consider)
+			return myclue
+		else:
+			return None
 	
 	def evaluate_all(self,iterpairs = None,express = True,verbose = True):
 		"""
@@ -447,17 +468,29 @@ class GuardianAngel(Agent,object):
 				
 				
 			i += 1
+	
+	def revaluate(self,what,express = True):
+		"""
+		"""
+		if clue not in self.clues:
+			raise Warning('Not a clue of mine: {}. I am {}.'.format(clue,self))
+			return None
 			
+		if clue.value > 0:
+			self.nonzero -= 1
+		
+		clue.delete()
+		self.evaluate(clue.about,consider = express)
+		god.reassess(clue)
+					
 	def revaluate_all(self,iterable_clouds = None, express = True, verbose = True):
 		"""
 		Deletes all angel's clues and reruns an evaluate_all on the clues' abouts
 		"""
 		
-		allinks = [clue.about for clue in self.clues]
+		allinks = tuple(clue.about for clue in self.clues)
 		
-		def customiter(linkslist):
-			 for link in linkslist:
-				 yield link
+		customiter = iter(allinks)
 			
 		for clue in self.clues:
 			clue.delete()
@@ -574,6 +607,7 @@ class God(Agent,object):
 		self.guardianangels = []
 		self.whisperers = []
 		self.logs = {}
+		self.ignoreds = []
 		self.name = 'Yahweh'
 		self.stats['trustworthiness'] = 1
 		
@@ -666,9 +700,12 @@ class God(Agent,object):
 		Where clue is a clue about anything believable by god.
 		"""
 		
+		if clue.agent in self.ignoreds:  ######### IGNORING
+			return None
+		
 		if not getattr(self,'beliefs'):
 			self.beliefs = {}
-			
+		
 		if not self.beliefs.get(clue.about,False):
 			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'
 					
@@ -901,8 +938,19 @@ class God(Agent,object):
 			trustdict[agent] = agent.trustworthiness
 			
 		return trustdict
-
 	
+	def unlog(self,angel):
+		"""
+		Removes all suggestions received from angel from the logs.
+		"""
+		
+		for log in self.logs:
+			for clue in self.logs[log]:
+				if clue.agent is angel:
+					self.logs[log].remove(clue)
+		return True
+		
+		
 	# WHISPERING
 	def update_whisperers(self):
 		"""
@@ -1039,7 +1087,7 @@ class God(Agent,object):
 			toread = restr_clues
 			if verbose: print('reading {} CLUES...'.format(number))
 			if not CLUES:
-				print('No clue!')
+				if verbose: print('No clue!')
 				return None
 		elif isinstance(number,Clue):
 			toread = [number]
@@ -1056,10 +1104,12 @@ class God(Agent,object):
 				return None
 						
 		for clue in toread:
-			if clue.cluetype in ['link','feedback','metaclue']:
+			if clue.cluetype in ['link','feedback']:
 				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
-				self.whisperpipe(clue) # check whether we have to whisper the clue
+				if clue.cluetype != 'feedback':
+					self.whisperpipe(clue) # check whether we have to whisper the clue
 				handler(clue) # the handler will handle
+
 			else:
 				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
 					
@@ -1208,6 +1258,11 @@ class God(Agent,object):
 			
 		return angel
 		
+	def ignore(self,agent):
+		if not isinstance(agent,Agent):
+			raise BaseException('Not an agent.')
+		self.ignoreds.append(agent)
+	
 	
 	# BELIEF MANAGEMENT
 	def believes(self,something):
@@ -1294,29 +1349,6 @@ class God(Agent,object):
 			else:
 				so.write(' [ All done. ]')
 			so.flush()
-
-	
-	# IGNORE and REASSESS
-	def ignore(self,agents):
-		"""
-		Produces a new god whose logs have been cleaned of all agents' clues
-		and calls a rededuce() so that the new belief state is newly produced
-		from the remaining clues.
-		
-		returns the new god, and stores it in a temporary global.
-		"""
-		
-		newgod = God()
-		
-		for belief in self.beliefs:
-			newgod.logs[belief] = [ clue for clue in self.beliefs[belief] if clue.agent not in agents ]
-		
-		newgod.reassess()
-		
-		global _temp_newgod
-		_temp_newgod = newgod
-		
-		return newgod
 	
 	def reassess(self,listofitems = None):
 		"""
@@ -1325,19 +1357,21 @@ class God(Agent,object):
 		the belief in order to check the new value of the belief.
 		
 		listofitems, if given, must be a list of links or believable items
+		or a clue.
 		"""
 		
 		if ss.ispair(listofitems):
 			listofitems = [listofitems]
-		
-		if isinstance(listofitems,list): # a list of links
+		elif isinstance(listofitems,Clue):
+			listofitems = [listofitems.about]
+		elif isinstance(listofitems,list): # a list of links
 			oldbeliefs = listofitems
 		elif listofitems is None:
-			oldbeliefs = deepcopy(self.beliefs)
+			oldbeliefs = self.beliefs.keys()
 		else:
 			raise BaseException('Bad input: type {}'.format(type(listofitems)))
 		
-		for belief in oldbeliefs:
+		for belief in oldbeliefs: # list of belief-keys to reassess
 			
 			bclues = self.logs[belief] # all the clues which led to the current belief's value
 			if belief in self.beliefs:
@@ -1347,9 +1381,3 @@ class God(Agent,object):
 		return None
 		
 	
-	
-
-
-
-
-

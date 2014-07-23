@@ -1,10 +1,11 @@
-
 import clues
 import random
 from itertools import permutations
 from collections import Counter
 
 someonesuggested = clues.algs.Algorithm.builtin_algs.someonesuggested
+
+knower = None
 
 """
 Collection of tests to be run on the framework.
@@ -14,15 +15,53 @@ Collection of tests to be run on the framework.
 
 class color:
 	
-	blue = "\033[1;34;40m"
-	
-	end =  "\033[0m"
+	brightblue = 	"\033[1;34;40m"
+	white = 		"\033[1;37;40m"
+	black_bg   = 	"\033[0;30;47m"      
+	black   = 		"\033[1;30;47m"      
+	darkgray = 		"\033[1;30;40m"
+	red_bg =  		"\033[0;31;47m"
+	red = 	 		"\033[1;31;47m"
+	brightred = 	"\033[1;31;40m" 
+	green_bg = 		"\033[0;32;47m" 
+	green = 		"\033[1;32;47m" 
+	brightgreen = 	"\033[1;32;40m" 
+	brown_bg = 		"\033[0;33;47m"
+	brown = 		"\033[1;33;47m"
+	yellow = 		"\033[1;33;40m"
+	blue_bg = 		"\033[0;34;47m"
+	blue = 			"\033[1;34;47m"
+	magenta_bg = 	"\033[0;35;47m"
+	magenta = 		"\033[1;35;47m"
+	brightmagenta = "\033[1;35;40m"
+	cyan_bg = 		"\033[0;36;47m"
+	cyan = 			"\033[1;36;47m"
+	brightcyan = 	"\033[1;36;40m"
+	lightgrey_bg = 	"\033[0;37;40m" 
+	lightgrey = 	"\033[1;37;40m" 
+	white = 		"\033[1;37;40m"
+	underline_bg = 	"\033[0;4;37;40m"
+	underline = 	"\033[1;4;37;40m"
+	end =  			"\033[0m"
 	
 def wrap(string,col):
 	if hasattr(color,col):
-		getattr(color,col)
-		return getattr(color,col) + string + color.end
+		try:
+			colorcode = getattr(color,col)
+			return colorcode + string + color.end
+		except BaseException:
+			print('ERROR:',col)
+			return ''
+			
+def blue(string):
+	return wrap(string,'brightblue')
 
+def red(string):
+	return wrap(string,'red')
+
+def underline(string):
+	return wrap(string,'underline')
+	
 def center(string,width = 100,space = ' '):
 	ls = len(string)
 	sp = (width - ls) // 2
@@ -50,6 +89,7 @@ def crop_at_nonzero(fl,bot = 2):
 			return float(out)
 			
 	return fl
+
 
 # randomizers
 
@@ -241,7 +281,7 @@ def consult_actual_links():
 	This may be the first step for a backpropagation.
 	"""
 	
-	knower = clues.GuardianAngel(someonesuggested)
+	knower = clues.GuardianAngel(someonesuggested,ghost = True)
 	clues.god.consult([knower],consider = True)
 	return True
 
@@ -270,7 +310,24 @@ def lastsetup():
 	clues.ss.stdout.flush()
 	clues.ss.stdout.write('  [{}] '.format(load_god()))
 
+def knowersetup():
+	try:
+		load_god('./gods/god_belief_set_dmy_23_7_2014_hms_14_0_20.log')
+	except AttributeError:
+		clues.algs.localize()
+		load_god('./gods/god_belief_set_dmy_23_7_2014_hms_14_0_20.log')
 	
+	global knower
+	knower = clues.GuardianAngel(clues.algs.someonesuggested,ghost = True)
+	knower.makewhisperer()
+	
+	knower.evaluate_all()
+	
+	god.trusts()
+	
+	
+
+
 # analysis of god belief state
 
 def fullcompare():
@@ -283,6 +340,7 @@ def fullcompare():
 	evaluate_cleanresults_recall()
 	evaluate_cleanresults_naive()
 	percent_related_items()
+	morenumbers()
 	print()
 	print('-' *33)
 	return True
@@ -365,7 +423,8 @@ def evaluate_cleanresults_recall():
 		
 		evaluation_recall[result] = rec
 	
-	recall = sum(evaluation_recall.values()) / len(evaluation_recall.values())
+	recall = sum(evaluation_recall.values()) / len(tuple( evaluation_recall[result] for result in evaluation_recall if cleanresults[result]['actual_links']))
+	# we count, for recall purposes, only those items which HAVE some links!
 	
 	clues.recall = recall
 	print('recall : ', recall)
@@ -412,8 +471,8 @@ def variousnumbers():
 	god = clues.god
 	
 	print( '(creating the Knower...)')
-	 
-	knower = clues.GuardianAngel(someonesuggested)
+	global knower
+	knower = clues.GuardianAngel(someonesuggested,ghost = True)
 	knower.evaluate_all(express = False)
 	print()
 	
@@ -539,12 +598,13 @@ def variousnumbers():
 	ranks = clues.god.rankcounter()
 	for entry in ranks:
 		correct = nologs_to_nopairs_if_correct[entry] # number of correct links with (entry) number of logged clues
-		if correct:
-			pcorrect = cropfloat(correct/ranks[entry],5)
-		else:
-			pcorrect = 0
-			
-		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%)'.format(ranks[entry],entry,correct,pcorrect))
+		pcorrect = cropfloat(correct/ranks[entry],5) if correct else 0
+		
+		# entry = number of clues
+		allconfs = tuple(god.beliefs[pair] for pair in god.logs.keys() if len(god.logs[pair]) == entry)
+		avgconfs = crop_at_nonzero(sum(allconfs) / len(allconfs),3) if allconfs else 'n/a'
+		
+		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%) \t [ average confidence: {} ]'.format(ranks[entry],entry,correct,pcorrect,avgconf))
 	print()
 
 def find_duplicates(vb=False):
@@ -564,6 +624,55 @@ def find_duplicates(vb=False):
 		if vb:
 			print(names)
 
+def morenumbers():
+	nontagclouds = tuple( cloud for cloud in clues.sky.clouds() if cloud.cloudtype != 'tags')
+	
+	print(' - we are not going to consider tag clouds at this stage -')
+	print('Number of nontag clouds: ',(len(nontagclouds)))
+	
+	nntpairs = god.sky.iter_pairs(nontagclouds) # yields permutations of nontagclouds
+	
+	allnntpairs = tuple(nntpairs)
+	totcomb = tuple(god.believes(pair) for pair in allnntpairs)
+	avgtotcomb = sum(totcomb) / len(totcomb)
+	
+	avgsome = sum(totcomb) / len(tuple( val for val in totcomb if val > 0 )) # only divide by nonzero ones	
+	
+	global knower
+	if knower is None:
+		print('Loading knower...')
+		knower = clues.GuardianAngel(someonesuggested,ghost = True)
+		knower.evaluate_all(express = False)	
+	
+	truepairs = tuple(pair for pair in god.sky.iter_pairs(nontagclouds) if knower.evaluation.get(pair))
+	tottrue = tuple(god.believes(pair) for pair in truepairs)
+	avgtruecomb = sum(tottrue) / len(tottrue)
+	
+	print("\nGod's average belief on all their possible combinations: {}".format(crop_at_nonzero(avgtotcomb,4)))
+	print("God's average belief on the nonzero ones (i.e. if some angel has clue'd about them): ", crop_at_nonzero(avgsome,4)  )
+	print("God's average belief on the actual (Starfish) ones: {}".format(crop_at_nonzero(avgtruecomb,4)))
+	
+	responsibles = Counter()
+	for true in truepairs:
+		agents = [clue.agent for clue in god.logs.get(true,[])]
+		responsibles.update(agents)
+		
+	print('Responsibilities are as follow:')
+	print('[The weighted/unweighted gap can be used as a measure of the feedback effect.]')
+	for agent in responsibles:
+		avgtrueconf = tuple(clue.value for clue in agent.clues if clue.about in truepairs)
+		totavgtrueconf = sum(avgtrueconf) / len(avgtrueconf) # average unweighted confidence on true
+		evaluation = tuple(agent.evaluation.values())
+		totavgconf = sum(evaluation) / len(evaluation) #... and on every link
+		
+		weightedtrueconf = tuple(clue.weightedvalue()for clue in agent.clues if clue.about in truepairs )
+		avgweightedtrueconf = sum(weightedtrueconf) / len(weightedtrueconf) # average weighted confidence on true links
+		totweightedconf = tuple(clue.weightedvalue()for clue in agent.clues )
+		avgtotweightedconf = sum(totweightedconf) / len(totweightedconf) # average weighted confidence on all links
+		
+		values = (blue(agent.name),responsibles[agent],len(agent.clues),crop_at_nonzero((responsibles[agent] / len(agent.clues)),4),crop_at_nonzero(totavgtrueconf,4),crop_at_nonzero(totavgconf,4), crop_at_nonzero(avgweightedtrueconf,4), crop_at_nonzero(avgtotweightedconf,4))
+		print('\tAgent {} spawned {} correct clues (against {} total clues spawned: {}%),\n\ttheir average confidence was {}, (overall confidence averaged to {}),\n\tonce weighted: {} (against {} total).\n'.format(*values))
+
 def interactive_error_analysis():
 	
 	if not hasattr(clues,'compared_results'):
@@ -572,7 +681,7 @@ def interactive_error_analysis():
 	cr = clues.compared_results
 	errors = ( cloudid for cloudid in cr if set(cr[cloudid]['suggested_links_ranked']) != set(cr[cloudid]['actual_links']) )
 	
-	print('-'*100 + '\n' + center('Interactive Error Spotter v0.1',100) + '\n' + '-'*100)
+	print('-'*100 + '\n' + center(red(('Interactive Error Spotter v0.1',100))) + '\n' + '-'*100)
 	
 	global CURERROR
 	CURERROR = None
@@ -784,11 +893,11 @@ def interactive_error_analysis():
 					'e' : None,
 					'm': moredata,
 					'F': fullcompare,
+					'M': morenumbers,
 					'' : None}
-		
-		funcs = [gonext,moredata]
+
 		print()
-		print("'n' or Enter: next, 'e':exit, 'm': more data, 'F': full compare (unspecific)")
+		print("'n' or Enter: next, 'e':exit, 'm': more data, 'F': full compare (unspecific), 'M': more numbers")
 		print()
 		
 		choice = input(' :) ')
@@ -810,8 +919,9 @@ def interactive_error_analysis():
 					print(center('building report for next item... '))
 					print(center('',space = '-'))
 					gonext()
-
-
+	
+		
+	
 # long tests
 
 def longtest():
@@ -868,6 +978,7 @@ def store_belief_set(god = None,nameoffile=None):
 		
 		clues.pickle.dump(G,storage)
 	
+	print('God pickled to {}.'.format(nameoffile))
 	return True
 
 def load_god(nameoffile = 'mostrecent'):
@@ -928,6 +1039,9 @@ def load_god(nameoffile = 'mostrecent'):
 	else:
 		doc = open(nameoffile,'rb')
 	
+	print('Loading god from {}.'.format(nameoffile))
+	
+	clues.algs.localize()
 	clues.god = clues.pickle.load(doc)
 	global god
 	god = clues.god
@@ -936,6 +1050,7 @@ def load_god(nameoffile = 'mostrecent'):
 	sky = clues.sky
 	
 	doc.close()
+	
 	
 	return True
 
@@ -955,6 +1070,7 @@ def store_sky(sky = None,nameoffile = None):
 		
 		clues.pickle.dump(S,storage)
 	
+	print('Sky pickled to {}.'.format(nameoffile))
 	return True
 
 def load_sky(nameoffile = None):
@@ -1016,11 +1132,13 @@ def load_sky(nameoffile = None):
 	else:
 		doc = open(nameoffile,'rb')
 	
+	print('Loading Sky from {}...'.format(nameoffile))
 	clues.sky = clues.pickle.load(doc)
 	
 	global sky
 	sky = clues.sky
 	
 	doc.close()
+	
 	
 	return True

@@ -7,7 +7,7 @@ Python3 code. Compatible with 2.7 with minor modifications(mainly encoding)
 import nltk
 from bs4 import BeautifulSoup, SoupStrainer
 import algorithms
-from algorithms import Counter
+Counter = algorithms.Counter
 from group import Group
 import re
 import semanticsky_utilityfunctions as utils
@@ -520,15 +520,20 @@ class SemanticSky():
 		for cloud in self.clouds():
 			yield cloud.item['id']
 	
-	def iter_pairs(self):
+	def iter_pairs(self,source = None):
 		"""
 		A generator for all pairwise-coupled clouds.
 		"""
 
 		i = 0
+		
+		if not source:
+			source = self.sky
+		if not hasattr(source,'__getitem__'):
+			raise BaseException('Sorry, I need something with a __getitem__ attribute. Got a {}.'.format(type(source)))
 
-		for clouda in self.sky:
-			for cloudb in self.sky[i:]:
+		for clouda in source:
+			for cloudb in source[i:]:
 				if clouda != cloudb:
 					yield pair(clouda,cloudb)
 			
