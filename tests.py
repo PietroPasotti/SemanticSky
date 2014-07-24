@@ -5,7 +5,14 @@ from collections import Counter
 
 someonesuggested = clues.algs.Algorithm.builtin_algs.someonesuggested
 
+god = None
+sky = None
 knower = None
+
+
+# compatibility
+clues.algs.localize()
+
 
 """
 Collection of tests to be run on the framework.
@@ -18,30 +25,30 @@ class color:
 	brightblue = 	"\033[1;34;40m"
 	white = 		"\033[1;37;40m"
 	black_bg   = 	"\033[0;30;47m"      
-	black   = 		"\033[1;30;47m"      
+	black   = 		"\033[0;30;40m"      
 	darkgray = 		"\033[1;30;40m"
 	red_bg =  		"\033[0;31;47m"
-	red = 	 		"\033[1;31;47m"
+	red = 	 		"\033[0;31;40m"
 	brightred = 	"\033[1;31;40m" 
 	green_bg = 		"\033[0;32;47m" 
-	green = 		"\033[1;32;47m" 
+	green = 		"\033[0;32;40m" 
 	brightgreen = 	"\033[1;32;40m" 
 	brown_bg = 		"\033[0;33;47m"
-	brown = 		"\033[1;33;47m"
+	brown = 		"\033[0;33;40m"
 	yellow = 		"\033[1;33;40m"
 	blue_bg = 		"\033[0;34;47m"
-	blue = 			"\033[1;34;47m"
+	blue = 			"\033[0;34;40m"
 	magenta_bg = 	"\033[0;35;47m"
-	magenta = 		"\033[1;35;47m"
+	magenta = 		"\033[0;35;40m"
 	brightmagenta = "\033[1;35;40m"
 	cyan_bg = 		"\033[0;36;47m"
-	cyan = 			"\033[1;36;47m"
+	cyan = 			"\033[0;36;40m"
 	brightcyan = 	"\033[1;36;40m"
 	lightgrey_bg = 	"\033[0;37;40m" 
-	lightgrey = 	"\033[1;37;40m" 
+	lightgrey = 	"\033[0;37;40m" 
 	white = 		"\033[1;37;40m"
 	underline_bg = 	"\033[0;4;37;40m"
-	underline = 	"\033[1;4;37;40m"
+	underline = 	"\033[0;4;30;40m"
 	end =  			"\033[0m"
 	
 def wrap(string,col):
@@ -325,7 +332,6 @@ def knowersetup():
 	
 	god.trusts()
 	
-	
 
 
 # analysis of god belief state
@@ -470,11 +476,13 @@ def percent_related_items():
 def variousnumbers():
 	god = clues.god
 	
-	print( '(creating the Knower...)')
 	global knower
-	knower = clues.GuardianAngel(someonesuggested,ghost = True)
-	knower.evaluate_all(express = False)
-	print()
+	
+	if not knower:
+		print( '(creating the Knower...)')
+		knower = clues.GuardianAngel(someonesuggested,ghost = True)
+		knower.evaluate_all(express = False)
+		print()
 	
 	print('Number of links detected: ',len(god.beliefs),' versus {} (valid) links currently existing in starfish.'.format(len(knower.evaluation)))
 	
@@ -601,7 +609,7 @@ def variousnumbers():
 		pcorrect = cropfloat(correct/ranks[entry],5) if correct else 0
 		
 		# entry = number of clues
-		allconfs = tuple(god.beliefs[pair] for pair in god.logs.keys() if len(god.logs[pair]) == entry)
+		allconfs = tuple(god.beliefs[pair] for pair in god.logs.keys() if len(god.logs[pair]) == entry and clues.ss.ispair(pair))
 		avgconfs = crop_at_nonzero(sum(allconfs) / len(allconfs),3) if allconfs else 'n/a'
 		
 		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%) \t [ average confidence: {} ]'.format(ranks[entry],entry,correct,pcorrect,avgconf))
@@ -680,8 +688,8 @@ def interactive_error_analysis():
 		
 	cr = clues.compared_results
 	errors = ( cloudid for cloudid in cr if set(cr[cloudid]['suggested_links_ranked']) != set(cr[cloudid]['actual_links']) )
-	
-	print('-'*100 + '\n' + center(red(('Interactive Error Spotter v0.1',100))) + '\n' + '-'*100)
+	reddned = wrap('Interactive Error Spotter v0.1','brightred')
+	print('-'*100 + '\n' + center(reddned,100) + '\n' + '-'*100)
 	
 	global CURERROR
 	CURERROR = None
@@ -902,7 +910,7 @@ def interactive_error_analysis():
 		
 		choice = input(' :) ')
 		choice = choice.strip()
-		print(center(' chosen "{}" '.format(choice),space = '#'))
+		print(center(wrap(' chosen "{}" ','yellow').format(choice),100,space = wrap('-','brightcyan')))
 		print()
 		
 		if choice in avail:
@@ -912,15 +920,13 @@ def interactive_error_analysis():
 			else:
 				if choice == 'e':
 					print()
-					print('exiting')
+					print(wrap('exiting','brightblue'))
 					print()
 					break
 				elif choice == '':
-					print(center('building report for next item... '))
+					print(center(wrap('building report for next item... ','brightblue')))
 					print(center('',space = '-'))
 					gonext()
-	
-		
 	
 # long tests
 
@@ -1142,3 +1148,18 @@ def load_sky(nameoffile = None):
 	
 	
 	return True
+
+def makeglobal(deity):
+	
+	print('Now clues.god, tests.god point to {}'.format(deity))
+	print(' and clues.sky, tests.sky point to {}'.format(deity.sky))
+	
+	clues.god = deity
+	clues.sky = deity.sky
+	global god,sky
+	god = deity
+	sky = deity.sky
+	
+	
+	
+	

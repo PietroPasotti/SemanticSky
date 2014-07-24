@@ -696,6 +696,19 @@ class SemanticSky():
 			net[cloud] = cloud.links(False) # will return a list of clouds
 		
 		return net
+	
+	### tagclouds handling
+	def remove_tag_clouds(self):
+		"""
+		Removes from the sky all clouds around a tag.
+		"""
+		
+		for cloud in self.sky:
+			if cloud.cloudtype == 'tags':
+				self.sky.remove(cloud)
+				del cloud
+		return True
+				
 		
 class Cloud():
 	"""

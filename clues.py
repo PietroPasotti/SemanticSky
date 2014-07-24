@@ -172,7 +172,7 @@ class Agent(object):
 		self.item = None 	# this can be set to the agent's corresponding starfish item (a dict),
 							# 	if the agent's user has a page
 		
-		self.feedbackclues = []
+		self.feedback = []
 		self.logs = [] 		# will store all feedback clues received by the agent
 						
 		if not isinstance(self,GuardianAngel) and not isinstance(self,God):
@@ -237,6 +237,7 @@ class Agent(object):
 		
 		clue.delete()
 		self.evaluate(clue.about)
+		del clue
 		
 	def receive(self,clue):
 		"""
@@ -249,6 +250,7 @@ class Agent(object):
 	
 		
 		self.logs.append(clue) # we add the clue to logs.
+		self.feedback.append(ss.crop_at_nonzero(clue.value,3))
 		
 		#self.logs = [c for c in self.logs if c.agent != clue.agent] # no multiple feedback	
 		inertial_trust = self.stats['trustworthiness'] * feedback_inertia # this will be retained no-matter-what
@@ -337,6 +339,7 @@ class GuardianAngel(Agent,object):
 		self.stats['trustworthiness'] = 1 # by default, an algorithm's trustworthiness is always one.
 		self.clues = [] # Clues objects
 		self.consulted = False
+		self.logs = []
 		
 		GuardianAngel.guardianid += 1 # counts the GA's spawned
 		self.ID = deepcopy(GuardianAngel.guardianid)
@@ -595,6 +598,7 @@ class God(Agent,object):
 	"""
 	
 	beliefs = {} # a belief is a facts --> [0,1] confidences mapping
+	godid = 0
 	
 	def __init__(self,sky = None,god = None):
 		super().__init__()
@@ -607,10 +611,15 @@ class God(Agent,object):
 		self.guardianangels = []
 		self.whisperers = []
 		self.logs = {}
+		self.___cluecount = 0 # keeps track of number of clues processed
+		self.___totcluecount = 0
 		self.ignoreds = []
 		self.name = 'Yahweh'
 		self.stats['trustworthiness'] = 1
 		
+		God.godid += 1
+		self.godid = God.godid
+			
 	def get_sky(self):
 		"""
 		If a semanticsky has already been instantiated, loads it as god's
@@ -626,17 +635,32 @@ class God(Agent,object):
 			return False
 	
 	def __str__(self):
-		return "< The Lord >"
+		return "< The Lord {} >".format(godid)
 	
 	def __repr__(self):
-		return "< The Lord >"
+		return "< The Lord {} >".format(godid)
 	
 	def receive(self,clue):
 		
 		print('God accepts no feedback, mortal.')
 		return None
-
-
+	
+	@property
+	def cluecount(self):
+		"""
+		Keeps track of the number of clues that pass through god. Resets 
+		at every call; stores to ___totcluecount
+		"""
+		
+		if not hasattr(self,'___cluecount'):
+			self.___cluecount = 0
+			self.___totcluecount = 0
+		
+		oldcount = self.___cluecount
+		self.___cluecount = 0
+		self.___totcluecount += oldcount
+		return oldcount
+		
 	# HANDLERS
 	def handle_metaclue(self,metaclue):
 		"""
@@ -1104,6 +1128,7 @@ class God(Agent,object):
 				return None
 						
 		for clue in toread:
+			self.___cluecount += 1
 			if clue.cluetype in ['link','feedback']:
 				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
 				if clue.cluetype != 'feedback':
@@ -1381,3 +1406,54 @@ class God(Agent,object):
 		return None
 		
 	
+	# CLEANING
+	def remove_tag_clouds(self):
+		"""
+		For all guardianangels, and from its own beliefs and logs, eliminates
+		all traces of clues whose about contains a tag cloud or a tag id.
+		"""
+
+		beliefsets = tuple( tuple(tuple(pair for pair in self.beliefs)) + tuple(tuple(pair for pair in ga.beliefs) for ga in self.guardianangels) )
+		# type should be ((frozenset({cloud(),cloud()}),),)
+		
+		toclean = [self.beliefs,self.logs]
+		for ga in self.guardianangels:
+			toclean.append(ga.evaluation)
+		
+		istagcloud = lambda x: True if x.cloudtype == 'tags' else False
+		istagpair = lambda x: True if istagcloud(tuple(x)[0]) or istagcloud(tuple(x)[1]) else False
+		
+		for beliefset in beliefsets:
+			for belief in beliefset:
+
+				try:
+					if not istagpair(tuple(belief)):
+						continue
+				except BaseException:
+					print('skipping ',belief)
+					continue
+
+				for target in toclean:
+					if belief in target:
+						target.remove(belief)
+						
+		global CLUES
+		toclean = [CLUES]				
+		for ga in self.guardianangels:
+			toclean.append(ga.clues)
+		
+		for beliefset in beliefsets:
+			for belief in beliefset:
+				
+				try:
+					if not istagpair(tuple(belief)):
+						continue
+				except BaseException:
+					print('skipping ',belief)
+					continue
+				
+				for target in toclean:
+					if belief in target:
+						target.remove(belief)
+		
+		

@@ -20,6 +20,28 @@ destemdb = {}
 # word --> stem dictionary
 revert_destemdb = {}
 # stem --> word dictionary (it's a mapping)
+
+
+def crop_at_nonzero(fl,bot = 2):
+	sfl = str(fl)
+	
+	out = ''
+	nonzero = 0
+	
+	for digit in sfl:
+		if digit.isdigit() and int(digit) > 0:
+			nonzero += 1
+		
+		out += digit
+		
+		if nonzero != 0 and nonzero != bot:
+			nonzero += 1 # we want no-1 digits after the first nonzero, not results like 0.0200000000000005, if we want 2 nonzero digits
+		
+		if nonzero == bot:
+			return float(out)
+			
+	return fl
+
 def lsum(*lists): # list merging tool
 
         out = []
