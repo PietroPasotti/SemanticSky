@@ -708,8 +708,7 @@ class SemanticSky():
 				self.sky.remove(cloud)
 				del cloud
 		return True
-				
-		
+					
 class Cloud():
 	"""
 	A Cloud is a semantic web of information, hierarchically ordered
@@ -751,7 +750,16 @@ class Cloud():
 		else:
 			return 'items'
 				
-
+	
+	def ctype(self):
+		"""
+		Returns the type of the wrapped item, such as 'Person', 'Glossary'
+		or the such. Returns 'tag' if none is found.
+		"""
+		
+		return self.item.get('type','tag')
+	
+	
 	### data_getters
 	def populate(self,depth = None):
 		"""

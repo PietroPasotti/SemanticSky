@@ -612,7 +612,7 @@ def variousnumbers():
 		allconfs = tuple(god.beliefs[pair] for pair in god.logs.keys() if len(god.logs[pair]) == entry and clues.ss.ispair(pair))
 		avgconfs = crop_at_nonzero(sum(allconfs) / len(allconfs),3) if allconfs else 'n/a'
 		
-		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%) \t [ average confidence: {} ]'.format(ranks[entry],entry,correct,pcorrect,avgconf))
+		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%) \t [ average confidence: {} ]'.format(ranks[entry],entry,correct,pcorrect,avgconfs))
 	print()
 
 def find_duplicates(vb=False):
