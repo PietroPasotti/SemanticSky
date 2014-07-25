@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import clues
 import random
 from itertools import permutations
@@ -365,6 +367,9 @@ def fastsetup():
 	
 	global knower
 	knower = clues.Knower()
+	
+	clues.GUARDIANANGELS = god.guardianangels
+	clues.AGENTS = god.guardianangels
 	
 	return True
 
@@ -762,16 +767,32 @@ def interactive_error_analysis():
 		cloud = clues.sky.get_cloud(nerror)
 		
 		print('The system made some mistakes while evaluating links for cloud id [{}], that is: [{}].'.format(nerror,cloud.get_header()))
+		
 		sugg = clues.compared_results[nerror]['suggested_links_ranked']
 		actual = clues.compared_results[nerror]['actual_links']
-		
-		
-		
-		print('Predicted links (ranked): {}\n'.format(sugg))
-		print('Actual links (unsorted): {}\n'.format(actual))
-		
 		ints = set(actual).intersection(set(sugg))
-		print('Caught links: [{}]'.format( list(ints) ))
+		
+		tsugg = []
+		tactual = []
+		for link in sugg:
+			tlink = str(link)
+			if link in ints:
+				tlink = wrap(tlink,'brightcyan')
+			tsugg += [tlink]
+			
+		for link in actual:
+			tlink = str(link)
+			if link not in ints:
+				tlink = wrap(tlink,'brightred')
+			tactual += [tlink]			
+		
+		tsugg = ' '.join(tsugg)	
+		tactual = ' '.join(tactual)
+			
+		print('Predicted links (ranked, with {}): {}\n'.format(wrap('caught links','brightcyan'),tsugg))
+		print('Actual links (unsorted, with {}): {}\n'.format(wrap('missed links','brightred'), tactual))
+		
+		
 		print('\t (Accuracy: [{}])'.format(len( ints ) / len(set(actual).union(set(sugg)))))
 		
 		try:
@@ -993,6 +1014,10 @@ def thresholded_accuracy_recall(thresh = 0.5):
 	
 	predictedlinks = tuple(i for i in god.beliefs if god.believes(i) >= thresh)
 	
+	if not predictedlinks:
+		print ('Nothing valued above threshold ',thresh)
+		return False
+	
 	avgconf = 0
 	for i in predictedlinks:
 		avgconf = (avgconf + god.believes(i)) / 2
@@ -1001,9 +1026,21 @@ def thresholded_accuracy_recall(thresh = 0.5):
 	recall 			= len(set(predictedlinks).intersection(set(knower.evaluation.keys()))) / len(knower.evaluation.keys())
 	# precision  = (relevant \cap retrieved) / retrieved
 	precision 		= len(set(predictedlinks).intersection(set(knower.evaluation.keys()))) / len(predictedlinks)
+	print(wrap('Thresh: {}.'.format(thresh),'blue'))
+	table( [ ['precision',crop_at_nonzero(precision,4)],['recall',crop_at_nonzero(recall,4)] ] )
+
+	return True
 	
-	table( [ ['precision',precision],['recall',recall] ] )
+def range_thresh_test(step):
 	
+	done = 0
+	while done <= 1:
+		out = thresholded_accuracy_recall(done)
+		print()
+		if not out:
+			return
+		done += step
+		
 # long tests
 
 def longtest():

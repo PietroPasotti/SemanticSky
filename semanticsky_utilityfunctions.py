@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 
 from group import Group
 from bs4 import BeautifulSoup,SoupStrainer
@@ -551,5 +552,19 @@ def ctype(pair):
 	
 	return ''.join(ctype) # a two-letter string
 	
+def ctype_to_type(ctype):
 	
+	ctypes = list(ctype)
+	global codedict
 	
+	inverted = {codedict[key]:key for key in codedict}
+	
+	outctype = []
+	for c in ctypes:
+		cty = inverted[c]	
+		cty = cty[:4]
+		outctype += [cty]
+	
+	return '-'.join(outctype)
+	
+
