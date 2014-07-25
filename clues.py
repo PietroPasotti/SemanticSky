@@ -4,7 +4,6 @@ from copy import deepcopy
 from group import Group
 pickle = ss.pickle
 sqrt = algs.sqrt
-from tests import wrap
 
 CLUES = []
 AGENTS = []
@@ -114,36 +113,14 @@ class Clue(object):
 		"""
 		
 		about = self.about
-		if ss.ispair(about):
-			clouda,cloudb = about
-			typea,typeb = clouda.item.get('type','tag'),cloudb.item.get('type','tag') # if it hasn't got an item type, it must be a tag
-			
-			global codedict
-			codedict = {'tag': 				'T',
-						'Information': 		'I',
-						'Glossary':			'G',
-						'Question':			'Q',
-						'Good Practice':	'O',
-						'Project':			'R',
-						'Person':			'P',
-						'Content':			'C',
-						'Topic':			'J',
-						'Pedagogy':			'Y',
-						'Technology':		'H',
-						'Event':			'E'}
-			
-			ta = codedict[typea]
-			tb = codedict[typeb]
-			
-			ctype = [ta,tb]
-			ctype.sort()
-			
-			return ''.join(ctype) # a two-letter string
-			
-		elif isinstance(about,Agent):
+		if isinstance(about,Agent):
 			return 'AA' # that is: feedback
 		else:
-			raise BaseException('Unknown about type: {} (of type {}).'.format(about,type(about)))
+			try:
+				return ss.utils.ctype(about)
+			except BaseException as e:
+				print ('Unknown about type: {} (of type {}).'.format(about,type(about)))
+				raise e
 			
 	def receive(self,clue):
 		"""
@@ -311,7 +288,7 @@ class Agent(object):
 		self.stats['trustworthiness'] = min([ tw, 1.0 ])
 	
 	# FEEDBACK and WHISPERING
-	def receive_feedback(self,about,value):
+	def receive_feedback(self,about,value,verbose = False,origin = None):
 		"""
 		Agent in the past has evaluated [about]. Now someone tells him
 		that his evaluation was worth [value].
@@ -321,29 +298,31 @@ class Agent(object):
 		
 		if not self.feedback.get(about):
 			self.feedback[about] = []
-			
+		
 		self.feedback[about].append(value)
 		
-		
 		if ss.ispair(about):
-			about = tuple(about)
-			relative_address = [codedict[about[0].ctype()],codedict[about[1].ctype()]]
-			relative_address.sort()
-			ctype = ''.join(relative_address)
+			ctype = ss.utils.ctype(about)
 			
 			if not self.stats['relative_tw'].get(ctype):
 				self.stats['relative_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
 																					# it to the agent's base trustworthiness			
+				relative_inertial_trust = 0
 			# RELATIVE PART
 			
 			# feedback_inertia is the percentage of the previous confidence which is immunised from damage
-			relative_inertial_trust = self.stats['relative_tw'][ctype] * feedback_inertia
+			else:
+				relative_inertial_trust = self.stats['relative_tw'][ctype] * feedback_inertia
+			
+			if verbose: print('original value was: ',self.stats['relative_tw'][ctype] )
 			
 			newreltw = (self.stats['relative_tw'][ctype] + value ) / 2 
 			newreltw += relative_inertial_trust
 			
-			self.stats['relative_tw'][ctype] = max(newreltw,1.0)		
-		
+			self.stats['relative_tw'][ctype] = min(newreltw,1.0)		
+			
+			if verbose: print('now: ',ctype,relative_inertial_trust, newreltw)
+			
 		else:
 			print('feedback ignored: about unhandleable (type :  {})'.format(type(about)))
 			
@@ -361,6 +340,17 @@ class Agent(object):
 			return True
 		else:
 			return False	
+
+	def clean_feedback(self):
+		"""
+		Resets its trustworthiness logs, as if no feedback had ever happened.
+		"""
+		
+		self.stats = {	'trustworthiness':1,
+						'relative_tw': {} }
+		self.feedback = {}
+		
+		return True
 
 	# TRUSTWORTHINESS	
 	@property
@@ -435,7 +425,7 @@ class GuardianAngel(Agent,object):
 		return "< GuardianAngel {} >".format(self.name)
 		
 	def __repr__(self):
-		return "< GuardianAngel {} >".format(self.name)
+		return wrap("< GuardianAngel {} >".format(self.name),'brightcyan')
 	
 	def __eq__(self,other):
 		"""
@@ -524,7 +514,7 @@ class GuardianAngel(Agent,object):
 		evaluate_all(express = False) + express() is equivalent
 		to evaluate_all()
 		"""
-		if verbose: print('Summoning {}...'.format( wrap(str(self),'brightred')) )
+		if verbose: print('\nSummoning {}...'.format( wrap(str(self),'brightred')) )
 		
 		if iterpairs is None:
 			iterpairs = sky.iter_pairs()
@@ -596,6 +586,12 @@ class GuardianAngel(Agent,object):
 			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate')
 		
 		return True
+
+	def belief_without_feedback(self,pair):
+		return self.evaluation.get(pair,0)
+	
+	def belief_with_feedback(self,pair):
+		return self.evaluation.get(pair,0) * self.stats['relative_tw'].get(ss.utils.ctype(pair),self.trustworthiness )
 	
 	# comparison functions
 	def agrees(self,other = None):
@@ -668,7 +664,34 @@ class GuardianAngel(Agent,object):
 				feedback = Clue(agent,eva,self,trace = 'GuardianAngel.give_feedback')
 		
 		return True
+	
+	def reset_all_but_feedback(self):
 		
+		stats = deepcopy(self.stats)
+		
+		self = GuardianAngel(self.algorithm)
+		self.stats = stats
+	
+class Knower(GuardianAngel,object):
+	
+	def __init__(self):
+		
+		global knower
+		
+		if knower:
+			print('The Knower is already out there!')
+			return
+		
+		super().__init__(algs.Algorithm.builtin_algs.someonesuggested,whisperer = True)
+		knower = self
+		return
+
+	def __str__(self):
+		return "< The Knower >"
+		
+	def __repr__(self):
+		return "< The Knower >"
+					
 class God(Agent,object):
 	"""
 	The Allmighty.
@@ -680,9 +703,7 @@ class God(Agent,object):
 	def __init__(self,sky = None):
 		super().__init__()
 		
-		if sky:
-			self.sky = sky
-		
+		self.sky = sky
 		del self.item
 		self.birthdate = ss.time.gmtime()
 		self.guardianangels = []
@@ -718,7 +739,8 @@ class God(Agent,object):
 		return "< The Lord {} >".format(self.godid)
 	
 	def __repr__(self):
-		return "< " wrap("The Lord",'brightred') "{} >".format(self.godid)
+		from tests import wrap
+		return "< " + wrap("The Lord",'brightblue')+ " {} >".format(self.godid)
 	
 	def receive(self,clue):
 		ag = clue.agent
@@ -734,7 +756,7 @@ class God(Agent,object):
 		at every call; stores to ___totcluecount
 		"""
 		
-		if not hasattr(self,'cluecount'):
+		if not hasattr(self,'ccount') or not hasattr(self,'totcluecount'):
 			self.ccount = 0
 			self.totcluecount = 0
 		
@@ -1204,7 +1226,9 @@ class God(Agent,object):
 				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
 				if clue.cluetype != 'feedback':
 					self.whisperpipe(clue) # check whether we have to whisper the clue, and in case does it.
-				handler(clue) # then the handler will handle
+				
+				if not isinstance(clue.agent,Knower): # if the clue'r is a knower, we won't update the beliefs.
+					handler(clue) # then the handler will handle
 
 			else:
 				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
@@ -1295,7 +1319,7 @@ class God(Agent,object):
 				toconsult.append(ga)
 		
 		self.consult(toconsult,verbose,consider,local)
-	
+		
 	def consultations_registry(self):
 		"""
 		Returns a dict from guardianangels to [True,False], depending on whether
@@ -1365,6 +1389,29 @@ class God(Agent,object):
 		is not in the belief set, returns zero.
 		"""
 		return self.beliefs.get(something,0.0)
+	
+	def rebelieves(self,something,weight = True):
+		"""
+		Bypass for the clues mechanism:
+		directly asks to all of his trustees whether they believe or not
+		something.
+		"""
+		
+		opinions = []
+		
+		for angel in self.guardianangels:
+			if weight:
+				opinion = angel.belief_with_feedback(something)
+			else:
+				opinion = angel.belief_without_feedback(something)
+			
+			opinions.append(opinion)
+		
+		if opinions:
+			return sum(opinions) / len(opinions)
+		
+		print('Warning: no angel.')
+		return 0
 	
 	def clean_trivial_beliefs(self):
 		"""
@@ -1461,16 +1508,23 @@ class God(Agent,object):
 		elif isinstance(listofitems,list): # a list of links
 			oldbeliefs = listofitems
 		elif listofitems is None:
-			oldbeliefs = self.beliefs.keys()
+			oldbeliefs = self.beliefs
 		else:
 			raise BaseException('Bad input: type {}'.format(type(listofitems)))
 		
 		for belief in oldbeliefs: # list of belief-keys to reassess
 			
 			bclues = self.logs[belief] # all the clues which led to the current belief's value
-			if belief in self.beliefs:
-				del self.beliefs[belief] # we delete the old one
-			self.consider(bclues) # and create an updated one
+			agented = [clue for clue in bclues if clue.agent not in self.guardianangels]
+			
+			opinions =  []
+			for clue in agented:
+				opinions.append(clue.weightedvalue())
+			
+			for angel in self.guardianangels:
+				opinions.append(angel.belief_with_feedback(belief))
+				
+			self.beliefs[belief] = sum(opinions) / len(opinions) #denom always != 0
 		
 		return None
 		
@@ -1525,4 +1579,13 @@ class God(Agent,object):
 					if belief in target:
 						target.remove(belief)
 		
+	def clean_feedback(self):
+		"""
+		As if none of the guardianangels had ever received feedback:
+		cleans the trustworthiness db.
+		"""
 		
+		for ga in self.guardianangels:
+			ga.clean_feedback()
+		
+		return True

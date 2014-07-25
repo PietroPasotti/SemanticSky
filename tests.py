@@ -2,13 +2,13 @@ import clues
 import random
 from itertools import permutations
 from collections import Counter
+import pickle
 
 someonesuggested = clues.algs.Algorithm.builtin_algs.someonesuggested
 
 god = None
 sky = None
 knower = None
-
 
 # compatibility
 clues.algs.localize()
@@ -20,6 +20,16 @@ Collection of tests to be run on the framework.
 
 # Utilities
 
+def currentgod():
+	global god
+	print('God is ',god)
+	
+	if god is None:
+		return
+
+	print('\nand his birthdate is: ',god.birthdate)
+	print('\nhis consultations registry is: ',god.consultations_registry())
+	
 class color:
 	
 	brightblue = 	"\033[1;34;40m"
@@ -59,7 +69,9 @@ def wrap(string,col):
 		except BaseException:
 			print('ERROR:',col)
 			return ''
-			
+
+clues.wrap = wrap # makes it available there.
+		
 def blue(string):
 	return wrap(string,'brightblue')
 
@@ -69,6 +81,45 @@ def red(string):
 def underline(string):
 	return wrap(string,'underline')
 	
+def table(lines,maxwidth = 100,maxheight = None,spacing = 1,index = '>'):
+	"""
+	Given an input of type list(list(str())), tries to organize it into a
+	nice row/column way.
+	
+	e.g. [[1,21,3],[30,4,444]] becomes 
+	
+	1,  21, 3
+	30, 4,  444
+	
+	"""
+	
+	# we uniform it:
+	for i in range(len(lines)):
+		while len(lines[i]) < max(len(row) for row in lines):
+			lines[i].append('')
+	
+	cwidth = lambda x: max(len(str(column)) for column in [lines[u][x] for u in range( len(lines) ) ]  )
+	# returns the width of the column such that all squares fit into it
+	
+	for i in range(len(lines)):
+		for u in range(len(lines[i])):
+			content = str(lines[i][u]) # the content of the box
+			content += ' '*(cwidth(u) - len(content))
+			lines[i][u] = content
+	
+	for i in range(len(lines)):
+		
+		for column in lines[i]:
+			
+			if column.strip(): # if not all's whitespace
+				toprint = wrap(index,'red') + str(column) + ' '*spacing
+			else:
+				toprint = ' '*spacing + str(column)
+			clues.ss.stdout.write(toprint)
+		
+		clues.ss.stdout.write('\n')
+		clues.ss.stdout.flush()
+		
 def center(string,width = 100,space = ' '):
 	ls = len(string)
 	sp = (width - ls) // 2
@@ -303,11 +354,17 @@ def fastsetup():
 	god.spawn_servants()
 	gas = god.guardianangels
 	
-	to = gas[6]
-	tf = gas[0]
+	print('Loading evaluations of guardianangels...')
+	load_evaluations_to_gas(gas,'./guardianangels/evaluations/')
 	
-	god.consult(to,consider = True)
-	god.consult(tf,consider = True)
+	equate_all_links() # Equates all links! otherwise the evaluations won't match
+	
+	for ga in gas:
+		print(ga,' is expressing its feelings...')
+		ga.express()
+	
+	global knower
+	knower = clues.Knower()
 	
 	return True
 
@@ -318,16 +375,17 @@ def lastsetup():
 	clues.ss.stdout.write('  [{}] '.format(load_god()))
 
 def knowersetup():
-	try:
-		load_god('./gods/god_belief_set_dmy_23_7_2014_hms_14_0_20.log')
-	except AttributeError:
-		clues.algs.localize()
-		load_god('./gods/god_belief_set_dmy_23_7_2014_hms_14_0_20.log')
+	
+	if not god:
+		
+		try:
+			load_god()
+		except AttributeError:
+			clues.algs.localize()
+			load_god()
 	
 	global knower
-	knower = clues.GuardianAngel(clues.algs.someonesuggested,ghost = True)
-	knower.makewhisperer()
-	
+	knower = clues.Knower()	
 	knower.evaluate_all()
 	
 	god.trusts()
@@ -483,6 +541,9 @@ def variousnumbers():
 		knower = clues.GuardianAngel(someonesuggested,ghost = True)
 		knower.evaluate_all(express = False)
 		print()
+		
+	if not len(knower.evaluation):
+		knower.evaluate_all(express = False)
 	
 	print('Number of links detected: ',len(god.beliefs),' versus {} (valid) links currently existing in starfish.'.format(len(knower.evaluation)))
 	
@@ -609,7 +670,7 @@ def variousnumbers():
 		pcorrect = cropfloat(correct/ranks[entry],5) if correct else 0
 		
 		# entry = number of clues
-		allconfs = tuple(god.beliefs[pair] for pair in god.logs.keys() if len(god.logs[pair]) == entry and clues.ss.ispair(pair))
+		allconfs = tuple(god.believes(pair) for pair in god.logs.keys() if len(god.logs[pair]) == entry and clues.ss.ispair(pair))
 		avgconfs = crop_at_nonzero(sum(allconfs) / len(allconfs),3) if allconfs else 'n/a'
 		
 		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%) \t [ average confidence: {} ]'.format(ranks[entry],entry,correct,pcorrect,avgconfs))
@@ -666,7 +727,7 @@ def morenumbers():
 		responsibles.update(agents)
 		
 	print('Responsibilities are as follow:')
-	print('[The weighted/unweighted gap can be used as a measure of the feedback effect.]')
+	print('[The weighted/unweighted gap can be used as a measure of the feedback effect.]\n')
 	for agent in responsibles:
 		avgtrueconf = tuple(clue.value for clue in agent.clues if clue.about in truepairs)
 		totavgtrueconf = sum(avgtrueconf) / len(avgtrueconf) # average unweighted confidence on true
@@ -927,6 +988,21 @@ def interactive_error_analysis():
 					print(center(wrap('building report for next item... ','brightblue')))
 					print(center('',space = '-'))
 					gonext()
+
+def thresholded_accuracy_recall(thresh = 0.5):
+	
+	predictedlinks = tuple(i for i in god.beliefs if god.believes(i) >= thresh)
+	
+	avgconf = 0
+	for i in predictedlinks:
+		avgconf = (avgconf + god.believes(i)) / 2
+	
+	# recall = (relevant \cap retrieved) / relevant
+	recall 			= len(set(predictedlinks).intersection(set(knower.evaluation.keys()))) / len(knower.evaluation.keys())
+	# precision  = (relevant \cap retrieved) / retrieved
+	precision 		= len(set(predictedlinks).intersection(set(knower.evaluation.keys()))) / len(predictedlinks)
+	
+	table( [ ['precision',precision],['recall',recall] ] )
 	
 # long tests
 
@@ -1160,6 +1236,95 @@ def makeglobal(deity):
 	god = deity
 	sky = deity.sky
 	
+def load_evaluations_to_gas(gaslist,filepath):
 	
+	if not filepath[len(filepath)-1] == '/':
+		print('Needs be a folder.')
+		return False
 	
+	excps = []
 	
+	for ga in gaslist:
+		
+		if ga.consulted and ga.evaluation:
+			continue
+			
+		try:
+			with open(filepath + ga.name + '.eval','rb') as f:
+				ga.evaluation = pickle.load(f)
+				ga.consulted = True
+	
+		except BaseException as e:
+			excps.append(e)
+	
+	return excps if excps else True
+	
+def store_weights(gaslist,filepath = './guardianangels/weights/'):
+	
+	excps = []
+	
+	for ga in gaslist:
+		try:
+			with open(filepath + ga.name + '.weight','rb') as f:
+				
+				weight = pickle.load(f)
+				ga.stats['trustworthiness'] = weight['overall']
+				ga.stats['relative_tw'] 	= trust['relative_tw']
+				
+		except BaseException as e:
+			excps.append(e)
+			pass
+			
+	return excps
+
+def load_weights_to_gas(gaslist,filename = './guardianangels/evaluations/'):
+	
+	with open(filename,'rb') as f:
+		trusts = pickle.load(f)
+		
+		for angel in gaslist:
+			trusts = {ga.name: trusts[ga] for ga in trusts}
+			angel.stats['trustworthiness'] = trust[angel.name]['overall']
+			angel.stats['relative_tw'] = trust[angel.name]['relative_tw']
+	
+	return True
+			
+# patch
+
+def equate_all_links(deity = None):
+	"""
+	When unpickling evaluations, we often have that clouds made out of the same items
+	are no longer properly indexed in dictionaries: they appear as different
+	pairs altogether.
+
+	This function only acts on evaluations of guardianangels of the given deity
+	or of the default god, setting their evaluations to a common vocabulary
+	of cloud pairs.
+	"""
+	global sky
+	if not sky:
+		print('need a sky')
+		return None
+	
+	if not deity:
+		global god
+		deity = god
+		
+	pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
+
+	print('Parallelising beliefs...')
+		
+	for ga in god.guardianangels:
+		for link,ev in ga.evaluation.items():
+			del ga.evaluation[link]
+			itlinks = pid(link)
+			
+			truelink = sky.pair_by_id(*itlinks)
+
+			ga.evaluation[truelink] = ev
+	
+	return True
+	
+
+
+

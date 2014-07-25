@@ -13,8 +13,8 @@ eng_stopwords.extend(['free','high','low','although','brief','nevertheless','non
 dutch_recognition_re_s = [ 	('het',	re.compile(r'\bhet\b')),
 							('op' ,	re.compile(r'\bop\b')),
 							('van', re.compile(r'\bvan\b')),
-							('met',re.compile(r'\bmet\b')),
-							('ij',re.compile(r'\w+ij\w*'))]
+							('met',	re.compile(r'\bmet\b')),
+							('ij',	re.compile(r'\w+ij\w*'))]
 				
 destemdb = {}
 # word --> stem dictionary
@@ -483,28 +483,22 @@ def bar(progress,barlength=100):
 	status = ""
 	progress = float(progress)
 
-	if progress < 0:
-		progress = 0
-		status = " [ Halt. ]\r\n"
 	if progress >= 1:
 		progress = 1
-		status = " [ Done. ]\r\n"
 
-		
-	percentage = str(progress*100)
+	percentage = str(progress*100+1)
 	
-	if len(percentage) > 3:
-		displayedp = percentage[:2]+"%"
+	if len(percentage) > 3 and percentage != 100.0:
+		displayedp = percentage[:2]
 	else:
-		displayedp = percentage+"%"
+		displayedp = percentage
 	
 	block = int(round(barLength*progress))
 	
-	if progress == 1:
-		displayedp = "100%"
-		status = " [ Done. ]\r\n"
+	if displayedp == '10':
+		displayedp = "100"
 	
-	text = "\rProgress: [{}] {} {}".format( "."*block + " "*(barLength-block), displayedp,status)
+	text = "\rProgress: [{}] {}%".format( "."*block + " "*(barLength-block), displayedp)
 	sys.stdout.write(text)
 	sys.stdout.flush()
 
@@ -524,3 +518,38 @@ def pair(cloud,cloudb):
 		raise BaseException('Same cloud == No good.')
 		
 	return frozenset((cloud,cloudb))
+
+def ctype(pair):
+	
+	if ispair(pair):
+		about = pair
+	else:
+		about = pair.about
+
+	clouda,cloudb = about
+	typea,typeb = clouda.item.get('type','tag'),cloudb.item.get('type','tag') # if it hasn't got an item type, it must be a tag
+	
+	global codedict
+	codedict = {'tag': 				'T',
+				'Information': 		'I',
+				'Glossary':			'G',
+				'Question':			'Q',
+				'Good Practice':	'O',
+				'Project':			'R',
+				'Person':			'P',
+				'Content':			'C',
+				'Topic':			'J',
+				'Pedagogy':			'Y',
+				'Technology':		'H',
+				'Event':			'E'}
+	
+	ta = codedict[typea]
+	tb = codedict[typeb]
+	
+	ctype = [ta,tb]
+	ctype.sort()
+	
+	return ''.join(ctype) # a two-letter string
+	
+	
+	
