@@ -50,7 +50,7 @@ class Clue(object):
 	# in this case) and the trustworthiness of its author, by default 0.6.
 	"""
 	
-	def __init__(self,about,value,agent = 'Anonymous',autoconsider = True, trace = None):
+	def __init__(self,about,value,agent = 'Anonymous',autoconsider = True, trace = None,supervisor = None):
 		"""
 		Autoconsider: toggles queuing of clues.
 		"""
@@ -75,9 +75,14 @@ class Clue(object):
 		self.about = about
 		self.value = value
 		self.trace = trace
+		if not supervisor:
+			global god
+			supervisor = god
+		
+		self.supervisor = supervisor
 				
 		if not isinstance(agent,Agent):
-			agent = Agent('Anonymous')
+			raise TypeError('Type mismatch: agent is not an Agent but a {}.'.format(type(agent)))
 			
 		self.agent = agent
 		
@@ -89,17 +94,17 @@ class Clue(object):
 				agent.clues.append(self)
 			
 		if autoconsider:
-			god.consider(self) # there the clue gets logged
+			self.supervisor.consider(self) # there the clue gets logged
 		else:
 			CLUES.append(self)	
 	
 	def __str__(self):
-
-		return "< {}-type Clue about {}, valued {} by {}. >".format(self.cluetype,self.about,self.value,self.agent)
-	
-	def __repr__(self):
+		from tests import crop_at_nonzero
+		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
-		return "< {}-type Clue about {}, valued {} by {}. >".format(self.cluetype,self.about,self.value,self.agent)
+	def __repr__(self):
+		from tests import crop_at_nonzero
+		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
 	@property
 	def trustworthiness(self):
@@ -151,8 +156,8 @@ class Clue(object):
 		if self in CLUES: print(shit,1)
 				
 																		# GOD LOGS
-		if self in god.logs[self.about]: god.logs[self.about].remove(self)
-		if self in god.logs[self.about]: print(shit,2)
+		if self in self.supervisor.logs[self.about]: self.supervisor.logs[self.about].remove(self)
+		if self in self.supervisor.logs[self.about]: print(shit,2)
 																		# AGENT.clues
 		if self in self.agent.clues: self.agent.clues.remove(self)
 		if self in self.agent.clues: print(shit,3)
@@ -172,12 +177,20 @@ class Clue(object):
 		
 		return self.agent.revaluate(self)
 	
+	def ids(self):
+		
+		try:
+			return tuple(cloud.item['id'] for cloud in self.about)
+		except BaseException:
+			return False
+	
 class Agent(object):
 	
 	idcounter = 0	
-	def __init__(self,name = 'Anonymous'):
+	def __init__(self,name,supervisor):
 		
 		self.name = name
+		self.supervisor = supervisor
 		self.stats = { 	'trustworthiness': 0.6,
 						'relative_tw' : {}, # will map cluetypes to trustworthiness on the cluetype
 						'expertises': [],
@@ -202,7 +215,8 @@ class Agent(object):
 		return "< Agent {}. >".format(self.name)
 	
 	def __repr__(self):
-		return "< Agent {}. >".format(self.name)
+		from tests import wrap
+		return wrap("< Agent {}. >".format(self.name),'red')
 	
 	def __hash__(self):
 		
@@ -240,7 +254,7 @@ class Agent(object):
 		if not 0 < howmuch <= 1:
 			raise BaseException('Evaluation confidence should be in [0,1].')
 			
-		clue = Clue(what,float(howmuch),self,autoconsider = consider, trace = 'Agent.evaluate')
+		clue = Clue(what,float(howmuch),self,autoconsider = consider, trace = 'Agent.evaluate',supervisor = self.supervisor)
 		return clue
 	
 	def revaluate(self,clue):
@@ -329,17 +343,15 @@ class Agent(object):
 		else:
 			print('feedback ignored: about unhandleable (type :  {})'.format(type(about)))
 			
-	def makewhisperer(self,agod = None):
+	def makewhisperer(self):
 		"""
 		Adds the agent to god's own whisperlist
 		"""
-		if not agod:
-			agod = god
-		return agod.whisperer(self)
+		return self.supervisor.whisperer(self)
 	@property
 	def iswhisperer(self):
 		
-		if self in god.whisperers:
+		if self in self.supervisor.whisperers:
 			return True
 		else:
 			return False	
@@ -397,8 +409,11 @@ class GuardianAngel(Agent,object):
 	
 	guardianid = 0
 
-	def __init__(self,algorithm,ghost = False,whisperer = False):
-		super().__init__(algorithm.__name__)
+	def __init__(self,algorithm,supervisor,ghost = False,whisperer = False):
+		super().__init__(algorithm.__name__,supervisor)
+		
+		self.supervisor = supervisor
+		
 		self.zero = 0
 		self.nonzero = 0
 		self.evaluation = {}
@@ -422,11 +437,12 @@ class GuardianAngel(Agent,object):
 			
 		if whisperer:
 			self.makewhisperer()
-
+			
 	def __str__(self):
-		return "< GuardianAngel {} >".format(self.name)
+		return "< GuardianAngel {} of {}>".format(self.name,self.supervisor)
 		
 	def __repr__(self):
+		from tests import wrap
 		return wrap("< GuardianAngel {} >".format(self.name),'brightcyan')
 	
 	def __eq__(self,other):
@@ -468,11 +484,9 @@ class GuardianAngel(Agent,object):
 			
 		return transdict.get(self.alg,'Notanalgorithm')	
 	
-	
 	# consultation and evaluation functions
 	def consult(self):
-		global god
-		return god.consult(self)
+		self.supervisor.consult(self)
 			
 	def evaluate(self,what,silent = False,consider = True):
 		"""
@@ -503,7 +517,7 @@ class GuardianAngel(Agent,object):
 			return None
 				
 		if not self.ghost:
-			myclue = Clue(what,evaluation,self,autoconsider = consider,trace = 'GuardianAngel.evaluate')
+			myclue = Clue(what,evaluation,self,autoconsider = consider,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
 			return myclue
 		else:
 			return None
@@ -516,10 +530,18 @@ class GuardianAngel(Agent,object):
 		evaluate_all(express = False) + express() is equivalent
 		to evaluate_all()
 		"""
-		if verbose: print('\nSummoning {}...'.format( wrap(str(self),'brightred')) )
+		
+		if self.evaluation:
+			raise Warning("Warning: evaluation wasn't empty!")
+		if self.clues:
+			raise Warning("Warning: clues nonempty!")
+		
+		if verbose: 
+			from tests import wrap
+			print('\nSummoning {}...'.format( wrap(str(self),'brightred')) )
 		
 		if iterpairs is None:
-			iterpairs = sky.iter_pairs()
+			iterpairs = self.supervisor.sky.iter_pairs()
 			self.consulted = True
 			
 		pairlist = tuple(iterpairs)
@@ -553,7 +575,7 @@ class GuardianAngel(Agent,object):
 		
 		clue.delete()
 		self.evaluate(clue.about,consider = express)
-		god.reassess(clue)
+		self.supervisor.reassess(clue)
 					
 	def revaluate_all(self,iterable_clouds = None, express = True, verbose = True):
 		"""
@@ -569,7 +591,7 @@ class GuardianAngel(Agent,object):
 		
 		self.evaluate_all(customiter(allinks),express,verbose)
 		
-		god.reassess(allinks) # makes god check again
+		self.supervisor.reassess(allinks) # makes god check again
 		
 	def express(self,number = 0):
 		"""
@@ -586,7 +608,7 @@ class GuardianAngel(Agent,object):
 		for i in range(number):
 			pair = list(self.evaluation.keys())[i]
 			value = self.evaluation[pair]
-			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate')
+			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
 		
 		return True
 
@@ -603,6 +625,13 @@ class GuardianAngel(Agent,object):
 		"""
 		return self.stats['relative_tw'].get(ctype,False)
 	
+	def trusted(self):
+		"""
+		Prints nicely the god.trusts(self) outcome.
+		"""
+		
+		return self.god.trusts(self,local = False)
+	
 	# comparison functions
 	def agrees(self,other = None):
 		"""
@@ -611,7 +640,7 @@ class GuardianAngel(Agent,object):
 		"""
 		
 		if not other:
-			others = god.guardianangels
+			others = self.supervisor.guardianangels
 		
 		if other:
 			if not isinstance(other,list):
@@ -671,7 +700,7 @@ class GuardianAngel(Agent,object):
 		
 			# self's opinion on the clue's about.
 			if eva is not None: # if evaluation is none, self just doesn't know what the clue's about
-				feedback = Clue(agent,eva,self,trace = 'GuardianAngel.give_feedback')
+				feedback = Clue(agent,eva,self,trace = 'GuardianAngel.give_feedback',supervisor = self.supervisor)
 		
 		return True
 	
@@ -679,30 +708,67 @@ class GuardianAngel(Agent,object):
 		
 		stats = deepcopy(self.stats)
 		
-		self = GuardianAngel(self.algorithm)
+		self = GuardianAngel(self.algorithm,self.supervisor)
 		self.stats = stats
 	
+	# expertises
+	def lookup_expertises(self):
+		"""
+		Tries to guess which areas he is (most) expert in.
+		At the moment, simply updates self.stats['expertises'] with
+		whatever he is deemed to be confident enough (relative_tw).
+		Enough == 'higher than average'.
+		"""
+		
+		avg = sum(self.stats['relative_tw'].values()) / len(self.stats['relative_tw'].values()) if self.stats['relative_tw'] else 0
+		
+		for tw,value in self.stats['relative_tw'].items():
+			if value > avg:
+				if tw not in self.stats['expertises']:
+					self.stats['expertises'].append[tw]
+		
+		return True
+		
 class Knower(GuardianAngel,object):
 	
-	def __init__(self):
+	def __init__(self,supervisor):
 		
 		global knower
 		
 		if knower:
-			print('The Knower is already out there!')
-			return
+			raise BaseException('The Knower is already out there!')
+			
 		
-		super().__init__(algs.Algorithm.builtin_algs.someonesuggested,whisperer = True)
+		super().__init__(algs.Algorithm.builtin_algs.someonesuggested,supervisor,whisperer = True)
 		knower = self
-		return
 
 	def __str__(self):
 		return "< The Knower >"
 		
 	def __repr__(self):
-		return "< The Knower >"
-					
-class God(Agent,object):
+		from tests import wrap
+		return wrap("< The Knower >",'brightgreen')
+	
+	def new_supervisor(self,deity,clear = True):
+		"""
+		Assigns a new supervisor to the knower and clears all preceding logs,
+		if [clear].
+		"""
+		
+		self.supervisor = deity
+		self.makewhisperer()
+
+		if clear:
+			# we assume the previous evaluation was good: we keep it.
+			
+			# we try to restore the state as if he never expressed.
+			for clue in self.clues:
+				clue.delete()
+			self.clues = []
+			
+		return
+						
+class God(object):
 	"""
 	The Allmighty.
 	"""
@@ -711,10 +777,8 @@ class God(Agent,object):
 	godid = 0
 	
 	def __init__(self,sky = None):
-		super().__init__()
 		
 		self.sky = sky
-		del self.item
 		self.birthdate = ss.time.gmtime()
 		self.guardianangels = []
 		self.whisperers = []
@@ -723,8 +787,7 @@ class God(Agent,object):
 		self.totcluecount = 0
 		self.ignoreds = []
 		self.name = 'Yahweh'
-		self.stats['trustworthiness'] = 1
-		
+				
 		God.godid += 1
 		self.godid = God.godid
 		
@@ -1060,7 +1123,10 @@ class God(Agent,object):
 		trustdict = {}
 		
 		if not agents:
-			agents = AGENTS
+			#global AGENTS
+			
+			#agents = AGENTS
+			agents = self.guardianangels
 			
 		elif not isinstance(agents,list):
 			agents = [agents]
@@ -1200,11 +1266,23 @@ class God(Agent,object):
 		
 		for algorithm in algos:
 			if algorithm not in gasbyalg:
-				GA = GuardianAngel(algorithm)
-				GUARDIANANGELS.append(GA)
+				GA = GuardianAngel(algorithm,self)
 				self.guardianangels.append(GA)
 		return True
 	
+	def express_all(self,guardians = None,vb = True):
+		"""
+		For ga in self.guardianangels (or [guardians], if provided):
+		ga.express()
+		"""
+		if guardians is None:
+			guardians = self.guardianangels
+			
+		for ga in guardians:
+			if vb:
+				print(ga,' is expressing..,')
+			ga.express()
+		
 	def consider(self, number = False,verbose = False):
 		"""
 		God will shot a quick glance to the useless complaints of the mortals.
@@ -1256,7 +1334,9 @@ class God(Agent,object):
 				
 				if not isinstance(clue.agent,Knower): # if the clue'r is a knower, we won't update the beliefs.
 					handler(clue) # then the handler will handle
-
+				
+				
+				
 			else:
 				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
 					
@@ -1438,6 +1518,9 @@ class God(Agent,object):
 		Bypass for the clues mechanism:
 		directly asks to all of his trustees (GuardianAngels only) how much 
 		they believe or not something.
+		
+		By default, [weight] takes into account the belief_with_feedback
+		of each angel into (something).
 		"""
 		
 		opinions = []
@@ -1554,8 +1637,8 @@ class God(Agent,object):
 	
 	def refresh(self,verbose = True):
 		"""
-		For each logged clue, takes the author and asks him to reassess
-		the clue's value.
+		for belief in self.beliefs:
+		self.beliefs[belief] = self.rebelieves(belief)
 		"""
 		
 		so = ss.stdout
@@ -1699,3 +1782,4 @@ class God(Agent,object):
 		return True
 
 import meta_angels as metangels
+

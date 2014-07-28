@@ -5,9 +5,11 @@ import random
 from itertools import permutations
 from collections import Counter
 import pickle
+import os
+bar = clues.ss.bar
 
 someonesuggested = clues.algs.Algorithm.builtin_algs.someonesuggested
-
+stdout = clues.ss.stdout
 god = None
 sky = None
 knower = None
@@ -79,6 +81,9 @@ def blue(string):
 
 def red(string):
 	return wrap(string,'red')
+
+def bmag(string):
+	return wrap(string,'brightmagenta')
 
 def underline(string):
 	return wrap(string,'underline')
@@ -1104,57 +1109,19 @@ def load_god(nameoffile = 'mostrecent'):
 	
 	if nameoffile == 'mostrecent':
 		
-		date = clues.ss.time.gmtime()
+		max_mtime = 0
+		for dirname,subdirs,files in os.walk("./gods/"):
+			for fname in files:
+				if fname[:3] != 'god':
+					continue
+				full_path = os.path.join(dirname, fname)
+				mtime = os.path.getmtime(full_path) # last modified time
+				if mtime > max_mtime:
+					max_mtime = mtime
+					nameoffile = dirname + fname
+					
+		doc = open(nameoffile,'rb')
 		
-		sec = date.tm_sec
-		year = date.tm_year
-		month = date.tm_mon
-		day = date.tm_mday
-		hour = date.tm_hour		
-		minu = date.tm_min		
-
-		loopcount = 0
-		
-		while True:
-
-			nameoffile = './gods/god_belief_set_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(day,month,year,hour,minu,sec))
-			
-			try:
-				doc = open(nameoffile,'rb')
-				break
-			except IOError:
-				pass
-				
-			sec -= 1
-			if sec <= 0:
-				sec += -sec
-				sec += 60
-				minu -= 1
-				if minu <=0:
-					minu -= minu
-					minu += 60
-					hour -= 1
-					if hour <= 0:
-						hour -= hour
-						hour += 24
-						day -= 1
-						if day <= 0:
-							day += -day
-							day += 31 # the max
-							month -= 1
-							if month <= 0:
-								month += -month
-								month += 12
-								year -= 1
-								if year < 2014:
-									return False
-							
-			loopcount += 1
-			if loopcount > 1000000:
-				print('max loops hit')
-				return False
-			pass
-				
 	else:
 		doc = open(nameoffile,'rb')
 	
@@ -1195,58 +1162,19 @@ def store_sky(sky = None,nameoffile = None):
 def load_sky(nameoffile = None):
 		
 	if nameoffile is None:
-
-		date = clues.ss.time.gmtime()
 		
-		sec = date.tm_sec
-		minu = date.tm_min
-		hour = date.tm_hour
-		year = date.tm_year
-		month = date.tm_mon
-		day = date.tm_mday
-		
-		
-		loopcount = 0
-		
-		while True:
-
-			nameoffile = './gods/sky_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(day,month,year,hour,minu,sec))
-			
-			try:
-				doc = open(nameoffile,'rb')
-				break
-			except IOError:
-				pass
-				
-			sec -= 1
-			if sec <= 0:
-				sec += -sec
-				sec += 60
-				minu -= 1
-				if minu <=0:
-					minu -= minu
-					minu += 60
-					hour -= 1
-					if hour <= 0:
-						hour -= hour
-						hour += 24
-						day -= 1
-						if day <= 0:
-							day += -day
-							day += 31 # the max
-							month -= 1
-							if month <= 0:
-								month += -month
-								month += 12
-								year -= 1
-								if year < 2014:
-									return False
-							
-			loopcount += 1
-			if loopcount > 1000000:
-				print('max loops hit')
-				return False
-			pass
+		max_mtime = 0
+		for dirname,subdirs,files in os.walk("./gods/"):
+			for fname in files:
+				if fname[:3] != 'sky':
+					continue
+				full_path = os.path.join(dirname, fname)
+				mtime = os.path.getmtime(full_path) # last modified time
+				if mtime > max_mtime:
+					max_mtime = mtime
+					nameoffile = dirname + fname
+					
+		doc = open(nameoffile,'rb')
 				
 	else:
 		doc = open(nameoffile,'rb')
@@ -1273,7 +1201,9 @@ def makeglobal(deity):
 	god = deity
 	sky = deity.sky
 	
-def load_evaluations_to_gas(gaslist,filepath):
+def load_evaluations_to_gas(gaslist,filepath ='./guardianangels/evaluations/'):
+	
+	print()
 	
 	if not filepath[len(filepath)-1] == '/':
 		print('Needs be a folder.')
@@ -1282,8 +1212,11 @@ def load_evaluations_to_gas(gaslist,filepath):
 	excps = []
 	
 	for ga in gaslist:
-		
+		stdout.write('Loading evaluation for {}.'.format(ga))
+		stdout.flush()
 		if ga.consulted and ga.evaluation:
+			stdout.write(' [AlreadyLoadedError]\n ')
+			stdout.flush()
 			continue
 			
 		try:
@@ -1293,38 +1226,50 @@ def load_evaluations_to_gas(gaslist,filepath):
 	
 		except BaseException as e:
 			excps.append(e)
+		stdout.write(' [Done]\n')
+		
+	print()
 	
 	return excps if excps else True
 	
 def store_weights(gaslist,filepath = './guardianangels/weights/'):
+		
+	for ga in gaslist:
+		with open(filepath + ga.name + '.weight','wb+') as f:
+			
+			weights = {}
+			weights['trustworthiness'] = ga.stats['trustworthiness']
+			weights['relative_tw'] 	= ga.stats['relative_tw']
+			
+			pickle.dump(weights,f)
+			
+			print("Stored weightset of {}.".format(ga))
+			
+	return True
+
+def load_weights_to_gas(gaslist,filepath = './guardianangels/weights/'):
 	
-	excps = []
+	exes = [] 
 	
 	for ga in gaslist:
-		try:
-			with open(filepath + ga.name + '.weight','rb') as f:
+		
+		filename = filepath + ga.name + '.weight'
+		try:	
+			with open(filename,'rb') as f:
+				trust = pickle.load(f)
 				
-				weight = pickle.load(f)
-				ga.stats['trustworthiness'] = weight['overall']
-				ga.stats['relative_tw'] 	= trust['relative_tw']
+				angel.stats['trustworthiness'] = trust['trustworthiness']
+				angel.stats['relative_tw'] = trust['relative_tw']
+					
+				successful = wrap('successful','brightblue')
+				print("Lookup {} for {}.".format(successful,ga))
 				
 		except BaseException as e:
-			excps.append(e)
-			pass
+			failed = wrap('failed','brightred')
+			print("Lookup {} for {}.".format(failed,ga))
+			exes.append(e)
 			
-	return excps
-
-def load_weights_to_gas(gaslist,filename = './guardianangels/evaluations/'):
-	
-	with open(filename,'rb') as f:
-		trusts = pickle.load(f)
-		
-		for angel in gaslist:
-			trusts = {ga.name: trusts[ga] for ga in trusts}
-			angel.stats['trustworthiness'] = trust[angel.name]['overall']
-			angel.stats['relative_tw'] = trust[angel.name]['relative_tw']
-	
-	return True
+	return exes
 			
 # patch
 
@@ -1349,7 +1294,7 @@ def equate_all_links(deity = None):
 		
 	pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
 
-	print('Parallelising beliefs...')
+	print('\t\tParallelising beliefs...')
 		
 	for ga in god.guardianangels:
 		for link,ev in ga.evaluation.items():

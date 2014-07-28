@@ -1128,7 +1128,16 @@ class Cloud():
 		
 		for i in range(len(self.layers)):
 			self.layers[i]['core'] = candidates[:min((len(candidates),15))]
+
+class Link(tuple):
 	
+	def __init__(self,*args):
+		self.clouds = tuple(*args)
+	
+	def wff(self):
+		if len(self.clouds) != 2:
+			pass 
+
 class SuperCloud(Cloud):
 	
 	def __init__(self,cloudlist,automerge = True):
