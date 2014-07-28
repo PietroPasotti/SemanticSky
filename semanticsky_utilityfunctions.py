@@ -23,7 +23,7 @@ revert_destemdb = {}
 # stem --> word dictionary (it's a mapping)
 
 
-def crop_at_nonzero(fl,bot = 2):
+def crop_at_nonzero(fl,bot = 4):
 	sfl = str(fl)
 	
 	out = ''
@@ -487,7 +487,7 @@ def bar(progress,barlength=100):
 	if progress >= 1:
 		progress = 1
 
-	percentage = str(progress*100+1)
+	percentage = str(progress*100)
 	
 	if len(percentage) > 3 and percentage != 100.0:
 		displayedp = percentage[:2]

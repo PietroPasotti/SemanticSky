@@ -1,11 +1,24 @@
 #!/usr/bin/python3
 
 import tests
-
+center = tests.center
 wrap = tests.wrap
 table = tests.table
 bmag = tests.bmag
 bar = tests.clues.ss.bar
+stdout = tests.clues.ss.stdout
+crop_at_nonzero = tests.crop_at_nonzero
+
+
+def binput(msg):
+	a = input(bmag('\t>> {}'.format(msg)))
+	return a
+
+def confirm(msg):
+	if binput('Chosen "{}". Confirm? ') in 'yesYES':
+		return True
+	else:
+		return False
 
 def setup_new_god():
 	
@@ -175,3 +188,218 @@ def equate_all_links(god,angels):
 		print()
 		
 	return True
+
+def similarity_picker(god):
+	"""
+	Generates a custom user and lets him spawn judgements about clouds.
+	Provides further insights into semanticsky's way of working.
+	"""
+
+	tests.makeglobal(god)
+
+	if not god.beliefs:
+		print('God is pretty empty.')
+	
+	print(center(wrap(' similarity picker v0.4 ','brightred'),space='-'))
+	
+	exes = []
+	
+	while True: # AGENT CREATION
+		uname = binput('Choose your username: ')
+		
+		if not uname:
+			print('\tCome on...')
+			continue
+		
+		try:
+			agent = tests.clues.Agent(uname,god) #name and supervisor
+			if binput('Chosen "{}".'.format(uname)) in 'yesYES':
+				print('\t\tNow you are {}.'.format(agent))
+				break
+		
+		except BaseException as e:
+			print('Something went wrong.')
+			exes.append(e)
+		
+	doptions = lambda x: table([[y] for y in x])
+	
+	global curpair
+	curpair = None
+	def pick_random_link():
+		link = tests.randomlink()
+		global curpair
+		curpair = link
+	
+	actualist = list(god.beliefs)
+	tests.random.shuffle(actualist)
+	actuiter = iter(actualist)
+	del actualist
+	
+	def choose_a_link_yourself():
+		global curpair
+		while True:
+			
+			choice = binput('Give two cloudnames (IDs) separated by a space: ')
+			
+			ch = choice.split(' ')
+			cch = []
+			try:
+				for c in ch:
+					c = c.strip()
+					if c.isdigit():
+						cch.append(int(c))
+					else:
+						cch.append(c)
+				print('\t\t Looking up cloud pair ({},{})...'.format(cch[0],cch[1]))
+				
+				try:
+					cloud1 = god.sky.get_cloud(cch[0])
+					try:
+						cloud2 = god.sky.get_cloud(cch[1])
+					except ValueError:
+						print('Incorrect cloudID: {} not found.'.format(cch[1]))
+						continue
+				except ValueError:
+					print('Incorrect cloudID: {} not found.'.format(cch[0]))
+					continue
+					
+			except BaseException:
+				print('Bad input.')
+				
+			curpair = tests.clues.ss.pair(cloud1,cloud2)
+			print('\t Chosen {}'.format(set(curpair)))
+			break
+				
+	def pick_random_actual_link():
+		global curpair
+		curpair = next(actuiter)
+
+	def evaluate_similarity():
+		global curpair
+		while True:
+			rating = binput("Rate from 0 to 10 the similarity of the items. ('b' to go back) ")
+			
+			if rating.strip() == 'b':
+				return None
+				
+			try:
+				rating = float(rating)
+			except BaseException:
+				print('\t\tBad input.')
+				continue
+				
+			if 0 <= rating <= 10:
+				if confirm(rating):
+					break
+
+		agent.evaluate(curpair,rating/10)
+
+	def more_info():
+		global curpair
+		print('\tThe currently selected link is about two clouds:')
+		
+		clouda,cloudb = curpair
+		
+		head1 = wrap(clouda.get_header(),'green')
+		head2 = wrap(cloudb.get_header(),'green')
+		
+		print(center('-',space = '-'))
+		print(wrap('\tITEM [1]','brightred'))
+		print('\t\tItem 1 is identified by: ',head1)
+		print('\t\tAnd is an item of type "{}".'.format(clouda.ctype()))
+		print()
+		
+		
+		
+		print(center('-',space = '-'))
+		print(wrap('\tITEM [2]','brightred'))
+		print('\t\tItem 2 is identified by: ',head2)
+		print('\t\tAnd is an item of type "{}".'.format(cloudb.ctype()))
+		print()
+		
+		
+		
+		print()
+		print(center(' GENERAL INFORMATION ',space = '-'))
+		linked = wrap('are','brightblue') if tests.clues.algs.someonesuggested(clouda,cloudb) else "are " + wrap('not','brightred')
+		print('\tIn starfish they currently {} linked.'.format(linked))
+		
+		godbels = god.believes(curpair)
+		print('\tGod believes the link with {} confidence.'.format(godbels))
+		
+		ctype = tests.clues.ss.ctype(curpair)
+		for ga in god.guardianangels:
+			
+			conf = ga.evaluate(curpair,silent = True) # should return the confidence, and not spawn anything!
+			print('\t',ga,' believes the link with {} confidence.'.format(crop_at_nonzero(conf,4)))
+			
+			weight = crop_at_nonzero(ga.reltrust(ctype),4)
+			
+			if weight:
+				weightedworth = crop_at_nonzero(weight * conf,4)
+					
+				print('\this weight for this type of links is {}; which makes his weighted decision worth {}.'.format(weight,weightedworth))
+			
+			print()
+		
+			
+	def much_more_info():	
+		global curpair
+		print()
+	
+	while True:
+		options = {	'n' : (pick_random_link,'random link'),
+					'm' : (pick_random_actual_link,	'pick a random link | god has some doubt about it'),
+					'c' : (choose_a_link_yourself,	'choose a link by id'),
+					'b' : ('exit','exit')}
+						
+		if curpair:
+			
+			print('\tCurrently focused: {}.'.format(wrap("[{}]".format(set(curpair)),'white')))
+			
+			options.update({	'e'		: (evaluate_similarity,'give your rating'),
+								'i'		: (more_info,'more info about the link'),
+								'I'  	: (much_more_info,'a lot more info')})
+		lopts = []
+		for option in options:	
+			lopts.append([ option, options[option][1] ])
+			
+		choice = binput('')
+		
+		choice = choice.strip()
+		if not choice:
+			print(center(wrap('enter "h" for available commands','lightgrey')))
+			continue
+		
+		if choice in 'Hh':
+			print('Available commands:')
+			table(lopts)
+		elif choice in 'bB':
+			print(wrap('exiting...','brightred'))
+			break
+		elif choice in options.keys():
+			options[choice][0]()
+	
+	return god,curpair
+	
+def interactive(god = None):
+	print()	
+	if not god:
+		print('Setting up a fresh god...')
+		god = setup_new_god()
+		print()
+	print()
+	print('Initializing interactive setupper...')
+	print()
+	interactive_setup(god)
+	print()
+	print('Initializing interactive similarity_picker...')
+	print()
+	out = similarity_picker(god)
+	print()
+	
+	global GOD
+	GOD = god
+	print('exiting... (god stored in the global GOD)')
+	
+	return out

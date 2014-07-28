@@ -6,6 +6,7 @@ from copy import deepcopy
 from group import Group
 pickle = ss.pickle
 sqrt = algs.sqrt
+crop_at_nonzero = ss.crop_at_nonzero
 
 CLUES = []
 AGENTS = []
@@ -99,12 +100,12 @@ class Clue(object):
 			CLUES.append(self)	
 	
 	def __str__(self):
-		from tests import crop_at_nonzero
-		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
+		val = self.value
+		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(val,4),self.agent)
 		
 	def __repr__(self):
-		from tests import crop_at_nonzero
-		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
+		val = self.value
+		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(val,4),self.agent)
 		
 	@property
 	def trustworthiness(self):
@@ -342,7 +343,7 @@ class Agent(object):
 			
 		else:
 			print('feedback ignored: about unhandleable (type :  {})'.format(type(about)))
-			
+				
 	def makewhisperer(self):
 		"""
 		Adds the agent to god's own whisperlist
@@ -507,14 +508,14 @@ class GuardianAngel(Agent,object):
 		
 		if not evaluation > 0:
 			self.zero += 1
-			return None
+			return 0
 		else:
 			self.nonzero += 1		
 		
 		self.evaluation[what] = evaluation # stores the evaluation
 		
 		if silent:
-			return None
+			return evaluation
 				
 		if not self.ghost:
 			myclue = Clue(what,evaluation,self,autoconsider = consider,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
@@ -605,11 +606,15 @@ class GuardianAngel(Agent,object):
 			print('Nothing to express.')
 			return False
 		
+		print(self,' is expressing...')
 		for i in range(number):
 			pair = list(self.evaluation.keys())[i]
+			
+			ss.bar((i + 1)/number)
+			
 			value = self.evaluation[pair]
 			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
-		
+		print()
 		return True
 
 	def belief_without_feedback(self,pair):
@@ -621,9 +626,9 @@ class GuardianAngel(Agent,object):
 	def reltrust(self,ctype):
 		"""
 		Returns the relative trustworthiness about clues of type ctype.
-		If there is no data on that, returns False.
+		If there is no data on that, returns 0.
 		"""
-		return self.stats['relative_tw'].get(ctype,False)
+		return self.stats['relative_tw'].get(ctype,0)
 	
 	def trusted(self):
 		"""
@@ -741,6 +746,7 @@ class Knower(GuardianAngel,object):
 		
 		super().__init__(algs.Algorithm.builtin_algs.someonesuggested,supervisor,whisperer = True)
 		knower = self
+		supervisor.knower = self
 
 	def __str__(self):
 		return "< The Knower >"

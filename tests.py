@@ -135,7 +135,7 @@ def center(string,width = 100,space = ' '):
 def cropfloat(fl,no = 4):
 	return float(str(fl)[:no])
 
-def crop_at_nonzero(fl,bot = 2):
+def crop_at_nonzero(fl,bot = 4):
 	sfl = str(fl)
 	
 	out = ''
@@ -148,7 +148,8 @@ def crop_at_nonzero(fl,bot = 2):
 		out += digit
 		
 		if nonzero != 0 and nonzero != bot:
-			nonzero += 1 # we want no-1 digits after the first nonzero, not results like 0.0200000000000005, if we want 2 nonzero digits
+			nonzero += 1	# we want no-1 digits after the first nonzero, not results like 0.0200000000000005, if we want 2 nonzero digits
+							# so in that case, for 4 nonzero, would return 0.02000.
 		
 		if nonzero == bot:
 			return float(out)
@@ -1251,9 +1252,9 @@ def load_weights_to_gas(gaslist,filepath = './guardianangels/weights/'):
 	
 	exes = [] 
 	
-	for ga in gaslist:
+	for angel in gaslist:
 		
-		filename = filepath + ga.name + '.weight'
+		filename = filepath + angel.name + '.weight'
 		try:	
 			with open(filename,'rb') as f:
 				trust = pickle.load(f)
@@ -1262,11 +1263,11 @@ def load_weights_to_gas(gaslist,filepath = './guardianangels/weights/'):
 				angel.stats['relative_tw'] = trust['relative_tw']
 					
 				successful = wrap('successful','brightblue')
-				print("Lookup {} for {}.".format(successful,ga))
+				print("Lookup {} for {}.".format(successful,angel))
 				
 		except BaseException as e:
 			failed = wrap('failed','brightred')
-			print("Lookup {} for {}.".format(failed,ga))
+			print("Lookup {} for {}.".format(failed,angel))
 			exes.append(e)
 			
 	return exes
