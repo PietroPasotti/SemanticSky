@@ -1,0 +1,82 @@
+\documentclass[11pt]{article}
+
+\usepackage{listings}
+\usepackage{xspace}
+\usepackage{amsmath}
+\usepackage{eurosym}
+
+
+\def\cam{\textsc{cam}\xspace}
+
+
+
+\begin{document}
+\begin{center}
+\huge{SemanticSky} \\ \large{Taking the network up to heaven.}
+\end{center}
+
+\tableofcontents
+\clearpage
+
+\section{Starfish.}
+
+\section{Overview of Semanticsky.}
+
+SemanticSky (currently) is a program which, given as input a set of documents, outputs a small multi-agent system where some built-in algorithmic agents try to infer similarity relations between the input documents.
+
+The main steps through which this is achieved follow:
+
+\begin{itemize}
+\item First, each document is transformed into a {\bf Cloud}: an object which theoretically should encapsulate all the information we can extract from the base document. Examples include: names of people mentioned in the document, names of places, statistically frequent word and frequently co-occurring pairs of words.
+\item  Secondly, these clouds are pairwise evaluated by a list of algorithms, called {\bf Guardian Angels} which try to judge their similarity based on different and possibly complementary criteria.
+\item Finally, the evaluations of the Guardian Angels are merged into a single one, which represents the final state of the system, at this stage.
+\end{itemize}
+
+When the system is first initialized, or when a new document is added to the corpus, this is all there is to it.
+
+But then, some more things will happen, as {\bf Agents} (true people) evaluate by themselves the appropriateness of a link or the relevance of a tag or keyword to some page.
+
+\begin{itemize}
+\item The current state of the system is kept under watch on by a supervisor algorithm called {\bf God}, is judged either stable or unsettled. If some part of the network is unsettled, then God waits for more discussion to happen between agents and maybe even fuels it by suggesting relevant links to the parties involved or informing the parties of the presence of a third option, and so on...
+\item Once the system settles on some decision, such as the complete relatedness of two items, or maybe even the plain equivalence of two approaches that just happened to go under different names, then God gives feedback to all agents involved (human or algorithmic) regarding the accuracy of their guesses relative to the final state. This way, suggestion-givers who gave bad suggestions will be taken less into account in the future.
+\end{itemize}
+
+Crucially, the supervisor algorithm will need to `suspend judgement' on user-backed agents while a discussion is still going on, so that plain democracy will decide on the final state of the system (the objective is to respect people's suggestions, not to distort them) without being influenced by the feedback they received. God is not a moderator: is a plain container and merger of opinions. He listens to the discussion and takes notes. On the other hand it's up to him to judge whether an algorithm is good or not.
+
+Currently it's very easy to implement a new algorithm in the system:
+
+\begin{lstlisting}
+import clues
+def evaluate(cloud1,cloud2):
+	...
+	return myevaluation
+
+myalgorithm = clues.algorithms.Algorithm(evaluate)
+myguardian = clues.GuardianAngel(myalgorithm)
+myguardian.evaluate_all() 
+# this will make it evaluate
+# all 2-permutations of clouds.
+\end{lstlisting}
+
+But not all algorithm are good, and some are good just on very specific subsets of the system. Suppose that we have an algorithm that just checks whether the authors of the document are the same person (and does that by regex matching some query). This algorithm will then return zero for all documents where an 'author' is not defined or the query doesn't match. God then will (try to) understand that the algorithm is useful in some subdomain, even though his average accuracy is very low.
+
+The evaluations that a Guardian Angel performs differ from those of an human agent only in that they are produced automatically. Their route is in fact basically the same: they either get queued and later on processed by God, or they get immediately processed.
+
+The `processing' implemented is currently quite naive. When an agent has a (nonzero) clue about the similarity of two documents, a Clue is spawned that conveys the information that the agent has an opinion $x$ about the fact $y$.
+
+Once the clue gets read by God, he will log it and then retrieve all logs about $y$; that is, all the information he has about $y$. Then, he will retrieve all the confidences of the clues (how strongly who produced them believed into them) and the weights (how well their authors usually do at guessing).
+
+The weighted confidences are then averaged, and God's belief about $x$ is updated to the value.
+
+\section{SemanticSky.}
+
+\subsection{Clouds: the bricks.}
+
+\subsection{Guardians.}
+
+\subsection{Agents.}
+
+\subsection{The Supervisor.}
+
+
+\end{document}

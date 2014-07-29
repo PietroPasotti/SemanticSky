@@ -4,21 +4,17 @@
 Python3 code. Compatible with 2.7 with minor modifications(mainly encoding)
 """
 
-import nltk
+import nltk,re,sys,time,random,pickle,math,algorithms
 from bs4 import BeautifulSoup, SoupStrainer
-import algorithms
-Counter = algorithms.Counter
 from group import Group
-import re
 import semanticsky_utilityfunctions as utils
 from semanticsky_utilityfunctions import * # all functions such as sentence splitting, language recognition, tokenization...
-import sys,time,random
-import pickle
 from sys import stdout
 from copy import deepcopy
-import math
 
-class Data():
+Counter = algorithms.Counter
+
+class Data(object):
 	"""
 	reimplementation of Tweedejaars' DataWrapper
 	Handles the interaction starfish db - semanticsky.
@@ -26,12 +22,11 @@ class Data():
 	
 	The default one however has the following form:
 	
-	{'data': {'some_unique_id': { information }}
-	'tags':{}}
+	{	
+	'data': {'some_unique_id': { information }}
+	'tags': {'some_unique_id': { information }}
+	}
 	
-	requirement: the data structure should be a dictionary from unique IDs
-	to dictionaries.
-
 	"""
 	def __init__(self,filepath,fill = True,debug = False):
 		
@@ -308,7 +303,7 @@ class Data():
 		
 		self.wordseqcounter = cleanwordseqcounter
 				
-class SemanticSky():
+class SemanticSky(object):
 	"""
 	The Semantic Sky is the background of all clouds; is responsible for some
 	higher-level computations and oversees cloud formation and evolution.
@@ -689,7 +684,7 @@ class SemanticSky():
 				del cloud
 		return True
 					
-class Cloud():
+class Cloud(object):
 	"""
 	A Cloud is a semantic web of information, hierarchically ordered
 	from the innermost to the outermost (a relatedness measure already).
@@ -1110,13 +1105,39 @@ class Cloud():
 
 class Link(tuple):
 	
-	def __init__(self,*args):
-		self.clouds = tuple(*args)
+	def __init__(self,arg1,arg2=None):
+		if not arg2:
+			arg1,arg2 = arg1 # this will fail if arg1 is not a tuple,list or something with two clouds in it.
+		
+		if not isinstance(arg1,Cloud) or not isinstance(arg2,Cloud):
+			raise BaseException('Not clouds but {} {}'.format(type(arg1),type(arg2)))
+		
+		self.clouda = arg1
+		self.cloudb = arg2
 	
-	def wff(self):
-		if len(self.clouds) != 2:
-			pass 
-
+	def __len__(self):
+		
+		return 2
+	
+	def __iter__(self):
+		
+		yield self.clouda
+		yield self.cloudb
+		raise StopIteration()
+	
+	def __hash__(self):
+		
+		return hash((self.clouda,self.cloudb))
+	
+	def __getitem__(self,no):
+		
+		if no == 0:
+			return clouda
+		elif no == 1:
+			return cloudb
+		else:
+			raise IndexError('Out of range.')
+	
 class SuperCloud(Cloud):
 	
 	def __init__(self,cloudlist,automerge = True):
@@ -1136,6 +1157,7 @@ class SuperCloud(Cloud):
 		
 		"""
 		Makes its layers be the sum of the underlying clouds' layers.
+		Rather failsafe, at the moment.
 		"""
 		
 		for cloud in self.cloudlist:

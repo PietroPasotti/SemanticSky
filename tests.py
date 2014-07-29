@@ -6,8 +6,8 @@ from itertools import permutations
 from collections import Counter
 import pickle
 import os
-bar = clues.ss.bar
 
+bar = clues.ss.bar
 someonesuggested = clues.algs.Algorithm.builtin_algs.someonesuggested
 stdout = clues.ss.stdout
 god = None

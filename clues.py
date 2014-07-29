@@ -4,6 +4,7 @@ import algorithms as algs
 import semanticsky as ss
 from copy import deepcopy
 from group import Group
+
 pickle = ss.pickle
 sqrt = algs.sqrt
 crop_at_nonzero = ss.crop_at_nonzero
@@ -13,7 +14,7 @@ AGENTS = []
 GUARDIANANGELS = []
 god = None
 anonymous = None
-codedict = None # stores 
+codedict = None 
 knower = None
 
 feedback_inertia = 0.02 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
