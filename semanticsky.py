@@ -39,15 +39,10 @@ class Data():
 		self.oridata = None
 		self.debug = debug
 		
-		if fill:
-			self.fill()
-	
-	def fill(self):
-		
 		self.wrap()
 		self.handle_aliases()
-		self.induce_words_pairs()	
-	
+		self.induce_words_pairs()
+			
 	def wrap(self):
 		"""
 		Loads the pickled export, and gives to each item its own id.
@@ -64,7 +59,7 @@ class Data():
 		for key in self.oridata: # for both items and tags
 			for itemIDortagNAME in self.oridata[key]: # each item stores its own id, and tags store their name
 				self.oridata[key][itemIDortagNAME]['id'] = itemIDortagNAME
-	
+
 	# DataWrapper functions							
 	def item(self,ID):
 		"""
@@ -183,7 +178,8 @@ class Data():
 		"""
 		import cluster
 		
-		self.tag_aliases_classes = cluster.clusterize1(self.oridata['tags'])
+		alltags = self.oridata['tags']
+		self.tag_aliases_classes = cluster.clusterize1(alltags)
 		newbase = deepcopy(self.oridata)
 		
 		for cluster in self.tag_aliases_classes:
@@ -196,35 +192,24 @@ class Data():
 						return True
 				return False
 			
-			
-			glosses = [ t for t in cluster if hasglossary(t) and t != proxytag ]
+			glosses = [ t for t in cluster if hasglossary(t) and t is not proxytag ]
 			glossaries_to_merge = []
 			
+			glostext = ''
 			if len(glosses) > 1:
 				#raise Warning('More than one glossary for alias group [{}]'.format(aliasgroup))
 				
 				basegloss = glosses[0]
 				
 				for t in glosses[1:]:
-					glossaries_to_merge.append(self.oridata['tags'][t]['glossary'])
+					glossaries_to_merge.append(self.tag(t)['glossary'])
 					# these glossaries will be merged in glosses[0]'s one
-			
-				# Build the new glossary text
-			glostext = ''
-			if len(glosses) != 0: # if at least one of the alias-group has a glossary, we throw it all in glostext
-
+		
 				tag_with_glossary = glosses[0]
 				ID_of_glossary = self.tag(tag_with_glossary)['glossary']
 				dic_of_glossary = self.item(ID_of_glossary)
 
 				glostext += dic_of_glossary['text']  	# we add the raw text of the glossary
-				id_of_author = dic_of_glossary['author'] # we add the name of the author
-				if id_of_author:
-					name_of_author = self.oridata['items'][id_of_author]['name']
-					glostext += ' ' + name_of_author
-				
-				for t in dic_of_glossary['tags']: 
-					glostext += '. ' + split_tag(t)  # we add a few extra likely-to-be-keywords to the raw text
 				
 				if len(glossaries_to_merge) > 0: # if there are multiple glossaries for alias-class:
 					for gloss_id in glossaries_to_merge:
@@ -232,13 +217,7 @@ class Data():
 						
 						glostext += ' ' + gdict['text']
 						
-						authorid = gdict['author']
-						authorname = self.oridata['items'][authorid]['name']
-						glostext += ' ' + authorname
-						
-						for t in gdict['tags']: 
-							glostext += '. ' + split_tag(t)
-			
+			newbase['tags'][proxytag]['glossary'] = self.item(self.tag(proxytag)['glossary'])['text'] if self.tag(proxytag)['glossary'] else None
 			newbase['tags'][proxytag]['aliased_glossary'] = glostext # does NOT include proxytag's glossary; that one is stored under 'glossary'
 			cl = deepcopy(cluster)
 			cl.remove(proxytag)
@@ -246,7 +225,8 @@ class Data():
 
 			for tag in cluster:
 				if tag != proxytag:
-					del newbase['tags'][tag]
+					if tag in newbase['tags']:
+						del newbase['tags'][tag]
 			
 		self.oridata = newbase
 		
@@ -587,7 +567,7 @@ class SemanticSky():
 		return pair(clouda,cloudb)
 
 	
-	### counters population functions
+	### counters population functionsself.oridata['tags']
 	def populate_coo_counter(self):
 		"""
 		Counts co-occurrences in the whole corpus, maybe for weighting or
@@ -999,8 +979,7 @@ class Cloud():
 		if self.item.get('glossary'): # if the item is a tag, crucial part of the description will be the glossary.
 									  # the aliases-handling which took place at DataWrapper level will ensure that
 									  # there is only one tag per alias-group, and that its glossary is a string
-			glossary = self.item['glossary']
-			nucleus.append(glossary)
+			nucleus.append(self.item['glossary'])
 			
 		out = self.clean(nucleus)
 

@@ -405,28 +405,42 @@ def knowersetup():
 
 # analysis of god belief state
 
-def fullcompare():
+def fullcompare(deity = None):
+	if deity:
+		god = deity
 	
 	print()
 	print('-'*10,' Fullcompare ','-'*10)
-	compare_god_beliefs_against_actual_links()
-	variousnumbers()
-	clean_results()
-	evaluate_cleanresults_recall()
-	evaluate_cleanresults_naive()
-	percent_related_items()
-	morenumbers()
+	
+	print()
+	print('--REFRESH--')
+	god.refresh()
+	print()
+	
+	compare_god_beliefs_against_actual_links(god)
+	variousnumbers(god)
+	cleanres = clean_results(god)
+	evaluate_cleanresults_recall(cleanres,god)
+	evaluate_cleanresults_naive(cleanres,god)
+	percent_related_items(god)
+	morenumbers(god)
 	print()
 	print('-' *33)
 	return True
 	
-def compare_god_beliefs_against_actual_links():
+def compare_god_beliefs_against_actual_links(deity = None):
+	"""
+	will store god's belief state in this form:
+	Cloud() : [Cloud()].sorted(key = godsbelief that it is linked to the dict_key)
+	"""
 	
-	clues.results = {} 	# will store god's belief state in this form:
-					# Cloud() : [Cloud()].sorted(key = godsbelief that it is linked to the dict_key)
+	if deity:
+		god = deity
 	
-	for pair in clues.sky.iter_pairs():
-		godsbelief = clues.god.believes(pair)
+	clues.results = {} 
+	
+	for pair in god.sky.iter_pairs():
+		godsbelief = god.believes(pair)
 		
 		if not godsbelief > 0:
 			continue
@@ -447,7 +461,7 @@ def compare_god_beliefs_against_actual_links():
 	
 	clues.compared_results = {}
 	
-	for cloud in clues.sky.clouds():
+	for cloud in god.sky.clouds():
 		links = cloud.item.get('links',[])
 		clues.compared_results[cloud.item['id']] = {}
 		clues.compared_results[cloud.item['id']]['actual_links'] = links
@@ -456,7 +470,7 @@ def compare_god_beliefs_against_actual_links():
 		sranked = [ocloud.item['id'] for ocloud in [second_item_of(result) for result in clues.results.get(cloud,[])] ]
 		sranked = list(set(sranked))
 		
-		sranked.sort(key = lambda x : god.believes(sky.pair_by_id(x,cloud.item['id'])) )
+		sranked.sort(key = lambda x : god.believes(god.sky.pair_by_id(x,cloud.item['id'])) )
 		
 		clues.compared_results[cloud.item['id']]['suggested_links_ranked'] = sranked
 																		
@@ -465,8 +479,10 @@ def compare_god_beliefs_against_actual_links():
 	print('output saved to clues.compared_results')																							
 	return True
 
-def clean_results(crop = 10):
-	
+def clean_results(deity = None,crop = 10):
+	if deity:
+		god = deity
+		
 	try: 
 		res = clues.compared_results
 	except BaseException:
@@ -484,8 +500,10 @@ def clean_results(crop = 10):
 	print('output saved to clues.cleanresults.')	
 	return True	
 
-def evaluate_cleanresults_recall():
-	
+def evaluate_cleanresults_recall(cleanres,deity = None):
+	if deity:
+		god = deity
+
 	evaluation_recall = {}
 	
 	cleanresults = clues.cleanresults
@@ -505,8 +523,10 @@ def evaluate_cleanresults_recall():
 	print('recall : ', recall)
 	return recall
 
-def evaluate_cleanresults_naive():
-	
+def evaluate_cleanresults_naive(cleanres,deity = None):
+	if deity:
+		god = deity
+
 	evaluation_naive = {}
 	cleanresults = clues.cleanresults
 	
@@ -531,31 +551,30 @@ def evaluate_cleanresults_naive():
 	clues.evaluation_naive = evaluation_naive
 	return avgtot
 
-def percent_related_items():
+def percent_related_items(deity = None):
+	if deity:
+		god = deity
+		
+	noflinks = len([ p for p in permutations(god.sky.sky,2) ])
 	
-	noflinks = len([ p for p in permutations(clues.sky.sky,2) ])
-	
-	iterpairs = clues.sky.iter_pairs()
+	iterpairs = god.sky.iter_pairs()
 	ap = len([ pair for pair in iterpairs if someonesuggested(*pair) ]) / noflinks
 	
-	pp = len(clues.god.beliefs) / noflinks
+	pp = len(god.beliefs) / noflinks
 	
 	return {'actual_percent': ap, 'predicted_percent': pp}
 
-def variousnumbers():
-	god = clues.god
+def variousnumbers(deity = None):
+	if deity:
+		god = deity
 	
-	global knower
+	from belieftests import getknower
+	knower = getknower(god)
 	
-	if not knower:
-		print( '(creating the Knower...)')
-		knower = clues.GuardianAngel(someonesuggested,ghost = True)
+	if not knower.evaluation:
 		knower.evaluate_all(express = False)
 		print()
 		
-	if not len(knower.evaluation):
-		knower.evaluate_all(express = False)
-	
 	print('Number of links detected: ',len(god.beliefs),' versus {} (valid) links currently existing in starfish.'.format(len(knower.evaluation)))
 	
 	if not hasattr(god,'allinks'):
@@ -615,7 +634,7 @@ def variousnumbers():
 			for clue in set(cluelist):
 				accuracy[clue.agent] += 1
 	
-	nametoangel = {ga.name: ga for ga in clues.god.guardianangels}
+	nametoangel = {ga.name: ga for ga in god.guardianangels}
 		
 	for entry in redict: # name of an algorithm
 		a = entry
@@ -650,12 +669,12 @@ def variousnumbers():
 	nologs_to_nopairs = Counter()
 	nologs_to_nopairs_if_correct = Counter()
 	
-	for pair in clues.god.logs:
+	for pair in god.logs:
 		
 		if not clues.ss.ispair(pair):
 			continue
 		
-		lenlog = len(clues.god.logs[pair])
+		lenlog = len(god.logs[pair])
 		cluesperpair += lenlog
 		if someonesuggested(pair):
 			corspotted += 1
@@ -675,7 +694,9 @@ def variousnumbers():
 	avgconf = sum(god.believes(x) for x in knower.evaluation) / len(knower.evaluation)
 	print('  Average final confidence in actually existing links: {}'.format(avgconf))
 	print()
-	ranks = clues.god.rankcounter()
+	ranks = god.rankcounter()
+	
+	tbl = [['number of pairs','with n clues','n of correct ones','average confidence']]
 	for entry in ranks:
 		correct = nologs_to_nopairs_if_correct[entry] # number of correct links with (entry) number of logged clues
 		pcorrect = cropfloat(correct/ranks[entry],5) if correct else 0
@@ -684,14 +705,20 @@ def variousnumbers():
 		allconfs = tuple(god.believes(pair) for pair in god.logs.keys() if len(god.logs[pair]) == entry and clues.ss.ispair(pair))
 		avgconfs = crop_at_nonzero(sum(allconfs) / len(allconfs),3) if allconfs else 'n/a'
 		
-		print('\tThere were {} pairs with {} clues. \tOf them, {} were actually correct. \t({}%) \t [ average confidence: {} ]'.format(ranks[entry],entry,correct,pcorrect,avgconfs))
+		tbl.append([ranks[entry],entry,correct,pcorrect,avgconfs])
+	
+	table(tbl)	
 	print()
 
-def find_duplicates(vb=False):
+def find_duplicates(deity = None,vb=False):
 	"""
 	Prints 'err' whenever it finds a duplicate in gods' logs: an agent's name
 	should never be twice in some log's cluelist.
 	"""
+	
+	if deity:
+		god = deity
+	
 	for log in god.logs:
 		names = tuple(clue.agent.name for clue in god.logs[log])
 
@@ -704,13 +731,18 @@ def find_duplicates(vb=False):
 		if vb:
 			print(names)
 
-def morenumbers():
-	nontagclouds = tuple( cloud for cloud in clues.sky.clouds() if cloud.cloudtype != 'tags')
+def morenumbers(deity = None):
+	if deity:
+		god = deity
+	
+	sky = god.sky
+	
+	nontagclouds = tuple( cloud for cloud in sky.clouds() if cloud.cloudtype != 'tags')
 	
 	print(' - we are not going to consider tag clouds at this stage -')
 	print('Number of nontag clouds: ',(len(nontagclouds)))
 	
-	nntpairs = god.sky.iter_pairs(nontagclouds) # yields permutations of nontagclouds
+	nntpairs = sky.iter_pairs(nontagclouds) # yields permutations of nontagclouds
 	
 	allnntpairs = tuple(nntpairs)
 	totcomb = tuple(god.believes(pair) for pair in allnntpairs)
@@ -718,13 +750,12 @@ def morenumbers():
 	
 	avgsome = sum(totcomb) / len(tuple( val for val in totcomb if val > 0 )) # only divide by nonzero ones	
 	
-	global knower
-	if knower is None:
-		print('Loading knower...')
-		knower = clues.GuardianAngel(someonesuggested,ghost = True)
+	import belieftests # KNOWER
+	knower = belieftests.getknower(god)
+	if not knower.evaluation:
 		knower.evaluate_all(express = False)	
 	
-	truepairs = tuple(pair for pair in god.sky.iter_pairs(nontagclouds) if knower.evaluation.get(pair))
+	truepairs = tuple(pair for pair in sky.iter_pairs(nontagclouds) if knower.evaluation.get(pair))
 	tottrue = tuple(god.believes(pair) for pair in truepairs)
 	avgtruecomb = sum(tottrue) / len(tottrue)
 	
@@ -739,6 +770,8 @@ def morenumbers():
 		
 	print('Responsibilities are as follow:')
 	print('[The weighted/unweighted gap can be used as a measure of the feedback effect.]\n')
+	
+	tbl = [['Agent', 'correct clues', 'total clues' ,'%', 'average confidence', 'overall confidence', 'weighted', 'total weighted']]
 	for agent in responsibles:
 		avgtrueconf = tuple(clue.value for clue in agent.clues if clue.about in truepairs)
 		totavgtrueconf = sum(avgtrueconf) / len(avgtrueconf) # average unweighted confidence on true
@@ -750,17 +783,21 @@ def morenumbers():
 		totweightedconf = tuple(clue.weightedvalue()for clue in agent.clues )
 		avgtotweightedconf = sum(totweightedconf) / len(totweightedconf) # average weighted confidence on all links
 		
-		values = (blue(agent.name),responsibles[agent],len(agent.clues),crop_at_nonzero((responsibles[agent] / len(agent.clues)),4),crop_at_nonzero(totavgtrueconf,4),crop_at_nonzero(totavgconf,4), crop_at_nonzero(avgweightedtrueconf,4), crop_at_nonzero(avgtotweightedconf,4))
-		print('\tAgent {} spawned {} correct clues (against {} total clues spawned: {}%),\n\ttheir average confidence was {}, (overall confidence averaged to {}),\n\tonce weighted: {} (against {} total).\n'.format(*values))
-
-def interactive_error_analysis():
+		line = [blue(agent.name),responsibles[agent],len(agent.clues),crop_at_nonzero((responsibles[agent] / len(agent.clues)),4),crop_at_nonzero(totavgtrueconf,4),crop_at_nonzero(totavgconf,4), crop_at_nonzero(avgweightedtrueconf,4), crop_at_nonzero(avgtotweightedconf,4)]
+		tbl.append(line)
 	
+	table(tbl)
+		
+def interactive_error_analysis(deity = None):
+	if deity:
+		god = deity
+
 	if not hasattr(clues,'compared_results'):
-		compare_god_beliefs_against_actual_links()
+		compare_god_beliefs_against_actual_links(god)
 		
 	cr = clues.compared_results
 	errors = ( cloudid for cloudid in cr if set(cr[cloudid]['suggested_links_ranked']) != set(cr[cloudid]['actual_links']) )
-	reddned = wrap('Interactive Error Spotter v0.1','brightred')
+	reddned = wrap(' Interactive Error Spotter v0.2 ','brightred')
 	print('-'*100 + '\n' + center(reddned,100) + '\n' + '-'*100)
 	
 	global CURERROR
@@ -770,7 +807,7 @@ def interactive_error_analysis():
 		nerror = next(errors)
 		global CURERROR
 		CURERROR = nerror
-		cloud = clues.sky.get_cloud(nerror)
+		cloud = god.sky.get_cloud(nerror)
 		
 		print('The system made some mistakes while evaluating links for cloud id [{}], that is: [{}].'.format(nerror,cloud.get_header()))
 		
@@ -811,7 +848,7 @@ def interactive_error_analysis():
 		
 		gbels = {} # from link (int) to god belief' in the pair (link,nerror)
 		for link in ints:
-			pair = sky.pair_by_id(link,nerror) # the cloudpair
+			pair = god.sky.pair_by_id(link,nerror) # the cloudpair
 			bel = god.believes(pair) 
 			bel = float(str(bel)[:4])
 			gbels[link] = bel
@@ -821,7 +858,7 @@ def interactive_error_analysis():
 			
 			logs = god.logs[ sky.pair_by_id(entry,nerror) ]
 			if not logs:
-				print(entry,nerror,'FUCK',sky.pair_by_id(entry,nerror), sky.pair_by_id(entry,nerror) in god.beliefs,sky.pair_by_id(entry,nerror) in god.logs )
+				print(entry,nerror,'FUCK', god.sky.pair_by_id(entry,nerror), god.sky.pair_by_id(entry,nerror) in god.beliefs,sky.pair_by_id(entry,nerror) in god.logs )
 				return
 			
 			agents = set(log.agent for log in logs)
@@ -860,7 +897,7 @@ def interactive_error_analysis():
 		global CURERROR
 		error = CURERROR
 		
-		cloud = clues.sky.get_cloud(error)
+		cloud = god.sky.get_cloud(error)
 		
 		sugg = clues.compared_results[error]['suggested_links_ranked']
 		actual = clues.compared_results[error]['actual_links']		
@@ -869,9 +906,9 @@ def interactive_error_analysis():
 		caught = set(actual).intersection(set(sugg)) # right
 		excess = set(sugg).difference(set(actual)) # false positives
 		
-		cmissed = tuple(sky.get_cloud(cid) for cid in missed)
-		ccaught = tuple(sky.get_cloud(cid) for cid in caught)
-		cexcess = tuple(sky.get_cloud(cid) for cid in excess)
+		cmissed = tuple(god.sky.get_cloud(cid) for cid in missed)
+		ccaught = tuple(god.sky.get_cloud(cid) for cid in caught)
+		cexcess = tuple(god.sky.get_cloud(cid) for cid in excess)
 		
 		m = Counter(cid.item['type'] for cid in cmissed)
 		c = Counter(cid.item['type'] for cid in ccaught)
@@ -885,7 +922,7 @@ def interactive_error_analysis():
 			print('\t\t    ',counter[0])
 		
 		gt = clues.ss.grab_text
-		erritem = sky.data.item(error)
+		erritem = god.sky.data.item(error)
 		lerror = len(gt(erritem,list(erritem.keys())))
 		
 		em = tuple(len(gt(cloud.item,list(cloud.item.keys()))) for cloud in cmissed)
@@ -952,7 +989,7 @@ def interactive_error_analysis():
 			
 			# agents who clue'd on (i,error) link
 			
-			link = sky.pair_by_id(i,error)
+			link = god.sky.pair_by_id(i,error)
 			cluelist = god.logs.get(link)
 
 			agnames = tuple(clue.agent.name for clue in cluelist)
@@ -1016,8 +1053,10 @@ def interactive_error_analysis():
 					print(center('',space = '-'))
 					gonext()
 
-def thresholded_accuracy_recall(thresh = 0.5):
-	
+def thresholded_accuracy_recall(deity,thresh = 0.5):
+	if deity:
+		god = deity
+		
 	predictedlinks = tuple(i for i in god.beliefs if god.believes(i) >= thresh)
 	
 	if not predictedlinks:
@@ -1037,51 +1076,18 @@ def thresholded_accuracy_recall(thresh = 0.5):
 
 	return True
 	
-def range_thresh_test(step):
-	
+def range_thresh_test(god,step):
+	if not god:
+		god = tests.god
+
 	done = 0
 	while done <= 1:
-		out = thresholded_accuracy_recall(done)
+		out = thresholded_accuracy_recall(god,done)
 		print()
 		if not out:
 			return
 		done += step
 		
-# long tests
-
-def longtest():
-	
-	initime = clues.ss.time.clock()
-	
-	load_sky('plainsky.log')
-	global sky
-	god = clues.God(sky)
-	
-	clues.god = god
-	
-	god.spawn_servants()
-	
-	global exceptions
-	exceptions = []
-	for angel in god.guardianangels:
-		god.consult([angel],verbose = True,consider = True)
-		store_belief_set(god,'tempbeliefset_afterangel_{}.log'.format(angel.name))
-		try:
-			fullcompare()
-		except BaseException as e:
-			exceptions.append(e)
-			pass
-				
-	endtime = clues.ss.time.clock()
-	elapsed = endtime - initime
-	
-	if not exceptions:
-		print("[ All done. {} clocks elapsed. ]".format(elapsed))
-		return None
-		
-	else:
-		print("[ All done. There were some casualties though ({}). {} clocks elapsed. ] ".format(len(exceptions),elapsed))
-		return exceptions
 
 # save & load
 
@@ -1271,7 +1277,7 @@ def load_weights_to_gas(gaslist,filepath = './guardianangels/weights/'):
 			exes.append(e)
 			
 	return exes
-			
+
 # patch
 
 def equate_all_links(deity = None):
