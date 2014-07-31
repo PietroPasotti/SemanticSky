@@ -500,18 +500,25 @@ def evaluate_online_accuracy_function(god,out = None,test = False):
 		global belsets
 		belsets = []
 		out = belsets
-		
+	
 	for acloud in cloudlist:
 		
 		god.sky.sky.append(acloud)	
 		iterpairs = god.sky.iter_pairs() # will yield all 2-permutations of the clouds which are in the system
 			
 		for pair in iterpairs:
-			tpair = tuple(pair) # pair_by_id = (tpair[0].item['id'],tpair[1].item['id'])
-			god.beliefs[pair] = god.rebelieves(pair) # each step will re-evaluate also all previously-evaluated pairs!
-			god.clean_trivial_beliefs()
 			
-		# at this point we have a fresh belief set.
+			if acloud not in pair: # we only ask to clue for pairs which arent' already there.
+				continue			# otherwise we'll just do more work.
+									# the refresh() which we will run afterwards will retrieve the new value of the agents' trustworthiness
+									# from the logged clue, in case it has changed. All we need to know is that THERE IS A CLUE THERE.
+			
+			if pair not in god.beliefs:
+				god.rebelieves(pair,update = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
+																	# and a clue will be spawned and logged
+			
+		# at this point we have a fresh belief set, made out of the feedbacks of the previous iterations
+		# and the clues we already had + the ones we have now
 		
 		tests.clues.ss.sys.stdout.write('. '+str(len(god.beliefs)))
 		tests.clues.ss.sys.stdout.flush()
@@ -519,11 +526,11 @@ def evaluate_online_accuracy_function(god,out = None,test = False):
 		for guardian in god.guardianangels:
 			for clue in guardian.clues:
 				if acloud in clue.about:
-					knower.give_feedback([clue])
+					knower.give_feedback([clue],verbose = False)
 		# this will prompt the knower to give feedback only on newly created clues.
 		
 		god.refresh()
-		# this will ask god for a reevaluation, thus taking into account the feedback
+		# this will ask god for a reevaluation, thus taking into account the feedback, old and new
 		
 		out.append({(tuple(pair)[0].item['id'],tuple(pair)[1].item['id']): god.beliefs[pair] for pair in  god.beliefs})
 		# we store the beliefs in a more compressed form: from (ID,ID) pairs to god's beliefs.

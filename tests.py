@@ -1216,6 +1216,10 @@ def load_evaluations_to_gas(gaslist,filepath ='./guardianangels/evaluations/'):
 		print('Needs be a folder.')
 		return False
 	
+	if gaslist == []:
+		print('No angels there.')
+		return False
+	
 	excps = []
 	
 	for ga in gaslist:
@@ -1228,7 +1232,13 @@ def load_evaluations_to_gas(gaslist,filepath ='./guardianangels/evaluations/'):
 			
 		try:
 			with open(filepath + ga.name + '.eval','rb') as f:
-				ga.evaluation = pickle.load(f)
+				evaluation = pickle.load(f)
+				
+				pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
+				
+				for link,ev in evaluation.items():
+					ga.evaluation[ga.supervisor.sky.pair_by_id(pid(link))] = ev
+				
 				ga.consulted = True
 				stdout.write(' [Done]\n')
 		except BaseException as e:

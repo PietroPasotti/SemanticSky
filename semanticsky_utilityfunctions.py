@@ -502,6 +502,8 @@ def bar(progress,barlength=100):
 	text = "\rProgress: [{}] {}%".format( "."*block + " "*(barLength-block), displayedp)
 	sys.stdout.write(text)
 	sys.stdout.flush()
+	if progress == 1:
+		print()
 
 def ispair(pair):
 	if isinstance(pair,frozenset) and len(pair) == 2:

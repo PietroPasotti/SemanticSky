@@ -643,6 +643,7 @@ class GuardianAngel(Agent,object):
 			self.consulted = True
 			
 		pairlist = tuple(iterpairs)
+		del iterpairs
 		li = len(pairlist)
 		
 		print('\n>evaluating its way through a {}-item cloud pairlist.<'.format(li))
@@ -1658,7 +1659,7 @@ class God(object):
 		"""
 		return self.beliefs.get(something,0.0)
 
-	def rebelieves(self,something,weight = True,update = False):
+	def rebelieves(self,something,weight = True,update = False,silent = True):
 		"""
 		Bypass for the clues mechanism:
 		directly asks to all of his trustees (GuardianAngels only) how much 
@@ -1678,7 +1679,7 @@ class God(object):
 		for angel in self.guardianangels:
 			
 			if something not in angel.evaluation:
-				angel.evaluate(something,silent = True) # we try to evaluate it
+				angel.evaluate(something,silent = silent) # we try to evaluate it
 				
 			if weight:
 				opinion = angel.belief_with_feedback(something)
