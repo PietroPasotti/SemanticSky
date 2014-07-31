@@ -17,7 +17,7 @@ anonymous = None
 codedict = None 
 knower = None
 
-feedback_inertia = 0.02 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
+learningspeed = 0.2 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
 belief_inertia = 0.1 # pertenth of the previous belief which is maintained no-matter-what
 
 class Feedback(object):
@@ -360,7 +360,7 @@ class Agent(object):
 		automatically generated that rate its clues.)
 		"""
 		
-		global feedback_inertia
+		global learningspeed
 	
 		
 		self.logs.append(clue) # we add the clue to logs.
@@ -374,7 +374,7 @@ class Agent(object):
 		for logged in self.logs: # updates on the whole logs
 			ctype = clue.contenttype
 				
-			inertial_trust = self.stats['trustworthiness'] * feedback_inertia # this will be retained no-matter-what
+			inertial_trust = self.stats['trustworthiness'] * learningspeed
 			
 			ow = tw
 			tw -= tw
@@ -420,21 +420,17 @@ class Agent(object):
 			
 			if not self.stats['relative_tw'].get(ctype):
 				self.stats['relative_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
-																					# it to the agent's base trustworthiness			
-				relative_inertial_trust = 0
-			# RELATIVE PART
 			
-			# feedback_inertia is the percentage of the previous confidence which is immunised from damage
-			else:
-				relative_inertial_trust = self.stats['relative_tw'][ctype] * feedback_inertia
+			compute_new_learned_trust = lambda oldv,newf,ls : oldv - (oldv - newf) * ls
+			# new value = old value - (old value - new feedback) * learning speed
+			
+			global learningspeed
 			
 			if verbose: print('original value was: ',self.stats['relative_tw'][ctype] )
 			
-			newreltw = (self.stats['relative_tw'][ctype] + sum(self.received_feedback[about])) / (len(self.received_feedback[about]) + 1)  # we average all feedbacks received
-			newreltw += relative_inertial_trust
 			
-			self.stats['relative_tw'][ctype] = min(newreltw,1.0)		
-			
+			self.stats['relative_tw'][ctype] = compute_new_learned_trust(self.stats['relative_tw'][ctype], value, learningspeed)	
+		
 			if verbose: print('now: ',ctype,relative_inertial_trust, newreltw)
 			
 		else:
@@ -466,7 +462,8 @@ class Agent(object):
 
 	# TRUSTWORTHINESS	
 	@property
-	def trustworthiness(self):	
+	def trustworthiness(self):
+		self.stats['trustworthiness'] = sum(self.stats['relative_tw'].values()) / len(self.stats['relative_tw']) if self.stats['relative_tw'] else self.stats['trustworthiness']
 		return self.stats['trustworthiness']
 	
 	def get_tw(self,clue):
@@ -655,11 +652,9 @@ class GuardianAngel(Agent,object):
 			
 			if verbose:
 				ss.bar(i/li)
-				
-			if express:
-				self.evaluate(pair) 
-			else:
-				self.evaluate(pair,silent = True) # silent: no clue is spawned
+			
+			silence = False if express else True
+			self.evaluate(pair,silent = silence) # silent: no clue is spawned
 				
 				
 			i += 1
@@ -779,10 +774,11 @@ class GuardianAngel(Agent,object):
 		
 		return out
 		
-	def give_feedback(self,cluelist = None,refresh = False,topno = None):
+	def give_feedback(self,cluelist = None,refresh = False,topno = None,verbose = True):
 		"""
-		Takes all agent's clues and gives his own feedback to them (if his
-		judgement is nonzero).
+		Cluelist can be either an Agent instance or an iterable yielding clues.
+		In the first case, takes all agent's clues and gives his own feedback
+		to them.
 		Overrides whisperpipe.
 		"""
 				
@@ -793,8 +789,15 @@ class GuardianAngel(Agent,object):
 		else:
 			raise BaseException('Unrecognized input type.')
 		
+		ln = len(cluestovalue)
+		
+		i = 0
 		for clue in cluestovalue:
 			
+			if verbose:
+				ss.utils.bar(i/ln +1)
+				i += 1
+				
 			if clue.agent is self:
 				continue
 			else:
@@ -822,11 +825,16 @@ class GuardianAngel(Agent,object):
 
 			vals = (clue.value,eva) # how much SELF evaluates it and the other does
 			
-			our_rating = 1 - diff(*vals) # between 0 and 1, depends on how much the two evaluations differ 
-
+			# previously it was: our_rating = 1 - diff(*vals) # between 0 and 1, depends on how much the two evaluations differ 
+			
+			our_rating = eva
+			# but now we want to give feedback which is equal to the to-learn parameter
+			
 			# self's opinion on the clue's about.
 			self.feedback(clue.agent,clue.about,our_rating)  # actually produces a Feedback object and sends it through
 		
+		if verbose:
+			print()
 		return True
 	
 	def reset_all_but_stats(self):
@@ -908,8 +916,9 @@ class God(object):
 	
 	beliefs = {} # a belief is a facts --> [0,1] confidences mapping
 	godid = 0
+	default_merge = lambda x : sum(x) / len(x)
 	
-	def __init__(self,sky = None):
+	def __init__(self,sky = None,merging_strategy = default_merge):
 		
 		self.sky = sky
 		self.birthdate = ss.time.gmtime()
@@ -920,6 +929,8 @@ class God(object):
 		self.totcluecount = 0
 		self.ignoreds = []
 		self.name = 'Yahweh'
+		
+		self.merging_strategy = merging_strategy # this is what god does to merge his angel's opinions into one.
 				
 		God.godid += 1
 		self.godid = God.godid
@@ -1401,8 +1412,6 @@ class God(object):
 			guardians = self.guardianangels
 			
 		for ga in guardians:
-			if vb:
-				print(ga,' is expressing..,')
 			ga.express()
 		
 	def consider(self, number = False,verbose = False):
@@ -1648,8 +1657,8 @@ class God(object):
 		is not in the belief set, returns zero.
 		"""
 		return self.beliefs.get(something,0.0)
-	
-	def rebelieves(self,something,weight = True):
+
+	def rebelieves(self,something,weight = True,update = False):
 		"""
 		Bypass for the clues mechanism:
 		directly asks to all of his trustees (GuardianAngels only) how much 
@@ -1657,24 +1666,73 @@ class God(object):
 		
 		By default, [weight] takes into account the belief_with_feedback
 		of each angel into (something).
+		
+		This clearly entails that if the ga's evaluation is empty or ill
+		formed, the result will always be wrong.
+		
+		If update is set to false, the rebelief also affects god's current
+		state (i.e. his beliefs are updated to the output of rebelief).
+		Useful for refresh.
 		"""
-		
 		opinions = []
-		
 		for angel in self.guardianangels:
+			
+			if something not in angel.evaluation:
+				angel.evaluate(something,silent = True) # we try to evaluate it
+				
 			if weight:
 				opinion = angel.belief_with_feedback(something)
 			else:
 				opinion = angel.belief_without_feedback(something)
-			
+				
 			opinions.append(opinion)
-		
-		if opinions:
-			return sum(opinions) / len(opinions)
-		
-		print('Warning: no angel.')
-		return 0
 	
+		if opinions:
+			decision = sum(opinions) / len(opinions) # average
+		else:
+			decision = False
+		
+		if update and opinions:
+			self.beliefs[something] = decision # update
+			
+		if decision:
+			return decision
+		
+		return 0
+		
+	def rebelieves_iter(self,someiter,weight = True,update = False):
+		"""
+		Bypass for the clues mechanism:
+		directly asks to all of his trustees (GuardianAngels only) how much 
+		they believe or not something.
+		
+		By default, [weight] takes into account the belief_with_feedback
+		of each angel into (something).
+		
+		If update is set to false, the rebelief also affects god's current
+		state (i.e. his beliefs are updated to the output of rebelief).
+		Useful for refresh.
+		
+		wants an iterable.
+		"""
+		
+		if not hasattr(something,"__iter__"):
+			someiter = iter(something)
+			returndecision = False
+		else:
+			someiter = something
+			returndecision = True
+
+		for pair in someiter:
+			
+			decision = self.rebelieves(something,weight,update)
+					
+		if returndecision:
+			try:
+				return decision
+			except UnboundLocalError: # this means that there were no opinions, or no angels
+				pass
+		
 	def expert_rebelieves(self,something,crop = 3,tw = False):
 		"""
 		Returns the rebelief value only for those who are most trustworthy
@@ -1731,9 +1789,7 @@ class God(object):
 		Removes from the beliefs zero's: the default IS zero already.
 		"""
 		
-		newbeliefs = {}
-		
-		for belief in iter(list(self.beliefs.keys())):
+		for belief in list(self.beliefs):
 			if not self.beliefs[belief] > 0:
 				del self.beliefs[belief]
 
@@ -1786,7 +1842,7 @@ class God(object):
 				ss.bar(i/topno)
 			
 			i += 1			
-			self.beliefs[belief] = self.rebelieves(belief)
+			self.rebelieves(belief,update = True)
 
 		if verbose:
 			so.write(' [ All done. ]')

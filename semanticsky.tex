@@ -20,6 +20,11 @@
 
 \section{Starfish.}
 
+\subsection{(The previous project)}
+
+\subsection{(Results)}
+
+
 \section{Overview of Semanticsky.}
 
 SemanticSky (currently) is a program which, given as input a set of documents, outputs a small multi-agent system where some built-in algorithmic agents try to infer similarity relations between the input documents.
@@ -60,23 +65,96 @@ myguardian.evaluate_all()
 
 But not all algorithm are good, and some are good just on very specific subsets of the system. Suppose that we have an algorithm that just checks whether the authors of the document are the same person (and does that by regex matching some query). This algorithm will then return zero for all documents where an 'author' is not defined or the query doesn't match. God then will (try to) understand that the algorithm is useful in some subdomain, even though his average accuracy is very low.
 
-The evaluations that a Guardian Angel performs differ from those of an human agent only in that they are produced automatically. Their route is in fact basically the same: they either get queued and later on processed by God, or they get immediately processed.
+The evaluations that a Guardian Angel performs differ from those of an human agent only in that they are produced automatically. Their route is in fact basically the same: they either get queued and later on processed by God, or (by default) they get immediately processed.
 
-The `processing' implemented is currently quite naive. When an agent has a (nonzero) clue about the similarity of two documents, a Clue is spawned that conveys the information that the agent has an opinion $x$ about the fact $y$.
+The `processing' implemented is currently quite naive. When an agent has a suspect strong $x$ about the similarity of two documents $y=sim(a,b)$, a ``Clue'' is spawned that conveys the information that the agent has an opinion $x$ about the fact $y$.
 
 Once the clue gets read by God, he will log it and then retrieve all logs about $y$; that is, all the information he has about $y$. Then, he will retrieve all the confidences of the clues (how strongly who produced them believed into them) and the weights (how well their authors usually do at guessing).
 
-The weighted confidences are then averaged, and God's belief about $x$ is updated to the value.
+The weighted confidences are then averaged, and God's belief about $x$ is updated to the thus obtained value.
+
+Once the system reaches a stable situation about some fact $y$, the supervisor algorithm will hand out feedback to all the algorithms which had some suggestions about $y$ or the discussion surrounding it. We can in fact imagine that, taken any pair of documents, there will be some arguments in favour and some against their similarity or relevance to one another. Not unlike what goes on behind a Wikipedia page (in the 'discussion' section), people will be allowed to debate about various issues, such as pertinence of tags, of links, and in general, let us say, the structure of the network. 
+Once the discussion is over (this can be detected by, for example, a month of silence in the discussion page), the system will then adjust the weights of the Guardian Angels' future suggestions. For example, suppose that an algorithm gave particularly good suggestions in this situation (but not in many others); God will then try to guess what is that the algorithm (and maybe even the agent) is good and bad about, and adjust his weights selectively, not unlikely what goes on in the so-called Stacked Generalization models and Mixture of Experts models, which will be discussed later in the Supervisor.Feedback section.
+
+The following sections will try to show in some more details how SemanticSky currently (as of the end of July, 2014) works; starting from the clouds, up to the very heart of this tiny digital pantheon.
 
 \section{SemanticSky.}
 
 \subsection{Clouds: the bricks.}
 
+At the moment, clouds are more or less simple wrappers for documents. The central data structure for a cloud is what we will call \textbf{layers}. What makes it a simple wrapper is the fact that only the first layer is currently being filled; but the main idea behind a layered cloud is that it should include hierarchically ordered information: from the most precious (and most hardly one-to-one matchable) information to the second-hand, less polished one.
+
+To show the reason behind this few things would do better than an example: suppose we have a document called `Rise and Fall of Ziggy Stardust', containing a couple of pages of history of this man called Ziggy. Unless the title is ironic or in any way misleading, which, assume, is not the case, we already have in front of us a few very important informations: that this document is about a man called Ziggy Stardust and that a rise and a fall are somehow involved.
+
+SemanticSky currently performs little or no semantic analysis, so the cloud will not know that it is Ziggy rising and falling, but just that the names `Ziggy', `rise', `fall' are relevant. And what's so important about the title is that the mere fact of it being a title tells us that the information stored there is important.
+
+This is what layers are meant to be for: the innermost layer will certainly contain these four words, plus the most relevant others that, with diverse heuristics, we will be able to extract from the body of the document itself.
+
+Currently, the clouds store just about everything in a single layer, as the information we have is all first-hand: comes directly from the document, which is the most trustworthy source of information we can have at the moment. The layer-building function currently tokenizes everything down to words, stems them (so as to capture the relevanc most frequently co-occurringe of, say, `learn-', even though in the document the concept appears under many different grammatical forms, which would make the statistical relevance of `learn' by itself very low) and finally produce a list of the pairs of words most frequently co-occurring in sentences.
+
+The sorts of information a cloud currently contains in its only layer are (extracted via regex matching and tokenization):
+\begin{itemize}
+\item names: all Capitalized Sequences Of Words.
+\item urls: all urls either hidden in hrefs (the documents' text is html) or explicitly mentioned in the text.
+\item words: information about their frequency (tf) \emph{and} their frequency weighted by their inverse document frequency (tf-idf).
+\item core: a special subset of words which we have reasons to believe more important than the other ones; namely those which come from titles or which are labeled as `headline'.
+\item tags: a list of the tags assigned to the Starfish item.
+\end{itemize}
+
+
+\subsubsection{Future work.}
+
+The framework can clearly be expanded even at this level, and time permitting, this will be most certainly one of the most promising directions to go. The layer-based structure is already there, but is not currently used. An immediate expansion of SemanticSky could involve filling the lower-level layers.
+
+Possible sources for the information to fill these layers with include:
+
+\begin{enumerate}
+\item The web. The second layer could be filled up, for example, with information drawn from google querying for 'The Rise and Fall of Ziggy Stardust' or some other keywords.
+\item Other clouds. At some stage, suppose, the system will settle on the decision that Ziggy's cloud is clearly related (for most of the Starfish users, at least) with (say) David Bowie's cloud. Then, once the confidence about this fact is higher than a certain threshold, we might let some keywords of either clouds `filter' into the lower layers of the other cloud.\footnote{This might have the side effect of forming loops of self-reinforcing feedbacks, so we will have to make sure that algorithms, when re-evaluating the two clouds, won't take into account \emph{that} information as well.}
+\item Corpora information. From a corpus search we might discover that `stardust' is very frequently related with Carl Sagan and stars.
+\end{enumerate}
+
+The latter example about stars and Carl Sagan is a clear situation where we want to make sure that this information is taken as second-hand only and is given far less weight than the first-hand one.
+
 \subsection{Guardians.}
+
+Guardian Angels are currently the core of the algorithmic part of SemanticSky, and the interaction of them, the Agents and God is probably the theoretically most interesting thing going on there.
+
+Basically, a Guardian is nothing but an agent that only examines pairs of items when prompted (by God) and that takes decisions based on a never changing algorithm.
+
+Their strength is of a collective kind: each of them takes decisions based on a rather small part of all the evidence available, and produces a generally inaccurate (but, on average, above chance) prediction.
+
+Follows a quick description of all the algorithms currently implemented (which is basically their docstring).
+
+\paragraph{Tag co-occurrence}
+
+\paragraph{Naive name overlap}
+
+\paragraph{Coo-dictionaries overlap}
+\subparagraph{v1}
+\subparagraph{v2}
+
+
+\subsubsection{Future work.}
+~
+
+$\bullet \quad$Guardian Angels are cool, but they also are currently very stupid. Each one of them just performs a little task in a probably very naive way: this could be improved (but, on the other hand, the main idea behind ensembles is precisely a large number of very stupid algorithms that collectively produce a very smart decision. Be it their small number or their being too stupid, currently this doesn't happen so much).
+
+$\bullet \quad$Plus, the more and most diverse the angels' decision algorithm are, the higher the overall performance of the system will be. Thus, one immediate way to extend the system will be to implement more guardians, or to add slight variations to the already existing ones.
+
+$\bullet \quad$As noticed above, also, the decisions of the algorithms which are currently implemented are based on a rather small subset of all the available information. Some algorithm only takes into account the words' frequency, some other the words' idf-frequency, some other just the `names' appearing in the text, and so on. Some effort might be put into smarter algorithms able to combine on the fly all these different types of inputs.
+
+$\bullet \quad$Another thing which might change is that currently algorithms don't (strictly speaking) learn anything. They just go on spitting the same decisions over and over, and is a higher-level algorithm that is delegated the work of gating their decisions so that they get their weight appropriately with respect to their usual worth. An attempt could be made to include amongst this kind of algorithm some more standard learners, such as neural networks or web crawlers\footnote{
+A first attempt in this direction has already been made: I constructed an algorithm which would, given a pair of words $a,b$, retrieve the number of google hits for the query ``NEAR($a,b$)|NEAR($a,b$)'', later normalizing it with the number of hits for queries containing just the single words $a$ and $b$. To do the same with clouds is not as straightforward and will need some more research and might involve, for example, keyword extraction.}.
+
+$\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted clearly by how near they are) in the current state of the system.}
+
+
 
 \subsection{Agents.}
 
 \subsection{The Supervisor.}
 
+\subsection{(Results)}
 
 \end{document}

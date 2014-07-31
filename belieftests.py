@@ -473,3 +473,64 @@ def interactive(god = None,auto = False):
 	print('exiting... (god stored in the global GOD{})'.format(god.godid))
 	
 	return out
+
+# matplotlib tests
+
+def evaluate_online_accuracy_function(god,out = None,test = False):
+	
+	tests.random.shuffle(god.sky.sky)
+	cloudlist = god.sky.sky
+	
+	if not god.guardianangels:
+		god.spawn_servants()
+		
+	knower = getknower(god)
+	
+	print('removing tag-similarity angels...')
+	god.guardianangels = [ga for ga in god.guardianangels if ga.name not in ['tag_similarity_naive','tag_similarity_extended']]
+		
+	tests.load_evaluations_to_gas(god.guardianangels)
+	
+	equate_all_links(god,god.guardianangels)
+	equate_all_links(god,[knower])
+	
+	god.sky.sky = [] # we empty the sky. We are then going to add back the clouds one by one.
+	
+	if out is None:
+		global belsets
+		belsets = []
+		out = belsets
+		
+	for acloud in cloudlist:
+		
+		god.sky.sky.append(acloud)	
+		iterpairs = god.sky.iter_pairs() # will yield all 2-permutations of the clouds which are in the system
+			
+		for pair in iterpairs:
+			tpair = tuple(pair) # pair_by_id = (tpair[0].item['id'],tpair[1].item['id'])
+			god.beliefs[pair] = god.rebelieves(pair) # each step will re-evaluate also all previously-evaluated pairs!
+			god.clean_trivial_beliefs()
+			
+		# at this point we have a fresh belief set.
+		
+		tests.clues.ss.sys.stdout.write('. '+str(len(god.beliefs)))
+		tests.clues.ss.sys.stdout.flush()
+	
+		for guardian in god.guardianangels:
+			for clue in guardian.clues:
+				if acloud in clue.about:
+					knower.give_feedback([clue])
+		# this will prompt the knower to give feedback only on newly created clues.
+		
+		god.refresh()
+		# this will ask god for a reevaluation, thus taking into account the feedback
+		
+		out.append({(tuple(pair)[0].item['id'],tuple(pair)[1].item['id']): god.beliefs[pair] for pair in  god.beliefs})
+		# we store the beliefs in a more compressed form: from (ID,ID) pairs to god's beliefs.
+		
+		if test is not False:
+			if cloudlist.index(acloud) >= test:
+				return
+	
+	return
+	

@@ -1230,10 +1230,10 @@ def load_evaluations_to_gas(gaslist,filepath ='./guardianangels/evaluations/'):
 			with open(filepath + ga.name + '.eval','rb') as f:
 				ga.evaluation = pickle.load(f)
 				ga.consulted = True
-	
+				stdout.write(' [Done]\n')
 		except BaseException as e:
 			excps.append(e)
-		stdout.write(' [Done]\n')
+			stdout.write(' [Failed]\n')
 		
 	print()
 	

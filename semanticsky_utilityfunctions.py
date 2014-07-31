@@ -509,7 +509,9 @@ def ispair(pair):
 		import semanticsky as ss
 		if isinstance(pair[0],ss.Cloud) and isinstance(pair[1],ss.Cloud):
 			return True
-			
+		elif str(pair[0].__class__) == "<class 'semanticsky.Cloud'>" and str(pair[1].__class__) == "<class 'semanticsky.Cloud'>":
+			return True
+
 	return False
 
 def pair(cloud,cloudb):

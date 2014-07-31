@@ -335,9 +335,9 @@ class Algorithm():
 				expandedbowb = set()
 				
 				for word in bowa:
-					expandedbowa.update(neighbours[word])
+					expandedbowa.update(neighbours.get(word,set()))
 				for word in bowb:
-					expandedbowb.update(neighbours[word])
+					expandedbowb.update(neighbours.get(word,set()))
 				
 				if debug:
 					print(expandedbowa)
