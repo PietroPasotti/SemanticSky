@@ -63,8 +63,7 @@ class Algorithm():
 	# this will consult the guardianangel which has myalgorithm as decision
 	# algorithm.
 	"""
-	
-	
+		
 	class builtin_algs():
 		"""
 		A few ready_made algorithms.
@@ -72,7 +71,7 @@ class Algorithm():
 		
 		def tf_weighting(clouda,cloudb,basedbaddress = 'words_tf',use_cosine = True,dbg = False):
 			"""
-			Tf bag-of-words weighting.
+			Tf bag-of-words weighting, normalized to [0,1] by a cosine.
 			"""
 			tf_rating = 0	
 			
@@ -195,9 +194,11 @@ class Algorithm():
 				raise BaseException('Unrecognized version name: {}'.format(version))
 
 		def coo_dicts_overlap_v1(clouda,cloudb):
+			"""See coo_dicts_overlap.__doc__"""
 			return coo_dicts_overlap(clouda,cloudb,version = 1)
 
 		def coo_dicts_overlap_v2(clouda,cloudb):
+			"""See coo_dicts_overlap.__doc__"""
 			return coo_dicts_overlap(clouda,cloudb,version = 2)
 
 		def coo_dicts_neighbour(clouda,cloudb):
@@ -576,7 +577,7 @@ class Algorithm():
 		def tag_similarity_extended(clouda,cloudb,v = False):
 			"""
 			Similarity measure only for tag clouds: measures the overlap of the
-			sets of clouds marked by the two tags and return an averaged confidence
+			sets of clouds marked with the two tags and return an averaged confidence
 			of the relations of these links.
 			
 			Example

@@ -4,6 +4,7 @@
 \usepackage{xspace}
 \usepackage{amsmath}
 \usepackage{eurosym}
+\usepackage{amssymb}
 
 
 \def\cam{\textsc{cam}\xspace}
@@ -86,11 +87,11 @@ At the moment, clouds are more or less simple wrappers for documents. The centra
 
 To show the reason behind this few things would do better than an example: suppose we have a document called `Rise and Fall of Ziggy Stardust', containing a couple of pages of history of this man called Ziggy. Unless the title is ironic or in any way misleading, which, assume, is not the case, we already have in front of us a few very important informations: that this document is about a man called Ziggy Stardust and that a rise and a fall are somehow involved.
 
-SemanticSky currently performs little or no semantic analysis, so the cloud will not know that it is Ziggy rising and falling, but just that the names `Ziggy', `rise', `fall' are relevant. And what's so important about the title is that the mere fact of it being a title tells us that the information stored there is important.
+SemanticSky currently performs little or no semantic analysis, so the cloud will not know that it is Ziggy rising and falling, but just that the names `Ziggy', `rise', `fall' are relevant descriptors of the document. And what's so important about the title is that the mere fact of it being a title tells us that the information stored there is important. This is possible, of course, only because the input data is partly annotated: it's not an uniform body of plain text, but already contains some extra information which we can use. In absence of this, other methods could be used to extract headers, titles and other kind of sources of usually very relevant information.
 
 This is what layers are meant to be for: the innermost layer will certainly contain these four words, plus the most relevant others that, with diverse heuristics, we will be able to extract from the body of the document itself.
 
-Currently, the clouds store just about everything in a single layer, as the information we have is all first-hand: comes directly from the document, which is the most trustworthy source of information we can have at the moment. The layer-building function currently tokenizes everything down to words, stems them (so as to capture the relevanc most frequently co-occurringe of, say, `learn-', even though in the document the concept appears under many different grammatical forms, which would make the statistical relevance of `learn' by itself very low) and finally produce a list of the pairs of words most frequently co-occurring in sentences.
+Currently, the clouds store just about everything in a single layer, as the information we have is all first-hand: comes directly from the document, which is the most trustworthy source of information we can have at the moment. The layer-building function currently tokenizes everything down to words, stems them (so as to capture the relevance of, say, `learn-', even though in the document the concept appears under many different grammatical forms, which would make the statistical relevance of `learn' by itself very low) and finally produce a list of the pairs of words most frequently co-occurring in sentences.
 
 The sorts of information a cloud currently contains in its only layer are (extracted via regex matching and tokenization):
 \begin{itemize}
@@ -114,7 +115,7 @@ Possible sources for the information to fill these layers with include:
 \item Corpora information. From a corpus search we might discover that `stardust' is very frequently related with Carl Sagan and stars.
 \end{enumerate}
 
-The latter example about stars and Carl Sagan is a clear situation where we want to make sure that this information is taken as second-hand only and is given far less weight than the first-hand one.
+The latter example about stars and Carl Sagan is a clear situation where we want to make sure that this information is taken as second-hand only and is given appropriately less weight than the first-hand one.
 
 \subsection{Guardians.}
 
@@ -126,13 +127,94 @@ Their strength is of a collective kind: each of them takes decisions based on a 
 
 Follows a quick description of all the algorithms currently implemented (which is basically their docstring).
 
-\paragraph{Tag co-occurrence}
 
-\paragraph{Naive name overlap}
+\paragraph{tf and tf\_idf\_weighting}
 
-\paragraph{Coo-dictionaries overlap}
-\subparagraph{v1}
-\subparagraph{v2}
+The most standard Guardian Angels, just retrieve the tf / tf-idf value for each word in the bags of words of the documents (also held in the clouds) and returns the cosine of the angle of the two vectorized documents.
+
+\paragraph{naive\_name\_comparison}
+
+Based on the 'names' section of the layers of the clouds, which were previously extracted via regex matching, this algorithm just checks how many names the two clouds share, and normalizes it against the set union of the two lists of names.
+The required kind of matching is very strict: a `Ziggy Stardust' in a cloud won't match a `Ziggy, S.' in the other. This could be improved in many ways.
+
+Plus, a name is currently Whatever Is Capitalized, and this is not really so. We are lucky that Starfish does not have pages in German.
+
+Given the little information the algorithm can work on, the 600 nonzero results against 210000 is a reasonable output. Interestingly enough, the algorithm is one of the most precise ones, with a 15\% chance that if he detects something, there is actually something.
+
+\paragraph{extended\_name\_comparison}
+
+This algorithm, as all other algorithms containing the word `extended', is based on the social network principle that if $A$'s friends are $B$'s friends, then $A$ and $B$ are likely to be friends themselves.
+
+Let $\phi names$ be the set of names contained in the zero layer of the cloud $\phi$.
+Then, for $\phi \in A,B$, we define
+\[names(\phi) = \phi.layers[0]['names']\]
+\[Neighbours(\phi) = \{a | a \in sky ~ if ~ names(\phi) \cap names(a) \neq \varnothing \}\]
+Finally, we make an extended bag of words by summing $\phi$'s names with the cores of all of $\phi$'s neighbours: that is, the most relevant words for all of the clouds which share at least a name with $\phi$. Then, we count the overlaps and normalize against the union of the sets.
+
+Not as precise as naive\_name\_comparison and much more computationally heavy, but gives nonzero results more often.
+
+\paragraph{naive\_core\_overlap}
+
+The same as naive\_name\_comparison, but instead of the `names' entry of the clouds' layers, takes the core, performing a simple \(len(intersection) / len(union)\) computation.
+
+\paragraph{extended\_core\_overlap}
+
+let $C(\psi)$ denote the core of (the zero layer of) some cloud $\psi$. This time, unlike the extended\_name\_overlap algorithm, the words to extend $C(\psi)$ are going to be drawn not directly from other clouds, but from a global repository of the co-occurrence counts of words in sentences based on the whole corpus.
+
+So, the globally most frequently co-occurring pairs, not weighted by idf (which could of course be an interesting extension), go to extend $C(\psi)$ if at least one of the words in the co-occurrence pair is in the core of $\psi$.
+
+So, the extended core of psi $E(C(\psi))$ will be, where $coo(a,b) \iff$ $a$ and $b$ co-occur more than twice in the whole corpus, and $W$ is the set of all words occurring in the corpus:
+\[E(C(\psi)) = {w | w \in W \land (w \in C(\psi)\lor \exists b \in C(\psi) : coo(w,b)) }\]
+
+Finally, the two extended cores are compared in the usual intersection / union way.
+
+
+\paragraph{tag\_similarity\_naive}
+
+This algorithm, as well as the following ones, are made specifically for evaluating the similarity of tag clouds: clouds that wrap tag-type items in Starfish. Typically, the only information we have about this kind of items, beside the name of the tag itself, is a list of synonyms (aliased tags) and perhaps a glossary (a small document). This makes their comparison rather tricky for other algorithms.
+
+Furthermore, there currently are no links in Starfish between tags and other types of items, so we don't have a training set to assess the performance of these algorithms. The choice of treating tag-type items like all other types may also be questioned, but this is not the place for it.
+
+The algorithm, given two clouds, just counts how many pages are tagged with both tags (that is, the tags that the clouds are built around) and normalizes it against the length of the union.
+
+\paragraph{tag\_similarity\_extended}
+
+This algorithm is an instance of a higher-level Guardian Angel, or Meta Angel: to work, it needs some previous evaluation.
+
+Basically, it measures the overlap of the sets of clouds marked with the two tags and returns an averaged confidence of the relations of these links.
+
+Suppose we have the following situation, where $a,b$ are tags (i.e. strings such as `LearningAnalytics',`DavidBowie'):
+\begin{enumerate}			
+\item[$a\to$] [cloud1, cloud2]; that is: both cloud1 and cloud2 are tagged with `$a$'.
+\item[$b\to$] [cloud1, cloud3]
+\item[$c\to$] [cloud4,	cloud5]
+\end{enumerate}
+
+Clearly, similarity(cloud1,cloud1) = 1, so tag $a$ and $b$ will be at least 0.5 related since they share half of their clouds; more if cloud2 and cloud3 are related in gods' beliefs.
+Then suppose cloud1 and cloud4 are believed to be related by 0.4, and cloud5, cloud2, are related by 0.6, but cloud5 and cloud3 are totally unrelated.
+Then, tag c will be much closer to tag a than to tag b.
+
+The algorithm just computes over this intuition.
+
+\paragraph{tag\_overlap}
+This algorithm, unlike the two previous ones, is a measure of the distance of two nontag-type clouds, and simply measures the intersection/union of the tags of the two clouds.
+
+
+\paragraph{coo\_dicts\_overlap}
+
+This algorithm has two versions, plus a third one which consists simply in taking the best result from v1 and v2.
+
+\subparagraph{v1} This version returns a pair-to-pair correspondence check of co-occur\-ring pairs of words in the two clouds. Such correspondence is very valuable, but rare.
+
+\subparagraph{v2} This version is more permissive (returns many more nonzero values) and consists in splitting the pairs thereby using single words as term of comparison. (Basically it performs a bag of words overlap/union, building the bags from the co-occurrence dictionary). Implements Grefenstette (1994) algorithm for computing the values.
+
+\paragraph{coo\_dicts\_neighbour}
+
+Taken the co-occurring pairs in cloud $\phi$, denoted $coo(\phi)$, we split them and augment this bag of words with the most frequent words that often co-occur with them at the whole corpus level. (Similar to extended\_core\_overlap), but based on a different starting set. Then compares the two extended bags.
+
+\paragraph{coo\_dicts\_extended\_neighbour}
+
+This algorithm is very complex, takes ages to run and is so permissive that it captures far more noise than signal. Probably garbage.
 
 
 \subsubsection{Future work.}
@@ -148,8 +230,6 @@ $\bullet \quad$Another thing which might change is that currently algorithms don
 A first attempt in this direction has already been made: I constructed an algorithm which would, given a pair of words $a,b$, retrieve the number of google hits for the query ``NEAR($a,b$)|NEAR($a,b$)'', later normalizing it with the number of hits for queries containing just the single words $a$ and $b$. To do the same with clouds is not as straightforward and will need some more research and might involve, for example, keyword extraction.}.
 
 $\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted clearly by how near they are) in the current state of the system.}
-
-
 
 \subsection{Agents.}
 
