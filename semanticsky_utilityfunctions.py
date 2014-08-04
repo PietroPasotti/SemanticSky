@@ -503,7 +503,7 @@ def bar(progress,barlength=100,title = 'Progress'):
 		print()
 
 def ispair(pair):
-	if isinstance(pair,frozenset) and len(pair) == 2:
+	if isinstance(pair,frozenset) and len(pair) == 2 or isinstance(pair,tuple):
 		pair = tuple(pair)
 		import semanticsky as ss
 		if isinstance(pair[0],ss.Cloud) and isinstance(pair[1],ss.Cloud):

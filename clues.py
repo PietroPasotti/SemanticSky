@@ -107,23 +107,10 @@ class Clue(object):
 		Autoconsider: toggles queuing of clues.
 		"""
 		
-		if isinstance(about,frozenset):
-			self.cluetype = 'link' 
-		elif about in algs.ALL_ALGS:
-			self.cluetype = 'feedback' # the clue is about an algorithm's trustworthiness
-		elif isinstance(about,Clue): 
-			self.cluetype = 'metaclue' # the clue is about the validity of another clue.
-		elif isinstance(about,Agent):
-			self.cluetype = 'feedback' # the clue is about an agent's trustworthiness
-		elif type(about) == GuardianAngel:
-			self.cluetype = 'feedback'
-		elif isinstance(about,God):
-			return None
-		else:
-			typelist = [str(x) for x in [Clue,Agent,GuardianAngel,frozenset]]
-			raise BaseException('Unrecognized about input: {}; which is of type {}.\n'
-							'Accepted types are {}.'.format(str(about),type(about),typelist))	
-			
+		self.cluetype = 'link'
+		if not str(about.__class__) == "<class 'semanticsky.Link'>":
+			self.about = ss.Link(about)
+
 		self.about = about
 		self.value = value
 		self.trace = trace
@@ -951,7 +938,28 @@ class Knower(GuardianAngel,object):
 		if verbose:
 			print()
 		return True
-
+	
+	def feedback_all(self,verbose = True):
+		god = self.supervisor
+		
+		if verbose: 
+			print()
+			i = 0
+		
+		ln = len(god.logs)
+		for link in god.logs:
+			
+			if verbose:
+				i += 1
+				ss.bar(i / ln, title = 'feedback_all :: {}'.format(self.shortname()))
+			
+			resps = tuple(clue.agent for clue in god.logs[link])
+			for resp in resps:
+				self.feedback(resp,link,self.evaluation.get(link,0))
+		
+		if verbose: 
+			print()
+		
 						
 class God(object):
 	"""
@@ -2041,6 +2049,7 @@ class God(object):
 		"""
 		
 		self.cluebuffer = []
+
 
 import meta_angels as metangels
 

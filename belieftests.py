@@ -10,7 +10,6 @@ bar = tests.clues.ss.bar
 stdout = tests.clues.ss.stdout
 crop_at_nonzero = tests.crop_at_nonzero
 
-
 def binput(msg):
 	a = input(bmag('\t>> {}'.format(msg)))
 	return a
@@ -504,6 +503,9 @@ def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent
 	god.cleanbuffer() # EMPTY THE BUFFER
 	
 	loops = 0
+	
+	output = {}
+	
 	while cloudlist:
 		clouds = cloudlist[0:min(step,len(cloudlist))]
 		
@@ -512,36 +514,32 @@ def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent
 			
 		if test and loops > test:
 			print('\n')
-			print(loops, ' loops hit. Stopping. Total list of clouds already included follows: \n\n ', [cloud.item['id'] for cloud in god.sky.sky])
+			print(loops, ' loops hit. Stopping. Total list of clouds already included now stored to cluecount.log: \n\n ', [cloud.item['id'] for cloud in god.sky.sky])
+			pickle.dump( [cloud.item['id'] for cloud in god.sky.sky] , open('./tests_output/cluecount.log','wb+'))
 			break
 		
 		print('\nExtracted clouds [{}]. Now the sky contains {} clouds.'.format([acloud.item['id'] for acloud in clouds ],len(god.sky.sky) + len(clouds)))
 		
 		cloudlist = cloudlist[step:]
-		add_to_sky_evaluate_feedback(god,clouds)
-		
-		# we store the beliefs in a more compressed form: from (ID,ID) pairs to god's beliefs.
-		dump_to_file((god,god.trusts()))
+		pout = add_to_sky_evaluate_feedback(god,clouds) # partial output, which will go to the total final output
+		output["{} clues".format(len(god.sky.sky))] = pout
 		
 		loops += 1
-		
+	
+	
+	dump_to_file(output)
 	return 
 
-def dump_to_file(val):
-	
+def dump_to_file(val,filename = "evaluation_output"):
+	print('Dumping output...')
 	path = "./tests_output/"
 	
-	filename = path + str(len(val[0].sky.sky)) + '-clouds.log'
-	
-	god,trusts = val
-	
-	compressedbeliefs = {(tuple(pair)[0].item['id'],tuple(pair)[1].item['id']): god.beliefs[pair] for pair in  god.beliefs}
-	compressedtrusts = {ga.name : trusts[ga] for ga in trusts}
+	filename = path + filename + '.log'
 	
 	with open(filename,'wb+') as f:
-		pickle.dump((compressedbeliefs,compressedtrusts),f)
+		pickle.dump(val,f)
 		
-	#print("Dumped to file {}.".format(filename))
+	print("\tDumped to file {}.".format(filename))
 	return True
 		
 def add_to_sky_evaluate_feedback(god,listofclouds):
@@ -555,11 +553,10 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 	god.sky.sky.extend(listofclouds)
 	
 	iterpairs = tuple(god.sky.iter_pairs()) # all 2-permutations of the clouds which are in the system
-	print('Parsing [{}] pairs...'.format(len(iterpairs)**2 - len(iterpairs)))	
 	i = 0
 	for pair in iterpairs:
 		i += 1
-		bar(i/len(iterpairs))
+		bar(i/len(iterpairs),title = 'Parsing [{}] pairs...'.format(len(iterpairs)))
 		for cloud in listofclouds:
 			if cloud in pair and pair not in god.beliefs:
 				god.rebelieves(pair,weight = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
@@ -572,23 +569,100 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 								# the refresh() which we will run afterwards will retrieve the new value of the agents' trustworthiness
 								# from the logged clue, in case it has changed. All we need to know is that THERE IS A CLUE THERE.
 		
-
+				
 		
 	# at this point we have a fresh belief set, made out of the feedbacks of the previous iterations
 	# and the clues we already had + the ones we have now
+	god.clean_trivial_beliefs()
 	
 	print('God has [{}] beliefs.'.format(len(god.beliefs)))
 	
 	knower = getknower(god)
 	
-	newclues = god.get_buffer()
+	newclues = god.getbuffer()
 	
 	knower.give_feedback(newclues)
-			# this will prompt the knower to give feedback only on newly created clues.
+	# this will prompt the knower to give feedback only on newly created clues.
 	
 	god.refresh()
-	# this will ask god for a reevaluation, thus taking into account the feedback, old and new	
-	return
+	# this will ask god for a reevaluation, thus taking into account the feedback, old and new
+
+	return evaluate_status(god)
+
+OUTPUT = {}
+
+def evaluate_status(god):
+	
+	knower = getknower(god)
+	
+	out = {}
+	
+	avg = lambda iterable: sum(iterable) / len(iterable) if iterable else 0
+	
+	beltrue = tuple(god.believes(x) for x in knower.evaluation)
+	avgbeltrue = sum(beltrue) / len(beltrue) if beltrue else 0
+	
+	belfalse = tuple(god.believes(x) for x in god.beliefs if x not in knower.evaluation)
+	avgbelfalse = sum(belfalse) / len(belfalse) if belfalse else 0
+	
+	belall = tuple(god.beliefs.values())
+	avgbelall = sum(belall) / len(belall) if belall else 0
+	
+	out['average_strength_of_god_beliefs'] = {}
+	out['average_strength_of_god_beliefs']['in true beliefs'] = avgbeltrue
+	out['average_strength_of_god_beliefs']['in false beliefs'] = avgbelfalse
+	out['average_strength_of_god_beliefs']['in all beliefs'] = avgbelall
+
+	out["average_precision_of_algorithms"] = {}
+	
+	for ga in god.guardianangels:
+		truebels = tuple(set(knower.evaluation).intersection(ga.evaluation))
+		trueconfs = tuple(ga.evaluation[x] for x in truebels) # unweighted confidences in true beliefs
+		
+		falsebels = tuple(set(ga.evaluation).difference(truebels))
+		falseconfs = tuple(ga.evaluation[x] for x in falsebels) 
+		avgallbels = avg(ga.evaluation.values())
+	
+		avgtruebels = avg(trueconfs)
+		avgfalsebels = avg(falseconfs)
+		
+		out["average_precision_of_algorithms"][ga.name] = {}
+		out["average_precision_of_algorithms"][ga.name]['unweighted'] = {}
+		
+		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in true links'] = avgtruebels
+		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in false links'] = avgfalsebels
+		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in all links'] = avgallbels
+		
+		wevaluation = {belief: ga.belief_with_feedback(belief) for belief in ga.evaluation}
+		
+		wtruebels = tuple(set(knower.evaluation).intersection(wevaluation))
+		wtrueconfs = tuple(wevaluation[x] for x in wtruebels)	# weighted confidences in true beliefs
+		
+		wfalsebels = tuple(set(wevaluation).difference(truebels))
+		wfalseconfs = tuple(wevaluation[x] for x in wfalsebels) # weighted confidences in false beliefs
+		
+		wavgallbels = avg(wevaluation.values())
+	
+		wavgtruebels = avg(wtrueconfs)
+		wavgfalsebels = avg(wfalseconfs)		
+		
+		
+		out["average_precision_of_algorithms"][ga.name]['weighted'] = {}
+	
+		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in true links'] = wavgtruebels
+		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in false links'] = wavgfalsebels
+		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in all links'] = wavgallbels	
+		
+		regret = 0
+		diff = lambda x,y: max(x,y) - min(x,y)
+
+		for belief in ga.evaluation:
+			regret += diff(ga.evaluation[belief],knower.evaluation.get(belief,0))
+			
+		out["average_precision_of_algorithms"][ga.name]['distance_from_perfection==regret?'] = regret
+		out["BlackBox"] = BlackBox(god)
+
+	return out
 	
 def setup_full_god():
 	
@@ -601,3 +675,46 @@ def setup_full_god():
 	
 	return god
 	
+class BlackBox(object):
+	"""
+	Wrapper for a god's belief set.
+	"""
+	
+	def __init__(self,god):
+		
+		self.wrap(god)
+		
+		self.godname = str(god)
+		
+	def __str__(self):
+		print( "< BlackBox of {}. >".format(self.godname))
+	
+	def wrap(self,god):
+		
+		self.beliefs = {}
+		self.stats = {}
+		self.logs = {}
+		
+		for bel,val in god.beliefs.items():
+			if not val > 0: # we only store > 0 values
+				continue
+			link = tests.clues.ss.Link(bel)
+			self.beliefs[link.ids] = val
+		
+		# in self.beliefs, stores a ID,ID -> value
+		
+		for ga in god.guardianangels:
+			self.stats[ga.name] = ga.stats
+			
+		# in self.stats, stores a ga.name -> ga.stats copy
+
+		for bel,logs in god.logs.items():
+			link = tests.clues.ss.Link(bel)
+			self.logs[link.ids] = tuple(tuple((log.agent.name,log.value,log.weightedvalue())) for log in logs)
+		
+		# in self.logs, stores an ID,ID -> agent, value, weightedvalue for each clue logged
+		
+		
+		
+	
+

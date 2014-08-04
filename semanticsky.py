@@ -711,6 +711,9 @@ class Cloud(object):
 	def __str__(self):
 		return "< Cloud [{}]. [ {} layers. ] >".format(self.ID, len(self.layers))
 	
+	def __hash__(self):
+		return hash(self.item['id'])
+	
 	@property
 	def depth(self):
 		return len(self.layers)
@@ -1104,39 +1107,31 @@ class Cloud(object):
 
 class Link(tuple):
 	
-	def __init__(self,arg1,arg2=None):
-		if not arg2:
-			arg1,arg2 = arg1 # this will fail if arg1 is not a tuple,list or something with two clouds in it.
+	def __new__(typ, itr):
 		
-		if not isinstance(arg1,Cloud) or not isinstance(arg2,Cloud):
-			raise BaseException('Not clouds but {} {}'.format(type(arg1),type(arg2)))
+		ordr = sorted(itr,key = lambda x: str(x))
 		
-		self.clouda = arg1
-		self.cloudb = arg2
+		return tuple.__new__(typ, ordr)
+
+	def ctype(self):
+		return ctype(self)
+		
+	def longctype(self):
+		return ctype_to_type(self.ctype())
 	
-	def __len__(self):
+	@property
+	def ids(self):
 		
-		return 2
+		return self[0].item['id'],self[1].item['id']
 	
-	def __iter__(self):
+	def __str__(self):
 		
-		yield self.clouda
-		yield self.cloudb
-		raise StopIteration()
-	
-	def __hash__(self):
+		return "< Link :: ({},{}).>".format(*self.ids)
 		
-		return hash((self.clouda,self.cloudb))
-	
-	def __getitem__(self,no):
+	def __repr__(self):
 		
-		if no == 0:
-			return clouda
-		elif no == 1:
-			return cloudb
-		else:
-			raise IndexError('Out of range.')
-	
+		return str(self)
+				
 class SuperCloud(Cloud):
 	
 	def __init__(self,cloudlist,automerge = True):

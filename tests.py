@@ -691,7 +691,7 @@ def variousnumbers(deity = None):
 	print('  Average number of clues per pair: {}.'.format(totnoclues))
 	print('  Average number of clues per actually-linked-pair: {}'.format(totcorclues))
 	
-	avgconf = sum(god.believes(x) for x in knower.evaluation) / len(knower.evaluation) if knower.evaluation else 0'
+	avgconf = sum(god.believes(x) for x in knower.evaluation) / len(knower.evaluation) if knower.evaluation else 0
 	print('  Average final confidence in actually existing links: {}'.format(avgconf))
 	print()
 	ranks = god.rankcounter()
