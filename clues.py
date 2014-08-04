@@ -147,12 +147,11 @@ class Clue(object):
 			CLUES.append(self)	
 	
 	def __str__(self):
-		val = self.value
-		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(val,4),self.agent)
+		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
 	def __repr__(self):
-		val = self.value
-		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(val,4),self.agent)
+		
+		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
 	@property
 	def trustworthiness(self):
@@ -225,12 +224,9 @@ class Clue(object):
 		
 		return self.agent.revaluate(self)
 	
+	@property
 	def ids(self):
-		
-		try:
-			return tuple(cloud.item['id'] for cloud in self.about)
-		except BaseException:
-			return False
+		return tuple(cloud.item['id'] for cloud in self.about)
 
 	
 class Agent(object):
@@ -628,7 +624,7 @@ class GuardianAngel(Agent,object):
 		"""
 		
 		if self.evaluation:
-			print( """Warning("Warning: evaluation wasn't empty!")""")
+			print( """Warning("Warning: evaluation wasn't empty!" Returning...)""")
 			return
 		if self.clues and express == True:
 			print( """Warning("Warning: clues nonempty!")\nsetting express to False.""")
@@ -702,7 +698,7 @@ class GuardianAngel(Agent,object):
 			print('Nothing to express.')
 			return False
 		
-		print(self,' is expressing...')
+		print(str(self),' is expressing...')
 		for i in range(number):
 			pair = list(self.evaluation.keys())[i]
 			
@@ -782,7 +778,7 @@ class GuardianAngel(Agent,object):
 		to them.
 		Overrides whisperpipe.
 		"""
-				
+		
 		if isinstance(cluelist,Agent):
 			cluestovalue = cluelist.clues
 		elif isinstance(cluelist,list):
@@ -792,11 +788,14 @@ class GuardianAngel(Agent,object):
 		
 		ln = len(cluestovalue)
 		
+		if ln <= 100: 
+			verbose = False		
+		
 		i = 0
 		for clue in cluestovalue:
 			
 			if verbose:
-				ss.utils.bar(i/ln +1,title = '{} :: Feedback'.format(self.shortname()),barlength = 75)
+				ss.utils.bar(i/ln,title = '{} :: Feedback'.format(self.shortname()))
 				i += 1
 				
 			if clue.agent is self:
@@ -815,12 +814,7 @@ class GuardianAngel(Agent,object):
 			if refresh or clue.about not in self.evaluation:
 				eva = self.evaluate(clue.about,silent = True) # refreshes the evaluation
 			else:
-				eva = self.evaluation.get(clue.about)
-			
-			if eva is None:
-				continue # if evaluation is none, self just doesn't know what the clue's about
-			else:
-				pass
+				eva = self.evaluation.get(clue.about,0)
 				
 			diff = lambda x,y: max([x,y]) - min([x,y])
 
@@ -909,6 +903,55 @@ class Knower(GuardianAngel,object):
 			
 		return
 
+	def give_feedback(self,cluelist = None,verbose = True):
+		"""
+		Cluelist can be either an Agent instance or an iterable yielding clues.
+		In the first case, takes all agent's clues and gives his own feedback
+		to them.
+		Overrides whisperpipe.
+		"""
+		
+		if str(cluelist.__class__) in ["<class 'clues.GuardianAngel'>","<class 'clues.Agent'>"]:
+			cluestovalue = cluelist.clues
+		elif isinstance(cluelist,list):
+			cluestovalue = cluelist
+		else:
+			raise BaseException('Unrecognized input type.')
+		
+		ln = len(cluestovalue)
+		
+		if ln <= 100: 
+			verbose = False		
+		
+		i = 0
+		for clue in cluestovalue:
+			
+			if verbose:
+				i += 1
+				ss.utils.bar(i/ln,title = '{} :: Feedback'.format(self.shortname()))
+
+				
+			if clue.agent is self:
+				continue
+				
+			eva = self.evaluation.get(clue.about,0) # evaluation is 0 iff not 1
+				
+			diff = lambda x,y: max([x,y]) - min([x,y])
+
+			vals = (clue.value,eva) # how much SELF evaluates it and the other does
+			
+			# previously it was: our_rating = 1 - diff(*vals) # between 0 and 1, depends on how much the two evaluations differ 
+			
+			our_rating = eva
+			# but now we want to give feedback which is equal to the to-learn parameter
+			
+			# self's opinion on the clue's about.
+			self.feedback(clue.agent,clue.about,our_rating)  # actually produces a Feedback object and sends it through
+		
+		if verbose:
+			print()
+		return True
+
 						
 class God(object):
 	"""
@@ -925,6 +968,7 @@ class God(object):
 		self.birthdate = ss.time.gmtime()
 		self.guardianangels = []
 		self.whisperers = []
+		self.cluebuffer = []
 		self.logs = {}
 		self.ccount = 0 # keeps track of number of clues processed
 		self.totcluecount = 0
@@ -1456,6 +1500,11 @@ class God(object):
 				return None
 						
 		for clue in toread:
+			
+			######### bufferize
+			if clue not in self.cluebuffer:
+				self.bufferize(clue)
+			
 			self.ccount += 1
 			if verbose: print(toread)
 			self.log(clue)
@@ -1659,7 +1708,7 @@ class God(object):
 		"""
 		return self.beliefs.get(something,0.0)
 
-	def rebelieves(self,something,weight = True,update = False,silent = True):
+	def rebelieves(self,something,weight = True,silent = True):
 		"""
 		Bypass for the clues mechanism:
 		directly asks to all of his trustees (GuardianAngels only) how much 
@@ -1678,14 +1727,8 @@ class God(object):
 		opinions = []
 		for angel in self.guardianangels:
 			
-			if something not in angel.evaluation:
-				if silent == False:
-					angel.evaluate(something) # we try to evaluate it
-					continue
-				else:
-					
-				
-				
+			angel.evaluate(something) # we try to evaluate it
+			
 			if weight:
 				opinion = angel.belief_with_feedback(something)
 			else:
@@ -1695,12 +1738,11 @@ class God(object):
 	
 		if opinions:
 			decision = sum(opinions) / len(opinions) # average
-		else:
-			decision = False
-		
-		if update and opinions:
 			self.beliefs[something] = decision # update
 			
+		else:
+			decision = False
+
 		if decision:
 			return decision
 		
@@ -1848,7 +1890,7 @@ class God(object):
 				ss.bar(i/topno,title = 'Refreshing')
 			
 			i += 1			
-			self.rebelieves(belief,update = True)
+			self.rebelieves(belief,silent = False) # will update beliefs
 	
 	def reassess(self,listofitems = None):
 		"""
@@ -1975,6 +2017,30 @@ class God(object):
 		
 		return True
 
+	# BUFFERING
+	def bufferize(self,clue):
+		"""
+		Adds a clue to an internal buffer.
+		"""
+		self.cluebuffer.append(clue)
+		
+	def getbuffer(self):
+		"""
+		Empties the buffer and returns it previous content.
+		"""
+		
+		bffr = self.cluebuffer
+		
+		self.cluebuffer = []
+		
+		return bffr
+		
+	def cleanbuffer(self):
+		"""
+		empties the cluebuffer.
+		"""
+		
+		self.cluebuffer = []
 
 import meta_angels as metangels
 

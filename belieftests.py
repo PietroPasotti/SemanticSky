@@ -500,10 +500,8 @@ def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent
 		
 	tests.load_evaluations_to_gas(god.guardianangels)
 	
-	equate_all_links(god,god.guardianangels)
-	equate_all_links(god,[knower])
-	
 	god.sky.sky = [] # we empty the sky. We are then going to add back the clouds one by one.
+	god.cleanbuffer() # EMPTY THE BUFFER
 	
 	loops = 0
 	while cloudlist:
@@ -556,8 +554,7 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 	
 	god.sky.sky.extend(listofclouds)
 	
-	iterpairs = tuple(god.sky.iter_pairs()) # will yield all 2-permutations of the clouds which are in the system
-	
+	iterpairs = tuple(god.sky.iter_pairs()) # all 2-permutations of the clouds which are in the system
 	print('Parsing [{}] pairs...'.format(len(iterpairs)**2 - len(iterpairs)))	
 	i = 0
 	for pair in iterpairs:
@@ -565,7 +562,7 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 		bar(i/len(iterpairs))
 		for cloud in listofclouds:
 			if cloud in pair and pair not in god.beliefs:
-				god.rebelieves(pair,weight = True,update = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
+				god.rebelieves(pair,weight = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
 																					# and a clue will be spawned and logged				
 				break 
 								# this part makes sure that god's rebelief is called just on pairs such that at least one of its clouds is part of listofclouds;
@@ -584,12 +581,7 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 	
 	knower = getknower(god)
 	
-	newclues = []
-	for pair in god.logs:
-		clouda,cloudb = pair
-		if clouda in listofclouds or cloudb in listofclouds:
-			newclues.extend(god.logs[pair])
-			# a clue is 'new' iff either of its 'about' clouds is new
+	newclues = god.get_buffer()
 	
 	knower.give_feedback(newclues)
 			# this will prompt the knower to give feedback only on newly created clues.
@@ -597,4 +589,15 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 	god.refresh()
 	# this will ask god for a reevaluation, thus taking into account the feedback, old and new	
 	return
+	
+def setup_full_god():
+	
+	print('Setting up a God...')
+	
+	god = setup_new_god()
+	god.spawn_servants()
+	tests.load_evaluations_to_gas(god.guardianangels)
+	god.express_all()
+	
+	return god
 	

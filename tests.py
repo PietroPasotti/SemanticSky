@@ -691,7 +691,7 @@ def variousnumbers(deity = None):
 	print('  Average number of clues per pair: {}.'.format(totnoclues))
 	print('  Average number of clues per actually-linked-pair: {}'.format(totcorclues))
 	
-	avgconf = sum(god.believes(x) for x in knower.evaluation) / len(knower.evaluation)
+	avgconf = sum(god.believes(x) for x in knower.evaluation) / len(knower.evaluation) if knower.evaluation else 0'
 	print('  Average final confidence in actually existing links: {}'.format(avgconf))
 	print()
 	ranks = god.rankcounter()
@@ -757,7 +757,10 @@ def morenumbers(deity = None):
 	
 	truepairs = tuple(pair for pair in sky.iter_pairs(nontagclouds) if knower.evaluation.get(pair))
 	tottrue = tuple(god.believes(pair) for pair in truepairs)
-	avgtruecomb = sum(tottrue) / len(tottrue)
+	if tottrue:
+		avgtruecomb = sum(tottrue) / len(tottrue)
+	else:
+		avgtruecomb = 'n/a'
 	
 	print("\nGod's average belief on all their possible combinations: {}".format(crop_at_nonzero(avgtotcomb,4)))
 	print("God's average belief on the nonzero ones (i.e. if some angel has clue'd about them): ", crop_at_nonzero(avgsome,4)  )
