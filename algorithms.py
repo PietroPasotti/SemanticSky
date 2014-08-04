@@ -71,7 +71,7 @@ class Algorithm():
 		
 		def tf_weighting(clouda,cloudb,basedbaddress = 'words_tf',use_cosine = True,dbg = False):
 			"""
-			Tf bag-of-words weighting, normalized to [0,1] by a cosine.
+			Tf bag-of-words weighting, normalized to [0,1] by a cosine algorithm.
 			"""
 			tf_rating = 0	
 			

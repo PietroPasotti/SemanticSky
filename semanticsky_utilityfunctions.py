@@ -479,27 +479,24 @@ def overlap_of_coo_counters(countera,counterb,thresholds = default_thresholds, c
 	
 	return out0,out1
 
-def bar(progress,barlength=100):
-	barLength = barlength # Modify this to change the length of the progress bar
+def bar(progress,barlength=100,title = 'Progress'):
+	barLength = barlength - len(title)
 	status = ""
 	progress = float(progress)
 
 	if progress >= 1:
 		progress = 1
 
-	percentage = str(progress*100)
+	percentage = str(progress*100) if progress != 1 else "100"
 	
-	if len(percentage) > 3 and percentage != 100.0:
+	if len(percentage) > 3 and percentage != "100":
 		displayedp = percentage[:2]
 	else:
 		displayedp = percentage
 	
 	block = int(round(barLength*progress))
 	
-	if displayedp == '10':
-		displayedp = "100"
-	
-	text = "\rProgress: [{}] {}%".format( "."*block + " "*(barLength-block), displayedp)
+	text = "\r{}: [{}] {}%".format(title,"."*block + " "*(barLength-block), displayedp)
 	sys.stdout.write(text)
 	sys.stdout.flush()
 	if progress == 1:

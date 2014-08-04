@@ -578,7 +578,7 @@ class GuardianAngel(Agent,object):
 			algs.extended_core_overlap : 'corE',
 			algs.someonesuggested: 'know'}
 			
-		return transdict.get(self.alg,'Notanalgorithm')	
+		return transdict.get(self.algorithm,self.name[0:5])	
 	
 	# consultation and evaluation functions
 	def consult(self):
@@ -652,7 +652,7 @@ class GuardianAngel(Agent,object):
 		for pair in pairlist:
 			
 			if verbose:
-				ss.bar(i/li)
+				ss.bar(i/li,title = 'Evaluation')
 			
 			silence = False if express else True
 			self.evaluate(pair,silent = silence) # silent: no clue is spawned
@@ -706,7 +706,7 @@ class GuardianAngel(Agent,object):
 		for i in range(number):
 			pair = list(self.evaluation.keys())[i]
 			
-			ss.bar((i + 1)/number)
+			ss.bar((i + 1)/number,title = 'Expressing')
 			
 			value = self.evaluation[pair]
 			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
@@ -796,7 +796,7 @@ class GuardianAngel(Agent,object):
 		for clue in cluestovalue:
 			
 			if verbose:
-				ss.utils.bar(i/ln +1)
+				ss.utils.bar(i/ln +1,title = '{} :: Feedback'.format(self.shortname()),barlength = 75)
 				i += 1
 				
 			if clue.agent is self:
@@ -1679,7 +1679,12 @@ class God(object):
 		for angel in self.guardianangels:
 			
 			if something not in angel.evaluation:
-				angel.evaluate(something,silent = silent) # we try to evaluate it
+				if silent == False:
+					angel.evaluate(something) # we try to evaluate it
+					continue
+				else:
+					
+				
 				
 			if weight:
 				opinion = angel.belief_with_feedback(something)
@@ -1837,17 +1842,13 @@ class God(object):
 		so = ss.stdout
 		topno = len(self.beliefs)
 		
-		i = 0
+		i = 1
 		for belief in self.beliefs:
 			if verbose:
-				ss.bar(i/topno)
+				ss.bar(i/topno,title = 'Refreshing')
 			
 			i += 1			
 			self.rebelieves(belief,update = True)
-
-		if verbose:
-			so.write(' [ All done. ]')
-			so.flush()
 	
 	def reassess(self,listofitems = None):
 		"""

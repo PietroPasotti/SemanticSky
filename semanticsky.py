@@ -725,7 +725,6 @@ class Cloud(object):
 		else:
 			return 'items'
 				
-	
 	def ctype(self):
 		"""
 		Returns the type of the wrapped item, such as 'Person', 'Glossary'

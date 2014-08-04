@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import tests
+pickle = tests.pickle
 center = tests.center
 wrap = tests.wrap
 table = tests.table
@@ -37,9 +38,16 @@ def express_all(god):
 		ga.express()
 
 def getknower(god):
+	
+	if hasattr(god,'knower'):
+		if not god.knower.supervisor is god:
+			god.knower.new_supervisor(god)
+		return god.knower
+		
 	knower = tests.clues.knower if tests.clues.knower else tests.clues.Knower(god)
 	if not knower.supervisor is god:
 		knower.new_supervisor(god)
+		
 	return knower
 	
 def give_feedback(god,knower):
@@ -64,8 +72,6 @@ def equate_all_links(god,angels):
 	for ga in angels:
 		
 		totln = len(ga.evaluation)
-		print('\t\t\tAliasing links for ',ga)
-		print()
 		i = 0
 		for link,ev in ga.evaluation.items():
 			del ga.evaluation[link]
@@ -74,7 +80,7 @@ def equate_all_links(god,angels):
 
 			ga.evaluation[truelink] = ev
 			
-			bar(i/totln)
+			bar(i/totln,title= 'Aliasing [{}]:'.format(ga))
 			i+=1			
 		print()
 		
@@ -476,7 +482,7 @@ def interactive(god = None,auto = False):
 
 # matplotlib tests
 
-def evaluate_online_accuracy_function(god,out = None,test = False):
+def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent_evaluations = True):
 	
 	tests.random.shuffle(god.sky.sky)
 	cloudlist = god.sky.sky
@@ -485,7 +491,10 @@ def evaluate_online_accuracy_function(god,out = None,test = False):
 		god.spawn_servants()
 		
 	knower = getknower(god)
+	if not knower.evaluation:
+		knower.evaluate_all(express = False)
 	
+	print()
 	print('removing tag-similarity angels...')
 	god.guardianangels = [ga for ga in god.guardianangels if ga.name not in ['tag_similarity_naive','tag_similarity_extended']]
 		
@@ -496,48 +505,96 @@ def evaluate_online_accuracy_function(god,out = None,test = False):
 	
 	god.sky.sky = [] # we empty the sky. We are then going to add back the clouds one by one.
 	
-	if out is None:
-		global belsets
-		belsets = []
-		out = belsets
-	
-	for acloud in cloudlist:
+	loops = 0
+	while cloudlist:
+		clouds = cloudlist[0:min(step,len(cloudlist))]
 		
-		god.sky.sky.append(acloud)	
-		iterpairs = god.sky.iter_pairs() # will yield all 2-permutations of the clouds which are in the system
+		if len(clouds) < step or len(cloudlist) == 0:
+			break
 			
-		for pair in iterpairs:
-			
-			if acloud not in pair: # we only ask to clue for pairs which arent' already there.
-				continue			# otherwise we'll just do more work.
-									# the refresh() which we will run afterwards will retrieve the new value of the agents' trustworthiness
-									# from the logged clue, in case it has changed. All we need to know is that THERE IS A CLUE THERE.
-			
-			if pair not in god.beliefs:
-				god.rebelieves(pair,update = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
-																	# and a clue will be spawned and logged
-			
-		# at this point we have a fresh belief set, made out of the feedbacks of the previous iterations
-		# and the clues we already had + the ones we have now
+		if test and loops > test:
+			print('\n')
+			print(loops, ' loops hit. Stopping. Total list of clouds already included follows: \n\n ', [cloud.item['id'] for cloud in god.sky.sky])
+			break
 		
-		tests.clues.ss.sys.stdout.write('. '+str(len(god.beliefs)))
-		tests.clues.ss.sys.stdout.flush()
-	
-		for guardian in god.guardianangels:
-			for clue in guardian.clues:
-				if acloud in clue.about:
-					knower.give_feedback([clue],verbose = False)
-		# this will prompt the knower to give feedback only on newly created clues.
+		print('\nExtracted clouds [{}]. Now the sky contains {} clouds.'.format([acloud.item['id'] for acloud in clouds ],len(god.sky.sky) + len(clouds)))
 		
-		god.refresh()
-		# this will ask god for a reevaluation, thus taking into account the feedback, old and new
+		cloudlist = cloudlist[step:]
+		add_to_sky_evaluate_feedback(god,clouds)
 		
-		out.append({(tuple(pair)[0].item['id'],tuple(pair)[1].item['id']): god.beliefs[pair] for pair in  god.beliefs})
 		# we store the beliefs in a more compressed form: from (ID,ID) pairs to god's beliefs.
+		dump_to_file((god,god.trusts()))
 		
-		if test is not False:
-			if cloudlist.index(acloud) >= test:
-				return
+		loops += 1
+		
+	return 
+
+def dump_to_file(val):
 	
+	path = "./tests_output/"
+	
+	filename = path + str(len(val[0].sky.sky)) + '-clouds.log'
+	
+	god,trusts = val
+	
+	compressedbeliefs = {(tuple(pair)[0].item['id'],tuple(pair)[1].item['id']): god.beliefs[pair] for pair in  god.beliefs}
+	compressedtrusts = {ga.name : trusts[ga] for ga in trusts}
+	
+	with open(filename,'wb+') as f:
+		pickle.dump((compressedbeliefs,compressedtrusts),f)
+		
+	#print("Dumped to file {}.".format(filename))
+	return True
+		
+def add_to_sky_evaluate_feedback(god,listofclouds):
+	"""
+	- Adds listofclouds to gods' sky;
+	- Retrieves the iter_pairs of the sky and tells the guardianangels to evaluate
+	the newly available pairs.
+	- The knower gives feedback and updates the guardianangels' trustworthiness
+	"""
+	
+	god.sky.sky.extend(listofclouds)
+	
+	iterpairs = tuple(god.sky.iter_pairs()) # will yield all 2-permutations of the clouds which are in the system
+	
+	print('Parsing [{}] pairs...'.format(len(iterpairs)**2 - len(iterpairs)))	
+	i = 0
+	for pair in iterpairs:
+		i += 1
+		bar(i/len(iterpairs))
+		for cloud in listofclouds:
+			if cloud in pair and pair not in god.beliefs:
+				god.rebelieves(pair,weight = True,update = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
+																					# and a clue will be spawned and logged				
+				break 
+								# this part makes sure that god's rebelief is called just on pairs such that at least one of its clouds is part of listofclouds;
+								# that is: of the clouds we are adding now to the system.
+								# we only ask to clue for pairs which arent' already there.
+								# otherwise we'll just do more work.
+								# the refresh() which we will run afterwards will retrieve the new value of the agents' trustworthiness
+								# from the logged clue, in case it has changed. All we need to know is that THERE IS A CLUE THERE.
+		
+
+		
+	# at this point we have a fresh belief set, made out of the feedbacks of the previous iterations
+	# and the clues we already had + the ones we have now
+	
+	print('God has [{}] beliefs.'.format(len(god.beliefs)))
+	
+	knower = getknower(god)
+	
+	newclues = []
+	for pair in god.logs:
+		clouda,cloudb = pair
+		if clouda in listofclouds or cloudb in listofclouds:
+			newclues.extend(god.logs[pair])
+			# a clue is 'new' iff either of its 'about' clouds is new
+	
+	knower.give_feedback(newclues)
+			# this will prompt the knower to give feedback only on newly created clues.
+	
+	god.refresh()
+	# this will ask god for a reevaluation, thus taking into account the feedback, old and new	
 	return
 	
