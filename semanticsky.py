@@ -444,12 +444,13 @@ class SemanticSky(object):
 		noitems = len(self.data.oridata['items'])
 		stdout.write('\tItem clouds... 	\t')
 		i = 0
+		bar = ProgressBar(noitems)
 		for itemID in self.data.items():
 			item = self.getitem(itemID)
 			item['id'] = itemID # is a long()
 			cloud = Cloud(self,item)
 			
-			bar(i/noitems)
+			bar(i)
 			i += 1
 		stdout.write('\n\t [ {} Clouds. ]\n'.format(i))
 
@@ -457,12 +458,13 @@ class SemanticSky(object):
 		notags = len(self.data.oridata['tags'])
 		stdout.write('\tTag clouds... \t\t')
 		e = 0
+		bar = ProgressBar(notags)
 		for tagID in self.data.tags():
 			tag = self.data.tag(tagID)
 			tag['id'] = tagID # is the name of the tag == a str()
 			cloud = Cloud(self,tag)
 			
-			bar(e/notags)
+			bar(e)
 			e += 1
 		stdout.write('\n\t [ {} Clouds. ]\n'.format(e) )
 		print('\n\t Total: [ {} Clouds ] \t : quite a rainy day.\n'.format(e+i))

@@ -479,6 +479,74 @@ def overlap_of_coo_counters(countera,counterb,thresholds = default_thresholds, c
 	
 	return out0,out1
 
+class ProgressBar():
+	
+	def __init__(self,topnumber,barlength=100,title = 'Progress',updaterate = 1,monitor = False,displaynumbers = False):
+		
+		self.barlength = barlength
+		self.title = title
+		self.updaterate = updaterate
+		if not topnumber > 0:
+			raise BaseException('Topnumber <= 0!')
+		self.topnumber = topnumber
+		self._preperc = 0
+		self.monitor = monitor
+		self.displaynumbers = displaynumbers
+
+	def __call__(self,index='auto'):
+		
+		if index == 'auto':
+			if not hasattr(self,'index'):
+				self.index = 0
+			else:
+				self.index += 1
+				
+			index = self.index
+			
+		progress = float(index / self.topnumber)
+		
+		# updaterate, if set to 1, forces to update only when there is a 1% difference.
+	
+		barLength = self.barlength - len(self.title)
+		status = ""
+	
+		if progress >= 1:
+			progress = 1
+			percentage = 100
+		else:
+			percentage = progress * 100
+
+		preperc = self._preperc
+		diffperc = percentage - preperc
+		
+		if diffperc > self.updaterate: # only prints if the progress has advanced by (self.updaterate)% points
+			self._preperc = percentage
+			pass
+		elif index == 0: # OR if the index is 0
+			pass
+		elif self.topnumber -1 == index: # OR if the index is at 100%
+			pass
+		else:
+			return None 
+	
+		displayedp = round(percentage) if index != self.topnumber -1 else 100
+		block = int(round(barLength*progress))
+		
+		if not self.displaynumbers:
+			text = "\r{}: [{}] {}% ".format(self.title,"."*block + " "*(barLength-block), displayedp)
+		else:
+			text = "\r{}: [{}] [{}/{}] ".format(self.title,"."*(block) + " "*(barLength-block), index + 1,self.topnumber)
+		
+		print(text,end = '' if progress != 1 else '\n')
+	
+	def tickon(self):
+		
+		print('+',end = '')
+		
+	def tickoff(self):
+		
+		print('\b ',end = '')
+				
 def bar(progress,barlength=100,title = 'Progress'):
 	barLength = barlength - len(title)
 	status = ""
@@ -568,4 +636,6 @@ def ctype_to_type(ctype):
 	
 	return '-'.join(outctype)
 	
+def avg(itr):
+	return sum(itr) / len(itr) if itr else 0
 
