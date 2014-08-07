@@ -692,6 +692,44 @@ def setup_full_god():
 	god.express_all()
 	
 	return god
+
+def avg(itr):
+	return sum(itr) / len(itr) if itr else 0
+
+def feedback_only_test(god = None,test = False, filename = 'feedback_only_output'):
+	
+	if not god:
+		god = setup_full_god()
+	
+	knower = getknower(god)
+	
+	out = {}
+	
+	bar = tests.clues.ss.ProgressBar(len(god.logs),title = 'Feedbacking',displaynumbers = True)
+	i = 0
+	
+	def randomized(x):
+		import random
+		y = list(x)
+		random.shuffle(y)
+		return y
+	
+	for log in randomized(god.logs):
+		
+		bar()
+		
+		knower.give_feedback(god.logs[log],verbose = False)
+		
+		pout = evaluate_status(god)
+		
+		out[i] = pout
+
+		i += 1
+		
+		if test and test >= i:
+			break
+			
+	return dump_to_file(out,filename)
 	
 class BlackBox(object):
 	"""
@@ -704,9 +742,10 @@ class BlackBox(object):
 		self.godname = str(god)
 		knower = getknower(god)
 		if not knower.evaluation:
-			knower.evaluate_all()
+			knower.evaluate_all(express = False)
+			
 		self.truths = tuple( tests.clues.ss.Link((clouda.item['id'],cloudb.item['id'])) for clouda,cloudb in knower.evaluation)
-		
+
 	def istrue(self,link):
 		
 		if link in self.truths:
@@ -732,7 +771,7 @@ class BlackBox(object):
 		# in self.beliefs, stores a ID,ID -> value
 		
 		for ga in god.guardianangels:
-			self.stats[ga.name] = ga.stats
+			self.stats[ga.name] = {item:val for item,val in ga.stats.items()}
 			
 		# in self.stats, stores a ga.name -> ga.stats copy
 
@@ -741,7 +780,8 @@ class BlackBox(object):
 			self.logs[link.ids] = tuple(tuple((log.agent.name,log.value,log.weightedvalue())) for log in logs)
 		
 		# in self.logs, stores an ID,ID -> agent, value, weightedvalue for each clue logged
-	
+		return
+		
 	def believes(self,sthg,returnvalue = 0):
 		
 		return self.beliefs.get(sthg,returnvalue)
@@ -755,13 +795,13 @@ class BlackBox(object):
 	def truebeliefs(self):
 		
 		for i in self.truths:
-			yield i
+			if i in self.beliefs:
+				yield i
 	
 	def allbeliefs(self):
 		
 		for i in self.beliefs:
 			yield i
-	
 			
 class Evaluator(object):
 	
@@ -786,7 +826,28 @@ class Evaluator(object):
 		import pickle
 		with open (filename, 'rb') as f:
 			self.raw_data = self.normalize(pickle.load(f))
+		
+		self.gettruths()
+	
+	def gettruths(self):
+		
+		if tests.clues.knower:
+			knower = tests.clues.knower
+		else:
+			knower = getknower(setup_new_god())
+			if not knower.evaluation:
+				knower.evaluate_all(express = False)
+		
+		self.knower = knower
+		
+		for key in self.raw_data:                                                                                  
+			bb = self.raw_data[key]['BlackBox']
+			truths = tuple( tests.clues.ss.Link((clouda.item['id'],cloudb.item['id'])) for clouda,cloudb in knower.evaluation)
 			
+			bb.truths = tuple(truth for truth in truths if truth in bb.beliefs)
+			
+		return
+		
 	def normalize(self,data):
 		"""
 		From {'1 cloud': value} to { 1 : value}.
@@ -871,37 +932,55 @@ class Evaluator(object):
 		self.multiplot(evolutions)
 		self.show()
 	
-	def falsebeliefs(self):
+	def display_false(self,fbs = True):
 		
+		rdic = {}
+		
+		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 		for outdic in self.iter_values():
 			bb = outdic['BlackBox']
 			
-			return bb.falsebeliefs()
-	
-	def truebeliefs(self):
-		
-		for outdic in self.iter_values():
-			bb = outdic['BlackBox']
+			bar()
 			
-			return bb.truebeliefs()
+			todisplay = bb.falsebeliefs() if fbs else bb.truebeliefs()
+			for belief in todisplay:
+				if not rdic.get(belief,False):
+					rdic[belief] = []
+					
+				rdic[belief].append(bb.beliefs[belief])
+		
+		toplen = max( len(x) for x in rdic.values() )
+		
+		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Normalizing Results')
+		for key in rdic: # normalize all lengths
+			
+			bar()
+			
+			if len(rdic[key]) < toplen:
+				rdic[key] = [0]*(toplen - len(rdic[key])) + rdic[key]
+		
+		bar = tests.clues.ss.ProgressBar(len(rdic),title = 'Preparing Plot')
+		for listofvalues in rdic.values():
+			
+			bar()
+			
+			self.addtoplot(np.array(listofvalues))
+		
+		print('Plotting...')
+		self.show()
+		
+	def display_true(self):
+		
+		return self.display_false(fbs = False) # will yield evolutions of true beliefs.
 	
-	def allbeliefs(self):
+	def display_all(self):
 		mykeys = tuple(self.iter_keys())
 		lastkey = sorted(mykeys,reverse = True)[0]
 		bb = self.raw_data[lastkey]['BlackBox']
 			
 		# the last blackbox will contain all previous ones' beliefs as well!
 		
-		return bb.allbeliefs()
-		
-	def display_all(self):
-		return self.display(self.allbeliefs())
-	
-	def display_false(self):
-		return self.display(self.falsebeliefs())
-		
-	def display_true(self):
-		return self.display(self.truebeliefs())
+		return self.display(bb.allbeliefs())
 		
 	def plot_guardian(self,name,param0,param1 = None):
 		
@@ -930,3 +1009,136 @@ class Evaluator(object):
 			self.plot_guardian(name,*params)
 			
 		self.show()
+
+	def plot_god_regrets(self,showangels = True):
+		
+		progression = []
+		
+		for out in self.iter_values():
+			bb = out['BlackBox']
+			progression.append(sum(( 1 - bb.believes(x) ) for x in bb.truths))
+		
+		lab.plot(progression,'b.',label = "God's regrets",linewidth = 2)
+		
+		if showangels:
+			self.plot_ga_regrets(show = False)
+			
+		self.show()
+	
+	def plot_ga_regrets(self,show = True):	
+		
+		progressions = {}
+		 
+		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		for out in self.iter_values():
+			
+			bar()
+			
+			bb = out['BlackBox']
+			
+			partial = {}
+		
+			for log in bb.logs:
+				if log in bb.truths:
+					# then the regret is relevant
+					# the log form is list( (author.name,unweighted,weighted) )
+					
+					for logged in bb.logs[log]:
+						if not partial.get(logged[0]):
+							partial[logged[0]] = []
+							
+						partial[logged[0]] += [logged[2]]
+						
+			# now partial is a map from ga.names to their weighted evaluation of *true* clues.
+			
+			for name in partial:
+				if not progressions.get(name):
+					progressions[name] = []
+				
+				progressions[name].append(sum( (1-x) for x in partial[name] ))
+			
+			
+		# normalize...
+				
+		maxlen = max(len(x) for x in progressions.values())
+		
+		bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Normalizing Values',displaynumbers = True)
+		for name in progressions:
+			
+			bar()
+			
+			if len(progressions[name]) < maxlen:
+				progressions[name] = [0]*(maxlen - len(progressions[name])) + progressions[name]
+		
+		
+		bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Preparing Plots',displaynumbers = True)	
+		for name,progression in progressions.items():
+			
+			bar()
+			
+			array = np.array(progression)
+			self.addtoplot(progression,name)
+		
+		print('Plotting...')
+		
+		if show:
+			self.show()
+		
+		return
+		
+	def plot_relative_tw(self,gas = False,ctypes = False,show = True):
+		
+		progressions = {}
+		
+		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		for out in self.iter_values():
+			
+			bar()
+			
+			stats = out['BlackBox'].stats
+			
+			angels = tuple(stats.keys())
+			
+			if gas: # if a special list of angels is given, we restrict our results to these.
+				angels = [ga for ga in angels if ga in gas]
+			
+			for angel in angels:
+				
+				if angel not in progressions:
+					progressions[angel] = {}
+				
+				for ctype,value in stats[angel]['relative_tw'].items():
+					
+					if ctypes:
+						if ctype not in ctypes: # we only take selected ctypes
+							continue
+					
+					if not	progressions[angel].get(ctype):
+						progressions[angel][ctype] = []
+						
+					progressions[angel][ctype].append(value)
+					
+			# progressions is now
+			# angel.name : { 'PP' : [0.1,0.12], 'PO' : [0.22,0.232] ...}		
+					
+		bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Normalizing Values')
+		toplen = max( max(len(x) for x in progressions[angel].values() ) for angel in progressions )
+		for angel in progressions:
+			
+			bar()
+			
+			for ctype in progressions[angel]:
+				progressions[angel][ctype] = [0]*(toplen - len(progressions[angel][ctype])) + progressions[angel][ctype]
+		
+		
+		for angel in progressions:
+			
+			
+			for ctype in progressions[angel]:
+				
+				array = np.array(progressions[angel][ctype])
+			
+				self.addtoplot(array,"{}'s {}".format(angel,ctype))
+		
+		if show:
+			self.show()

@@ -754,68 +754,6 @@ class GuardianAngel(Agent,object):
 			out[angel] = outangel
 		
 		return out
-		
-	def give_feedback(self,cluelist = None,refresh = False,topno = None,verbose = True):
-		"""
-		Cluelist can be either an Agent instance or an iterable yielding clues.
-		In the first case, takes all agent's clues and gives his own feedback
-		to them.
-		Overrides whisperpipe.
-		"""
-		
-		if isinstance(cluelist,Agent):
-			cluestovalue = cluelist.clues
-		elif isinstance(cluelist,list):
-			cluestovalue = cluelist
-		else:
-			raise BaseException('Unrecognized input type.')
-		
-		ln = len(cluestovalue)
-		
-		if ln <= 100: 
-			verbose = False		
-		
-		i = 0
-		bar = ss.ProgressBar(ln,title = '{} :: Feedback'.format(self.shortname()) )
-		for clue in cluestovalue:
-			
-			if verbose:
-				bar(i)
-				i += 1
-				
-			if clue.agent is self:
-				continue
-			else:
-				pass
-			
-			if topno:
-				if topno > cluestovalue.index(clue):
-					return True
-				else:
-					pass
-			else:
-				pass
-				
-			if refresh or clue.about not in self.evaluation:
-				eva = self.evaluate(clue.about,silent = True) # refreshes the evaluation
-			else:
-				eva = self.evaluation.get(clue.about,0)
-				
-			diff = lambda x,y: max([x,y]) - min([x,y])
-
-			vals = (clue.value,eva) # how much SELF evaluates it and the other does
-			
-			# previously it was: our_rating = 1 - diff(*vals) # between 0 and 1, depends on how much the two evaluations differ 
-			
-			our_rating = eva
-			# but now we want to give feedback which is equal to the to-learn parameter
-			
-			# self's opinion on the clue's about.
-			self.feedback(clue.agent,clue.about,our_rating)  # actually produces a Feedback object and sends it through
-		
-		if verbose:
-			print()
-		return True
 	
 	def reset_all_but_stats(self):
 		"""
@@ -910,25 +848,23 @@ class Knower(GuardianAngel,object):
 		i = 0
 		
 		if ln == 0:
-			print( '{} :: Feedback, empty.'.format(self.shortname()))
+			print( 'Knower :: Feedback, empty.')
 			return True
 			
-		bar = ss.ProgressBar(ln,title = '{} :: Feedback'.format(self.shortname()))
+		bar = ss.ProgressBar(ln,title = 'Knower :: Feedback')
 		for clue in cluestovalue:
 			
 			if verbose:
-				i += 1
-				bar(i)
+				bar()
 
-				
 			if clue.agent is self:
 				continue
 				
 			eva = self.evaluation.get(clue.about,0) # evaluation is 0 iff not 1
 				
-			diff = lambda x,y: max([x,y]) - min([x,y])
+			#diff = lambda x,y: max([x,y]) - min([x,y])
 
-			vals = (clue.value,eva) # how much SELF evaluates it and the other does
+			#vals = (clue.value,eva) # how much SELF evaluates it and the other does
 			
 			# previously it was: our_rating = 1 - diff(*vals) # between 0 and 1, depends on how much the two evaluations differ 
 			

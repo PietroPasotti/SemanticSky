@@ -1124,16 +1124,39 @@ class Link(tuple):
 	@property
 	def ids(self):
 		
-		return self[0].item['id'],self[1].item['id']
-	
+		switch = True if [isinstance(x,Cloud) for x in self] == [True,True] else False
+		
+		if switch:
+			return self[0].item['id'],self[1].item['id']
+		
+		else:
+			raise BaseException('Not a Clouds link!')
+		
 	def __str__(self):
 		
-		return "< Link :: ({},{}).>".format(*self.ids)
+		toret = ''
+		
+		for i in self:
+			if isinstance(i, Cloud):
+				toret += i.item['id']
+			else:
+				toret += str(i)
+			
+			toret += ','
+			
+		toret.strip(',')
+		
+		return "< Link :: ({}).>".format(toret)
 		
 	def __repr__(self):
 		
 		return str(self)
-				
+	
+	def __iter__(self):
+		
+		for i in (self[0],self[1]):
+			yield i
+	
 class SuperCloud(Cloud):
 	
 	def __init__(self,cloudlist,automerge = True):
