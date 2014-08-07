@@ -1,12 +1,15 @@
 #!/usr/bin/python3
 
 import tests
+import numpy as np
+import matplotlib as plt
+import pylab as lab
+
 pickle = tests.pickle
 center = tests.center
 wrap = tests.wrap
 table = tests.table
 bmag = tests.bmag
-bar = tests.clues.ss.bar
 stdout = tests.clues.ss.stdout
 crop_at_nonzero = tests.crop_at_nonzero
 
@@ -481,7 +484,7 @@ def interactive(god = None,auto = False):
 
 # matplotlib tests
 
-def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent_evaluations = True):
+def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent_evaluations = True,filename = "evaluation_output" ):
 	
 	tests.random.shuffle(god.sky.sky)
 	cloudlist = god.sky.sky
@@ -506,7 +509,12 @@ def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent
 	
 	output = {}
 	
+	import time
+	
 	while cloudlist:
+		
+		initime = time.clock()
+		
 		clouds = cloudlist[0:min(step,len(cloudlist))]
 		
 		if len(clouds) < step or len(cloudlist) == 0:
@@ -525,9 +533,16 @@ def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent
 		output["{} clues".format(len(god.sky.sky))] = pout
 		
 		loops += 1
+		
+		endtime = time.clock()
+		
+		totloops = test if test else int(len(cloudlist) / step)
+		elapsed = round(endtime - initime)
+		forecast = elapsed * (totloops - loops)
+		
+		print(center('--- [loop {} :: {} elapsed :: {} estimated to the end] ---'.format(loops,elapsed,forecast)))
 	
-	
-	dump_to_file(output)
+	dump_to_file(output,filename)
 	return 
 
 def dump_to_file(val,filename = "evaluation_output"):
@@ -553,10 +568,12 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 	god.sky.sky.extend(listofclouds)
 	
 	iterpairs = tuple(god.sky.iter_pairs()) # all 2-permutations of the clouds which are in the system
-	i = 0
+	
+	bar = tests.clues.ss.ProgressBar(len(iterpairs),title = 'Parsing [{}] pairs...'.format(len(iterpairs)))
 	for pair in iterpairs:
-		i += 1
-		bar(i/len(iterpairs),title = 'Parsing [{}] pairs...'.format(len(iterpairs)))
+		
+		bar()
+		
 		for cloud in listofclouds:
 			if cloud in pair and pair not in god.beliefs:
 				god.rebelieves(pair,weight = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
@@ -573,9 +590,10 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 		
 	# at this point we have a fresh belief set, made out of the feedbacks of the previous iterations
 	# and the clues we already had + the ones we have now
+
 	god.clean_trivial_beliefs()
 	
-	print('God has [{}] beliefs.'.format(len(god.beliefs)))
+	print('\nGod has [{}] beliefs.'.format(len(god.beliefs)))
 	
 	knower = getknower(god)
 	
@@ -682,10 +700,20 @@ class BlackBox(object):
 	
 	def __init__(self,god):
 		
-		self.wrap(god)
-		
+		self.wrap(god)		
 		self.godname = str(god)
+		knower = getknower(god)
+		if not knower.evaluation:
+			knower.evaluate_all()
+		self.truths = tuple( tests.clues.ss.Link((clouda.item['id'],cloudb.item['id'])) for clouda,cloudb in knower.evaluation)
 		
+	def istrue(self,link):
+		
+		if link in self.truths:
+			return True
+		
+		return False
+					
 	def __str__(self):
 		print( "< BlackBox of {}. >".format(self.godname))
 	
@@ -713,8 +741,192 @@ class BlackBox(object):
 			self.logs[link.ids] = tuple(tuple((log.agent.name,log.value,log.weightedvalue())) for log in logs)
 		
 		# in self.logs, stores an ID,ID -> agent, value, weightedvalue for each clue logged
-		
-		
-		
 	
+	def believes(self,sthg,returnvalue = 0):
+		
+		return self.beliefs.get(sthg,returnvalue)
+	
+	def falsebeliefs(self):
+		
+		for i in self.beliefs:
+			if i not in self.truths:
+				yield i
+				
+	def truebeliefs(self):
+		
+		for i in self.truths:
+			yield i
+	
+	def allbeliefs(self):
+		
+		for i in self.beliefs:
+			yield i
+	
+			
+class Evaluator(object):
+	
+	def __init__(self,filename = "./tests_output/evaluation_output.log"):
+		"""
+		Expected data structure:
+		
+		dict({
+		'1 clues': 	{	'average_precision_of_algorithms' : float(),
+						'average_strength_of_god_beliefs': 	float(),
+						'BlackBox' : BlackBox() }
+		...
+		...
+		
+		'n clues' : {...} })
+		
+		The BlackBox contains, in a slightly compressed form, god's belief
+		state for [n] clues.
+		"""
+		
+		
+		import pickle
+		with open (filename, 'rb') as f:
+			self.raw_data = self.normalize(pickle.load(f))
+			
+	def normalize(self,data):
+		"""
+		From {'1 cloud': value} to { 1 : value}.
+		"""
+		
+		def tonumber(string):
+			
+			lst = list(string)
+			
+			num = ''
+			for i in lst:
+				if i.isdigit():
+					num += i
+				elif i == ' ':
+					break
+					
+			return int(num)
+			
+		normal = { tonumber(key):value for key,value in data.items() }
+		return normal
+		
+	def iter_keys(self):
+		"""
+		Yields the keys from minimum to maximum number of clouds.
+		"""
+		
+		
+		keys = self.raw_data.keys()
+		orderedkeys = sorted(keys) # from min to max
+		
+		for i in orderedkeys:
+			yield i
+	
+	def iter_values(self):
+		for key in self.iter_keys():
+			yield self.raw_data[key]
+	
+	def evolution(self,param):
+		"""
+		Returns a np.array containing the evolution of [parameter] throughout
+		the available dataset.
+		"""
+		
+		if isinstance(param[0],str) and '_' in param[0]:
+			progression = np.array([ self.raw_data[nclue][param[0]][param[1]] for nclue in self.iter_keys() ])
+		
+		else:
+			progression = np.array( list(self.raw_data[key]['BlackBox'].believes(param) for key in self.iter_keys()) )
+			# returns the evolution of the value throughout the god's belief evolution
+			
+		return progression
 
+	def addtoplot(self,progression,text = None):
+		
+		lab.plot(progression,label = text)
+	
+	def multievolution(self,iterator):
+		
+		for i in iterator:
+			evo = self.evolution(i)
+			yield evo
+	
+	def multiplot(self,progressions):
+		
+		for progression in progressions:
+			self.addtoplot(progression)
+		
+	def show(self):
+		
+		lab.legend()
+		lab.show()
+		
+	def display(self,iterable):
+		"""
+		Calls multiplot(multievolution(iterator)):
+		that is:
+		- retrieves the progression of the values looked for in  the iterator,
+		- adds them to the plot
+		- calls show()
+		"""
+		evolutions = self.multievolution(iterable)
+		self.multiplot(evolutions)
+		self.show()
+	
+	def falsebeliefs(self):
+		
+		for outdic in self.iter_values():
+			bb = outdic['BlackBox']
+			
+			return bb.falsebeliefs()
+	
+	def truebeliefs(self):
+		
+		for outdic in self.iter_values():
+			bb = outdic['BlackBox']
+			
+			return bb.truebeliefs()
+	
+	def allbeliefs(self):
+		mykeys = tuple(self.iter_keys())
+		lastkey = sorted(mykeys,reverse = True)[0]
+		bb = self.raw_data[lastkey]['BlackBox']
+			
+		# the last blackbox will contain all previous ones' beliefs as well!
+		
+		return bb.allbeliefs()
+		
+	def display_all(self):
+		return self.display(self.allbeliefs())
+	
+	def display_false(self):
+		return self.display(self.falsebeliefs())
+		
+	def display_true(self):
+		return self.display(self.truebeliefs())
+		
+	def plot_guardian(self,name,param0,param1 = None):
+		
+		def citer(name,param0,param1):
+			
+			for key in self.iter_keys():
+				if param1 is None:
+					yield self.raw_data[key]['average_precision_of_algorithms'][name][param0]
+				else:
+					yield self.raw_data[key]['average_precision_of_algorithms'][name][param0][param1]
+		
+		evo = np.array(list(citer(name,param0,param1)))
+			
+		self.addtoplot(evo,text = name)
+	
+	def display_guardians(self,names = None,params = ('distance_from_perfection==regret?',)):
+		
+		if not names:
+			key = tuple(self.raw_data.keys())[0]
+			names = tuple(self.raw_data[key]['average_precision_of_algorithms'].keys())
+		
+		if isinstance(names,str):
+			names = [names]
+		
+		for name in names:
+			self.plot_guardian(name,*params)
+			
+		self.show()
