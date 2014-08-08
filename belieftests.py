@@ -4,6 +4,7 @@ import tests
 import numpy as np
 import matplotlib as plt
 import pylab as lab
+from copy import deepcopy
 
 pickle = tests.pickle
 center = tests.center
@@ -674,19 +675,19 @@ def evaluate_status(god):
 		regret = 0
 		diff = lambda x,y: max(x,y) - min(x,y)
 
-		for belief in ga.evaluation:
-			regret += diff(ga.evaluation[belief],knower.evaluation.get(belief,0))
+		for belief in list(ga.evaluation) + list(knower.evaluation):
+			regret += diff(ga.evaluation.get(belief,0),knower.evaluation.get(belief,0))
 			
 		out["average_precision_of_algorithms"][ga.name]['distance_from_perfection==regret?'] = regret
 		out["BlackBox"] = BlackBox(god)
 
 	return out
 	
-def setup_full_god():
+def setup_full_god(God = None):
 	
 	print('Setting up a God...')
 	
-	god = setup_new_god()
+	god = setup_new_god() if not God else God
 	god.spawn_servants()
 	tests.load_evaluations_to_gas(god.guardianangels)
 	god.express_all()
@@ -696,16 +697,14 @@ def setup_full_god():
 def avg(itr):
 	return sum(itr) / len(itr) if itr else 0
 
-def feedback_only_test(god = None,test = False, filename = 'feedback_only_output'):
+def feedback_only_test(god = None,test = False, filename = 'feedback_only_output',step = 300):
 	
-	if not god:
-		god = setup_full_god()
+	god = setup_full_god(god)
 	
 	knower = getknower(god)
 	
 	out = {}
 	
-	bar = tests.clues.ss.ProgressBar(len(god.logs),title = 'Feedbacking',displaynumbers = True)
 	i = 0
 	
 	def randomized(x):
@@ -714,21 +713,33 @@ def feedback_only_test(god = None,test = False, filename = 'feedback_only_output
 		random.shuffle(y)
 		return y
 	
+	ln = len(god.logs)
+	print()
+	
 	for log in randomized(god.logs):
 		
-		bar()
-		
-		knower.give_feedback(god.logs[log],verbose = False)
-		
-		pout = evaluate_status(god)
-		
-		out[i] = pout
-
 		i += 1
+		lelog = len(god.logs[log])
+		for clue in god.logs[log]:
+			knower.give_feedback(clue,verbose = False)
+			print("\rKnower :: Feedback = [[{}] of [{}/{}]]".format(lelog,i,ln),' '*30,end = '')
+		
+		god.rebelieves(log)
+		
+		print("\rLogging Status...",' '*30,end = '')
+		
+		if step and i % step == 0: # we won't sample at each step the god's status...
+			pout = evaluate_status(god)
+			out[i] = pout
 		
 		if test and test >= i:
 			break
-			
+	
+	if not out.get(i):
+		finalpout = evaluate_status(god)
+		out[i] = pout
+	
+	print()	
 	return dump_to_file(out,filename)
 	
 class BlackBox(object):
@@ -771,7 +782,7 @@ class BlackBox(object):
 		# in self.beliefs, stores a ID,ID -> value
 		
 		for ga in god.guardianangels:
-			self.stats[ga.name] = {item:val for item,val in ga.stats.items()}
+			self.stats[ga.name] = deepcopy(ga.stats)
 			
 		# in self.stats, stores a ga.name -> ga.stats copy
 
@@ -855,6 +866,9 @@ class Evaluator(object):
 		
 		def tonumber(string):
 			
+			if isinstance(string,int):
+				return string
+			
 			lst = list(string)
 			
 			num = ''
@@ -884,6 +898,11 @@ class Evaluator(object):
 	def iter_values(self):
 		for key in self.iter_keys():
 			yield self.raw_data[key]
+	
+	def blackboxes(self):
+		
+		for out in self.iter_values():
+			yield out['BlackBox']
 	
 	def evolution(self,param):
 		"""
@@ -1086,7 +1105,7 @@ class Evaluator(object):
 		
 		return
 		
-	def plot_relative_tw(self,gas = False,ctypes = False,show = True):
+	def plot_relative_tw(self,gas = False,ctypes = False,show = True,legend = False):
 		
 		progressions = {}
 		
@@ -1107,10 +1126,16 @@ class Evaluator(object):
 				if angel not in progressions:
 					progressions[angel] = {}
 				
+				avvals = avg(stats[angel]['relative_tw'].values())
+				
 				for ctype,value in stats[angel]['relative_tw'].items():
 					
 					if ctypes:
-						if ctype not in ctypes: # we only take selected ctypes
+						if ctypes == 'expertises': # we only plot the angel's expertises
+							if value < avvals: # avvals is average value
+								continue
+						
+						elif ctype not in ctypes: # we only take selected ctypes
 							continue
 					
 					if not	progressions[angel].get(ctype):
@@ -1138,7 +1163,93 @@ class Evaluator(object):
 				
 				array = np.array(progressions[angel][ctype])
 			
-				self.addtoplot(array,"{}'s {}".format(angel,ctype))
+				self.addtoplot(array, text = "{}'s {}".format(angel,ctype) if legend else None)
 		
 		if show:
 			self.show()
+
+	def plot_ga_average_belief_in_links(self,linktype = True,gas = False,includegod = True, show = True,legend = True):
+		
+		beliefs = {}
+		
+		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		for box in self.blackboxes():
+				
+			bar()
+			
+			allbeliefs = {}
+			
+			for log,cluelist in box.logs.items():
+				
+				if linktype is True: # we take only true links
+					if log not in box.truths: # i.e. those which are in truths
+						continue
+				elif linktype is False: # we consider only false links
+					if log in box.truths: # that is: those which are not in truths
+						continue
+				elif linktype is None: # go on: take all of them (for linktype == None or any other value)
+					pass
+				else:
+					raise BaseException('Something wrong here.')
+				
+				# here cluelist is a list of guesses by some algs about something of the desired category
+					
+				for clue in cluelist:
+					name,unweighted,weighted = clue # unpack stored values
+					
+					if not allbeliefs.get(name):
+						allbeliefs[name] = []
+						
+					allbeliefs[name].append(weighted)
+				
+				if includegod:
+					if not allbeliefs.get('God'):
+						allbeliefs['God'] = []
+					
+					allbeliefs['God'].append(box.beliefs[log]) # average of weighted ga's
+					
+			# now allbeliefs stores, by name, a list of belief-values about sthg of the desired category
+			
+			for name,believeds in allbeliefs.items():
+				averaged = avg(believeds)
+			
+				if not beliefs.get(name):
+					beliefs[name] = []
+				beliefs[name].append(averaged)
+					
+
+				
+		bar = tests.clues.ss.ProgressBar(len(beliefs),title = 'Normalizing')
+		toplen = max(len(x) for x in beliefs.values())
+		for name,values in beliefs.items():
+			
+			if gas: # if gas is given
+				if name not in gas and not (name == 'God' and includegod is True): # and name is not there
+					continue # we don't plot it
+			
+			bar()
+			
+			prog = [0]*(toplen - len(values)) + values
+			array = np.array(prog)
+			
+			if name == 'God':
+			
+				lab.plot(array,'ro',label = 'god',)
+				continue
+				
+			self.addtoplot(array,text = name if legend else '')
+		
+		if show:
+			self.show()
+			
+		return
+			
+			
+			
+			
+			
+			
+			
+			
+			
+		

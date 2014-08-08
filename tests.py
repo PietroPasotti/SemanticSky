@@ -1226,11 +1226,9 @@ def load_evaluations_to_gas(gaslist,filepath ='./guardianangels/evaluations/'):
 	excps = []
 	
 	for ga in gaslist:
-		stdout.write('Loading evaluation for {}.'.format(ga))
-		stdout.flush()
+		print('Loading evaluation for {}.'.format(repr(ga)), end = '')
 		if ga.consulted and ga.evaluation:
-			stdout.write(' [AlreadyLoadedError]\n ')
-			stdout.flush()
+			print(' [AlreadyLoadedError]\n ')
 			continue
 			
 		try:
@@ -1243,10 +1241,10 @@ def load_evaluations_to_gas(gaslist,filepath ='./guardianangels/evaluations/'):
 					ga.evaluation[ga.supervisor.sky.pair_by_id(pid(link))] = ev
 				
 				ga.consulted = True
-				stdout.write(' [Done]\n')
+				print(' [Done]')
 		except BaseException as e:
 			excps.append(e)
-			stdout.write(' [Failed]\n')
+			print(' [Failed]')
 		
 	print()
 	

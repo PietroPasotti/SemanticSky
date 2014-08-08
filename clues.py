@@ -4,10 +4,12 @@ import algorithms as algs
 import semanticsky as ss
 from copy import deepcopy
 from group import Group
+import twupdate_rules as updaterules
 
 pickle = ss.pickle
 sqrt = algs.sqrt
 crop_at_nonzero = ss.crop_at_nonzero
+default_updaterule = updaterules.TWUpdateRule.builtin_update_rules.step_by_step_ls
 
 CLUES = []
 AGENTS = []
@@ -281,16 +283,16 @@ class Agent(object):
 				return True
 		return False
 		
-	def feedback(self,destination,about,value):
+	def feedback(self,destination,about,value,checkforduplicates = True):
 		"""
 		Produces a feedback object and sends it to destination.
 		"""
 		
 		fb = Feedback(self,destination,about,value)
 		
-		if self.isduplicate_fb(fb):
+		if fb in destination.received_feedback.get(about,[]): # this is true also if there is an exactly equivalent feedback there! (though being a different object)
 			return
-			
+		
 		destination.receive_feedback(fb)
 		self.record_given_feedback(fb)
 		
@@ -393,7 +395,7 @@ class Agent(object):
 		
 		if not self.received_feedback.get(about):
 			self.received_feedback[about] = []
-		
+			
 		self.received_feedback[about].append(feedback)
 		
 		if ss.ispair(about):
@@ -402,16 +404,9 @@ class Agent(object):
 			if not self.stats['relative_tw'].get(ctype):
 				self.stats['relative_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
 			
-			compute_new_learned_trust = lambda oldv,newf,ls : oldv - (oldv - newf) * ls
-			# new value = old value - (old value - new feedback) * learning speed
+			global learningspeed,default_updaterule
 			
-			global learningspeed
-			
-			if verbose: print('original value was: ',self.stats['relative_tw'][ctype] )
-			
-			self.stats['relative_tw'][ctype] = compute_new_learned_trust(self.stats['relative_tw'][ctype], value, learningspeed)	
-		
-			if verbose: print('now: ',ctype,relative_inertial_trust, newreltw)
+			self.stats['relative_tw'][ctype] = default_updaterule(self.stats['relative_tw'][ctype], feedback, learningspeed,self)	
 			
 		else:
 			print('feedback ignored: about unhandleable (type :  {})'.format(type(about)))
@@ -682,7 +677,7 @@ class GuardianAngel(Agent,object):
 			print('Nothing to express.')
 			return False
 		
-		print(str(self),' is expressing...')
+		print(repr(self),' is expressing...')
 		bar = ss.ProgressBar(number,title = '{} :: Expressing'.format(self.shortname()))
 		for i in range(number):
 			pair = list(self.evaluation.keys())[i]
@@ -837,6 +832,8 @@ class Knower(GuardianAngel,object):
 			cluestovalue = cluelist.clues
 		elif isinstance(cluelist,list):
 			cluestovalue = cluelist
+		elif isinstance(cluelist,Clue):
+			cluestovalue = [cluelist]
 		else:
 			raise BaseException('Unrecognized input type.')
 		
@@ -871,7 +868,7 @@ class Knower(GuardianAngel,object):
 			our_rating = eva
 			
 			# self's opinion on the clue's about.
-			self.feedback(clue.agent,clue.about,our_rating)  # actually produces a Feedback object and sends it through
+			self.feedback(clue.agent,clue.about,our_rating,checkforduplicates = False)  # actually produces a Feedback object and sends it through
 		
 		if verbose:
 			print()
@@ -1670,6 +1667,7 @@ class God(object):
 		state (i.e. his beliefs are updated to the output of rebelief).
 		Useful for refresh.
 		"""
+		
 		if something in self.logs and self.logs[something]:
 			self.beliefs[something] = ss.avg( [log.weightedvalue() for log in self.logs[something]] )
 		
@@ -1812,10 +1810,12 @@ class God(object):
 		
 		so = ss.stdout
 		topno = len(self.beliefs)
-		bar = ss.ProgressBar(topno,title = 'Refreshing')
+		if topno:
+			bar = ss.ProgressBar(topno,title = 'Refreshing')
+		
 		i = 1
 		for belief in self.beliefs:
-			if verbose:
+			if verbose and topno:
 				i += 1			
 				bar(i)
 			
