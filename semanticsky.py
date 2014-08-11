@@ -1124,27 +1124,23 @@ class Link(tuple):
 	@property
 	def ids(self):
 		
-		switch = True if [isinstance(x,Cloud) for x in self] == [True,True] else False
+		switch = True if [str(x.__class__) == "<class 'semanticsky.Cloud'>" for x in self] == [True,True] else False
 		
 		if switch:
 			return self[0].item['id'],self[1].item['id']
 		
 		else:
-			raise BaseException('Not a Clouds link!')
+			return self[0],self[1]
 		
 	def __str__(self):
 		
-		toret = ''
-		
-		for i in self:
-			if isinstance(i, Cloud):
-				toret += i.item['id']
+		def gn(i):
+			if str(i.__class__) == "<class 'semanticsky.Cloud'>":
+				return 'c' + str(i.item['id'])
 			else:
-				toret += str(i)
+				return str(i)
 			
-			toret += ','
-			
-		toret.strip(',')
+		toret = gn(self[0]) + ',' + gn(self[1])
 		
 		return "< Link :: ({}).>".format(toret)
 		
@@ -1156,7 +1152,22 @@ class Link(tuple):
 		
 		for i in (self[0],self[1]):
 			yield i
+
+	def __eq__(self,other):
+		
+		try:
+			o,oo = other
+			if (o == self[0] and oo == self[1]) or (o == self[1] and oo == self[0]):
+				return True
+		except BaseException:
+			return False
+		
+		return False
 	
+	def __hash__(self):
+		
+		return hash((self[0],self[1]))
+			
 class SuperCloud(Cloud):
 	
 	def __init__(self,cloudlist,automerge = True):

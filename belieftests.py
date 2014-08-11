@@ -485,7 +485,10 @@ def interactive(god = None,auto = False):
 
 # matplotlib tests
 
-def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent_evaluations = True,filename = "evaluation_output" ):
+def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent_evaluations = True,filename = "evaluation_output",updaterule = False,punish_false_negatives = False):
+	
+	if updaterule:
+		set_update_rule(updaterule)
 	
 	tests.random.shuffle(god.sky.sky)
 	cloudlist = god.sky.sky
@@ -530,7 +533,7 @@ def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent
 		print('\nExtracted clouds [{}]. Now the sky contains {} clouds.'.format([acloud.item['id'] for acloud in clouds ],len(god.sky.sky) + len(clouds)))
 		
 		cloudlist = cloudlist[step:]
-		pout = add_to_sky_evaluate_feedback(god,clouds) # partial output, which will go to the total final output
+		pout = add_to_sky_evaluate_feedback(god,clouds,punish_false_negatives = punish_false_negatives) # partial output, which will go to the total final output
 		output["{} clues".format(len(god.sky.sky))] = pout
 		
 		loops += 1
@@ -558,7 +561,7 @@ def dump_to_file(val,filename = "evaluation_output"):
 	print("\tDumped to file {}.".format(filename))
 	return True
 		
-def add_to_sky_evaluate_feedback(god,listofclouds):
+def add_to_sky_evaluate_feedback(god,listofclouds,punish_false_negatives):
 	"""
 	- Adds listofclouds to gods' sky;
 	- Retrieves the iter_pairs of the sky and tells the guardianangels to evaluate
@@ -600,8 +603,12 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 	
 	newclues = god.getbuffer()
 	
-	knower.give_feedback(newclues)
-	# this will prompt the knower to give feedback only on newly created clues.
+	# this will prompt the knower to give feedback only on newly created clues
+	if punish_false_negatives:	
+		knower.give_feedback(newclues) # we give feedback to ALL clues even those which knower has no clue upon:
+		# this assumes that knower knows some right answers, but there might be more.
+	else:
+		knower.give_feedback([clue for clue in newclues if knower.evaluation.get(clue.about)])	
 	
 	god.refresh()
 	# this will ask god for a reevaluation, thus taking into account the feedback, old and new
@@ -697,10 +704,12 @@ def setup_full_god(God = None):
 def avg(itr):
 	return sum(itr) / len(itr) if itr else 0
 
-def feedback_only_test(god = None,test = False, filename = 'feedback_only_output',step = 300):
-	
+def feedback_only_test(god = None,test = False, filename = 'feedback_only_output',step = 300,updaterule = False):
+		
+	if updaterule:
+		set_update_rule(updaterule)
+		
 	god = setup_full_god(god)
-	
 	knower = getknower(god)
 	
 	out = {}
@@ -719,16 +728,19 @@ def feedback_only_test(god = None,test = False, filename = 'feedback_only_output
 	for log in randomized(god.logs):
 		
 		i += 1
+		u = 0
 		lelog = len(god.logs[log])
 		for clue in god.logs[log]:
 			knower.give_feedback(clue,verbose = False)
-			print("\rKnower :: Feedback = [[{}] of [{}/{}]]".format(lelog,i,ln),' '*30,end = '')
+			ur = test if test else ln
+			u += 1
+			print(' '*120,end = '')
+			print("\rKnower :: Feedback = [[{}/{}] of [{}/{}]]".format(u,lelog,i,ur),' '*30,end = '')
 		
 		god.rebelieves(log)
-		
-		print("\rLogging Status...",' '*30,end = '')
-		
+
 		if step and i % step == 0: # we won't sample at each step the god's status...
+			print("\rLogging Status...                                                       ",end = '')
 			pout = evaluate_status(god)
 			out[i] = pout
 		
@@ -737,10 +749,17 @@ def feedback_only_test(god = None,test = False, filename = 'feedback_only_output
 	
 	if not out.get(i):
 		finalpout = evaluate_status(god)
-		out[i] = pout
+		out[i] = finalpout
 	
 	print()	
 	return dump_to_file(out,filename)
+
+def set_update_rule(name):
+	
+	ur = getattr(tests.clues.updaterules.TWUpdateRule.builtin_update_rules,name)
+	tests.clues.default_updaterule = ur
+	
+	print('\nclues.default_updaterule now points to ' + wrap(name,'brightred'))
 	
 class BlackBox(object):
 	"""
@@ -772,12 +791,12 @@ class BlackBox(object):
 		self.beliefs = {}
 		self.stats = {}
 		self.logs = {}
-		
+		Link = tests.clues.ss.Link
 		for bel,val in god.beliefs.items():
 			if not val > 0: # we only store > 0 values
 				continue
-			link = tests.clues.ss.Link(bel)
-			self.beliefs[link.ids] = val
+			link = Link(bel)
+			self.beliefs[Link(link.ids)] = val
 		
 		# in self.beliefs, stores a ID,ID -> value
 		
@@ -788,7 +807,7 @@ class BlackBox(object):
 
 		for bel,logs in god.logs.items():
 			link = tests.clues.ss.Link(bel)
-			self.logs[link.ids] = tuple(tuple((log.agent.name,log.value,log.weightedvalue())) for log in logs)
+			self.logs[Link(link.ids)] = tuple(tuple((log.agent.name,log.value,log.weightedvalue())) for log in logs)
 		
 		# in self.logs, stores an ID,ID -> agent, value, weightedvalue for each clue logged
 		return
@@ -837,9 +856,13 @@ class Evaluator(object):
 		import pickle
 		with open (filename, 'rb') as f:
 			self.raw_data = self.normalize(pickle.load(f))
+			
+		bbs = tuple(self.blackboxes())
+		if not hasattr(bbs[0],'truths'):
+			self.gettruths()
 		
-		self.gettruths()
-	
+		return
+			
 	def gettruths(self):
 		
 		if tests.clues.knower:
@@ -851,8 +874,7 @@ class Evaluator(object):
 		
 		self.knower = knower
 		
-		for key in self.raw_data:                                                                                  
-			bb = self.raw_data[key]['BlackBox']
+		for bb in self.blackboxes():
 			truths = tuple( tests.clues.ss.Link((clouda.item['id'],cloudb.item['id'])) for clouda,cloudb in knower.evaluation)
 			
 			bb.truths = tuple(truth for truth in truths if truth in bb.beliefs)
@@ -1243,13 +1265,7 @@ class Evaluator(object):
 			self.show()
 			
 		return
-			
-			
-			
-			
-			
-			
-			
-			
-			
-		
+
+
+
+

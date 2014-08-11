@@ -404,8 +404,6 @@ class Agent(object):
 			if not self.stats['relative_tw'].get(ctype):
 				self.stats['relative_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
 			
-			global learningspeed,default_updaterule
-			
 			self.stats['relative_tw'][ctype] = default_updaterule(self.stats['relative_tw'][ctype], feedback, learningspeed,self)	
 			
 		else:
@@ -838,16 +836,17 @@ class Knower(GuardianAngel,object):
 			raise BaseException('Unrecognized input type.')
 		
 		ln = len(cluestovalue)
-		
-		if ln <= 100: 
-			verbose = False		
-		
 		i = 0
 		
 		if ln == 0:
-			print( 'Knower :: Feedback, empty.')
+			if verbose:
+				print( 'Knower :: Feedback, empty.')
 			return True
-			
+		
+		elif ln <= 100 and verbose:
+			print('Knower :: Feedbacking (short).')
+			verbose = False			
+		
 		bar = ss.ProgressBar(ln,title = 'Knower :: Feedback')
 		for clue in cluestovalue:
 			
@@ -1973,4 +1972,14 @@ class God(object):
 		self.cluebuffer = []
 
 import meta_angels as metangels
+
+def set_update_rule(name):
+	
+	global default_updaterule
+	default_updaterule = getattr(updaterules.TWUpdateRule.builtin_update_rules,name)
+	
+default_updaterule = set_update_rule('step_by_step_ls')
+
+	
+	
 

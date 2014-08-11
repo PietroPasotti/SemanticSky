@@ -697,8 +697,11 @@ class Algorithm():
 			return out / len(clouda.layers)
 				
 	def __init__(self,function,guardian = True):
-		if guardian: ALL_ALGS.append(function)
-		else: NON_GUARDIAN_ALGS.append(function)
+		
+		if guardian: 
+			ALL_ALGS.append(function)
+		else: 
+			NON_GUARDIAN_ALGS.append(function)
 		
 		algsbyname.append(function.__name__)
 		return None
