@@ -5,10 +5,12 @@
 \usepackage{amsmath}
 \usepackage{eurosym}
 \usepackage{amssymb}
-
+\usepackage[pdftex]{graphicx}   
 
 \def\cam{\textsc{cam}\xspace}
 
+
+\newcounter{myfigure}
 
 
 \begin{document}
@@ -145,7 +147,7 @@ Given the little information the algorithm can work on, the 600 nonzero results 
 
 This algorithm, as all other algorithms containing the word `extended', is based on the social network principle that if $A$'s friends are $B$'s friends, then $A$ and $B$ are likely to be friends themselves.
 
-Let $\phi names$ be the set of names contained in the zero layer of the cloud $\phi$.
+Let $names(\phi)$ be the set of names contained in the zero layer of the cloud $\phi$.
 Then, for $\phi \in A,B$, we define
 \[names(\phi) = \phi.layers[0]['names']\]
 \[Neighbours(\phi) = \{a | a \in sky ~ if ~ names(\phi) \cap names(a) \neq \varnothing \}\]
@@ -236,5 +238,261 @@ $\bullet \quad$Finally, the Guardians' reach could be much extended by having th
 \subsection{The Supervisor.}
 
 \subsection{(Results)}
+
+Currently there are two tests of the framework on line.
+
+The first one consists in removing all the clouds from the sky and initializing an empty god on such empty sky. Then, we add back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$, this is necessary.}
+
+Then, after adding each cloud, we ask all the guardians to evaluate the whole sky; that is: to assess all similarities they can spot between the present clouds. Finally, the Knower (an algorithm that `knows the truth') judges on their evaluations and triggers feedback.
+
+The second test consists in starting with a full sky, but with no feedback. Then, one by one, we give feedback to each item in gods' beliefs, thus (through feedback) adjusting gods' weights and the trustworthiness of angels, refining the beliefs at each step.
+
+\subsubsection{Test 1}
+
+First I will write down clearly and discuss, where needed, the parameters I used for the test; then show the results.
+
+$\bullet \quad$ Learning rate $= 0.2$.
+
+$\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.
+
+In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links currently not in Starfish and mistakenly captured by the guardians as similar. Maybe in the future it will be interesting to see how the outcome changes setting this flag to true.
+
+To state this more clearly: guardians receive feedback only on items in the knower's database = Starfish's database. The valuation they get for some link, namely, is $1 - $ their current rating of the link.
+
+$\bullet \quad$ Step = 6: clouds were added back to the sky 6 by 6.
+
+$\bullet \quad$ Update rule = median of all feedbacks. The current trustworthiness of some angel relative to some link type (person-to-person, question-to-answer...) is the \emph{median} of all the feedback he has ever received about links with that link type. Other available solutions include averaging (sum(all feedbacks)/ len(all feedbacks)) and step-by-step averaging (value = (previous value + value) / 2).
+
+$\bullet \quad$ Merging rule = standard merge. This affects how the new suggested value (as computed by the update rule) is merged with the previous one. Extremes include ignoring it and replacing the latter with the former. The standard merge is:
+\[new\_value = previous\_value - [(previous\_value - new\_value) * learning\_rate] \]
+
+This is, at each loop of the test, the average value of each agent's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are there.
+
+We can see how the values increase and (seem to) stabilize after around 45 iterations. This means that there were $270$ clouds (since the step was 6) in the sky at that point.
+
+\stepcounter{myfigure}
+\def\svgwidth{550pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/average_belief_in_true_links_median_no_punish_lr02_FULL.pdf}\hspace{-300pt} Figure \themyfigure}%
+  \end{picture}%
+\endgroup%
+
+
+Figure 2 shows the progression of average beliefs in false links: that is, links that are currently not in Starfish. As the test proceeds, the values quickly stabilize around (an average of) 0.05.
+
+The convergence is much faster because there are many more false links than true ones.
+
+\stepcounter{myfigure}
+\def\svgwidth{550pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/average_belief_in_false_links_median_no_punish_lr02_FULL.pdf}\hspace{-300pt} Figure \themyfigure}%
+  \end{picture}%
+\endgroup%
+
+Finally, these are the (non-cumulative) regrets of all angels and God itself.
+
+\stepcounter{myfigure}
+\def\svgwidth{550pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/guardians_regrets_median_no_punish_lr02_FULL.pdf}
+    \hspace{-300pt} Figure \themyfigure }%
+  \end{picture}%
+\endgroup%
+
+Regret (at stage $n$, for angel $A$) was computed as follows: $sum$($(1 - A.belief\_in(x))$ for $x$ in $all\_truths$ ), where $all\_truths$ is a list of all links actually existing in Starfish (that is: the Knower's database).
+
+The angels whose regrets don't decrease are the tag-similarity angels. Currently lacking Starfish any data about how similar two tags are, no link of that type (tag-to-tag) is available in Starfish, and all the feedback will be negative.
+
+This also means that their trustworthiness (relative to the only type of link they can clue upon) will always tend to zero very quickly.
+
+One nice thing to notice is that all the algorithms' regret increment is stably decreasing: there is no faulty learner.
+
+\paragraph{A few extra facts}:
+
+The same test, with different parameters (learning rate $= 0.8$, update rule = \emph{average} of all feedback) yields comparable results (though perhaps a bit less nice):
+
+\stepcounter{myfigure}
+\def\svgwidth{500pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/average_belief_in_true_links_average_no_punish_lr08_FULL.pdf}\hspace{-330pt} Figure \themyfigure : true links beliefs }%
+  \end{picture}%
+\endgroup%
+
+
+\stepcounter{myfigure}
+\def\svgwidth{500pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/average_belief_in_false_links_average_no_punish_lr08_FULL.pdf}\hspace{-330pt} Figure \themyfigure : false links beliefs }%
+  \end{picture}%
+\endgroup%
+
+
+\stepcounter{myfigure}
+\def\svgwidth{550pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/guardians_regrets_average_no_punish_lr08_FULL.pdf}\hspace{-300pt} Figure \themyfigure : regrets }%
+	
+  \end{picture}%
+\endgroup%
+
+
+
+
+\subsubsection{Test 2}
+
+The second test was altogether different. Instead of emptying the sky and adding back clouds, we first make a full analysis, and then slowly give feedback, monitoring the subsequent evolution of the belief state and the trustworthiness of the angels.
+
+
+
+
+
+
+
+
+
 
 \end{document}

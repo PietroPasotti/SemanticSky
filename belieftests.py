@@ -485,7 +485,21 @@ def interactive(god = None,auto = False):
 
 # matplotlib tests
 
-def evaluate_online_accuracy_function(god,test = False,step = 1,store_subsequent_evaluations = True,filename = "evaluation_output",updaterule = False,punish_false_negatives = False):
+def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh one!
+										test = False, # if test is given (an integer), just up to *test* clouds will be added to god's sky before prematurely halting.
+										step = 1, # how many clouds per loop we add back to gods'sky. Dramatically improves runtime and memory usage
+										filename = "evaluation_output_FULL",
+										updaterule = False, # default is step_by_step_ls: newvalue = (previousvalue + newvalue) / 2
+										learningspeed = False, # default is 0.2 (or as defined at clues.learningspeed). Useful only if mergingrule takes learning speed into account!
+										mergingrule = False, # default points to learningrate classical merging of previous/new value
+										punish_false_negatives = False): 	# if this flag goes true, the knower will give negative feedback also for all the
+																			# links that are NOT in his evaluation. This means TONS of (mostly useless) negative feedback.
+	
+	if learningspeed and isinstance(learningspeed,int):
+		tests.clues.learningspeed = learningspeed
+	
+	if not god:
+		god = setup_new_god()
 	
 	if updaterule:
 		set_update_rule(updaterule)
@@ -704,10 +718,23 @@ def setup_full_god(God = None):
 def avg(itr):
 	return sum(itr) / len(itr) if itr else 0
 
-def feedback_only_test(god = None,test = False, filename = 'feedback_only_output',step = 300,updaterule = False):
+def feedback_only_test(	god = None,
+						test = False, 
+						filename = 'feedback_only_output',
+						step = 300, # sampling ratio. We can't store all 21000 steps of the evaluation, so we record the status each *step* loops
+						updaterule = False,
+						learningspeed = False,
+						mergingrule = False,
+						punish_false_negatives = False):
 		
 	if updaterule:
 		set_update_rule(updaterule)
+	
+	if learningspeed:
+		tests.clues.learningspeed = learningspeed
+		
+	if mergingrule:
+		set_merging_rule(mergingrule)
 		
 	god = setup_full_god(god)
 	knower = getknower(god)
@@ -734,8 +761,8 @@ def feedback_only_test(god = None,test = False, filename = 'feedback_only_output
 			knower.give_feedback(clue,verbose = False)
 			ur = test if test else ln
 			u += 1
-			print(' '*120,end = '')
 			print("\rKnower :: Feedback = [[{}/{}] of [{}/{}]]".format(u,lelog,i,ur),' '*30,end = '')
+			print(' '*33,end = '')
 		
 		god.rebelieves(log)
 
@@ -760,6 +787,13 @@ def set_update_rule(name):
 	tests.clues.default_updaterule = ur
 	
 	print('\nclues.default_updaterule now points to ' + wrap(name,'brightred'))
+	
+def set_merging_rule(name):
+	
+	mr = getattr(tests.clues.updaterules.TWUpdateRule.builtin_mergers,name)
+	tests.clues.updaterules.TWUpdateRule.set_merger(mr)
+
+	print('\ntwupdate_rules.MERGER default now points to ' + wrap(name,'brightred'))
 	
 class BlackBox(object):
 	"""
@@ -837,6 +871,7 @@ class Evaluator(object):
 	
 	def __init__(self,filename = "./tests_output/evaluation_output.log"):
 		"""
+		Can init from pickled or from dict.
 		Expected data structure:
 		
 		dict({
@@ -852,6 +887,14 @@ class Evaluator(object):
 		state for [n] clues.
 		"""
 		
+		if isinstance(filename,dict):
+			self.raw_data = self.normalize(filename)
+			
+			bbs = tuple(self.blackboxes())
+			if not hasattr(bbs[0],'truths'):
+				self.gettruths()
+			
+			return
 		
 		import pickle
 		with open (filename, 'rb') as f:
@@ -1066,38 +1109,54 @@ class Evaluator(object):
 			
 		self.show()
 	
+	def guardian_names(self):
+		
+		from algorithms import algsbyname
+		
+		return [name for name in algsbyname if name != 'someonesuggested']
+	
 	def plot_ga_regrets(self,show = True):	
 		
 		progressions = {}
-		 
+		godprog = [] # god's progression
+		
 		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
-		for out in self.iter_values():
+		TRUEVAL = {}
+		
+		i = 0
+		for bb in self.blackboxes():
+			
+			godprog.append(sum(( 1 - bb.believes(x) ) for x in bb.truths))
+		
+			if i == 0:
+				i += 1 # just once
+				[ TRUEVAL.__setitem__(u,1) for u in bb.truths ]
 			
 			bar()
 			
-			bb = out['BlackBox']
-			
-			partial = {}
+			partial = {aname : [] for aname in self.guardian_names()}
 		
-			for log in bb.logs:
-				if log in bb.truths:
-					# then the regret is relevant
-					# the log form is list( (author.name,unweighted,weighted) )
-					
-					for logged in bb.logs[log]:
-						if not partial.get(logged[0]):
-							partial[logged[0]] = []
-							
+			for truth in bb.truths:
+				if truth not in bb.logs:
+					for angel in partial:
+						partial[angel] += [0]
+				else:
+					for logged in bb.logs[truth]:
 						partial[logged[0]] += [logged[2]]
 						
-			# now partial is a map from ga.names to their weighted evaluation of *true* clues.
+					for angel in partial:
+						if angel not in (x[0] for x in bb.logs[truth]):
+							partial[angel] += [0]
+
+			# now partial is a map from ga.names to (1 - their weighted evaluation of *true* clues).
 			
 			for name in partial:
 				if not progressions.get(name):
 					progressions[name] = []
 				
 				progressions[name].append(sum( (1-x) for x in partial[name] ))
-			
+				
+				# regret is computed as the distance from 1 of all pairs that should be true.
 			
 		# normalize...
 				
@@ -1122,6 +1181,7 @@ class Evaluator(object):
 		
 		print('Plotting...')
 		
+		lab.plot(np.array(godprog),'b.',label = "god",linewidth = 2)
 		if show:
 			self.show()
 		
@@ -1129,14 +1189,14 @@ class Evaluator(object):
 		
 	def plot_relative_tw(self,gas = False,ctypes = False,show = True,legend = False):
 		
-		progressions = {}
+		progressions = {angel : {} for angel in self.guardian_names()}
 		
 		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
-		for out in self.iter_values():
+		for bb in self.blackboxes():
 			
 			bar()
 			
-			stats = out['BlackBox'].stats
+			stats = bb.stats
 			
 			angels = tuple(stats.keys())
 			
@@ -1169,7 +1229,12 @@ class Evaluator(object):
 			# angel.name : { 'PP' : [0.1,0.12], 'PO' : [0.22,0.232] ...}		
 					
 		bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Normalizing Values')
-		toplen = max( max(len(x) for x in progressions[angel].values() ) for angel in progressions )
+		try:
+			toplen = max( max(len(x) for x in progressions[angel].values() ) for angel in progressions if progressions[angel] )
+		except ValueError:
+			print(progressions)
+			return
+		
 		for angel in progressions:
 			
 			bar()
@@ -1179,8 +1244,7 @@ class Evaluator(object):
 		
 		
 		for angel in progressions:
-			
-			
+
 			for ctype in progressions[angel]:
 				
 				array = np.array(progressions[angel][ctype])

@@ -1,7 +1,37 @@
+#/usr/bin/python3.2
+
+"""
+This document mainly contains a class for quickly implementing algorithms
+to use as GuardianAngels in SemanticSky.
+
+def MyFunction(cloud1,cloud2):
+	[...]
+	return 0<=x<=1
+	
+algorithm = Algorithm(MyFunction)
+
+# this will create an algorithm which will be recognized by god's 
+# spawn_servants function (that by default initializes as a GuardianAngel
+# all functions found in algorithms.ALL_ALGS) and thus inited automatically
+# by all gods created after the execution of the above line (mind: the 
+# functions are not stored anywhere.)
+
+guardian = clues.GuardianAngel(algorithm)
+
+# if you want to create manually an angel, you can also do:
+# guardian = clues.GuardianAngel(MyFunction)
+# and then append it manually to gods' god.guardianangels list or do whatever
+# you want with it.
+------------
+
+Also implements a generic cosine metric to compute similarity between
+vectors and a localize function which is mainly for compatibility with
+earlier stages of the testing framework (tests.py). Soon to be removed.
+
+"""
+
 from collections import Counter
 from math import sqrt
-
-			# ALGORITHMS
 
 def cosine(veca,vecb):
 	

@@ -807,6 +807,7 @@ class Knower(GuardianAngel,object):
 		
 		self.supervisor = deity
 		self.makewhisperer()
+		deity.knower = self
 
 		if clear:
 			# we assume the previous evaluation was good: we keep it.

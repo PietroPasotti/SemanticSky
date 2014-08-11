@@ -78,7 +78,7 @@ class TWUpdateRule(object):
 						
 			allvalues = tuple(fb.value for fb in allfeedback)
 			
-			newvalue = sum(allvalues) / len(allvalues)
+			newvalue = sum(allvalues) / len(allvalues) if allvalues else 0.5
 			
 			return TWUpdateRule.default_merger(oldvalue,newvalue,learningspeed)
 
