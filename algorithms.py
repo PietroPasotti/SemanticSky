@@ -580,6 +580,8 @@ class Algorithm():
 		def tag_similarity_naive(clouda,cloudb,v = False):
 			"""
 			co-occurrence of tags in pages
+			rates the similarity of clouds whose center is a tag; returns 0
+			for all other clouds.
 			"""
 			
 			istaglink = lambda x: isinstance(x[0].item['id'],str) and isinstance(x[1].item['id'],str)

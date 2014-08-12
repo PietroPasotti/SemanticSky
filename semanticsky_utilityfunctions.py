@@ -639,3 +639,5 @@ def ctype_to_type(ctype):
 def avg(itr):
 	return sum(itr) / len(itr) if itr else 0
 
+def diff(iterator):
+	return max(iterator) - min(iterator)

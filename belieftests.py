@@ -558,7 +558,7 @@ def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh on
 		elapsed = round(endtime - initime)
 		forecast = elapsed * (totloops - loops)
 		
-		print(center('--- [loop {} :: {} elapsed :: {} estimated to the end] ---'.format(loops,elapsed,forecast)))
+		print('\r'+center('--- [loop {} :: {} elapsed :: {} estimated to the end] ---'.format(loops,elapsed,forecast)))
 	
 	dump_to_file(output,filename)
 	return 
@@ -637,8 +637,6 @@ def evaluate_status(god):
 	
 	out = {}
 	
-	avg = lambda iterable: sum(iterable) / len(iterable) if iterable else 0
-	
 	beltrue = tuple(god.believes(x) for x in knower.evaluation)
 	avgbeltrue = sum(beltrue) / len(beltrue) if beltrue else 0
 	
@@ -652,6 +650,7 @@ def evaluate_status(god):
 	out['average_strength_of_god_beliefs']['in true beliefs'] = avgbeltrue
 	out['average_strength_of_god_beliefs']['in false beliefs'] = avgbelfalse
 	out['average_strength_of_god_beliefs']['in all beliefs'] = avgbelall
+	out['god_regrets'] = {'onall' = god.regrets(onall = True),'on_true' = god.regrets()}
 
 	out["average_precision_of_algorithms"] = {}
 	
@@ -692,14 +691,9 @@ def evaluate_status(god):
 		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in true links'] = wavgtruebels
 		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in false links'] = wavgfalsebels
 		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in all links'] = wavgallbels	
-		
-		regret = 0
-		diff = lambda x,y: max(x,y) - min(x,y)
-
-		for belief in list(ga.evaluation) + list(knower.evaluation):
-			regret += diff(ga.evaluation.get(belief,0),knower.evaluation.get(belief,0))
-			
-		out["average_precision_of_algorithms"][ga.name]['distance_from_perfection==regret?'] = regret
+					
+		out["average_precision_of_algorithms"][ga.name]['distance_from_perfection==regret?'] = ga.regrets()
+		out["average_precision_of_algorithms"][ga.name]['regret_onall'] = ga.regrets(onall = True)
 		out["BlackBox"] = BlackBox(god)
 
 	return out
@@ -716,6 +710,7 @@ def setup_full_god(God = None):
 	return god
 
 def avg(itr):
+	itr = tuple(itr)
 	return sum(itr) / len(itr) if itr else 0
 
 def feedback_only_test(	god = None,
@@ -730,6 +725,9 @@ def feedback_only_test(	god = None,
 	if updaterule:
 		set_update_rule(updaterule)
 	
+	if not step:
+		step = 1
+		
 	if learningspeed:
 		tests.clues.learningspeed = learningspeed
 		
@@ -747,7 +745,8 @@ def feedback_only_test(	god = None,
 		import random
 		y = list(x)
 		random.shuffle(y)
-		return y
+		for f in y:
+			yield(f)
 	
 	ln = len(god.logs)
 	print()
@@ -766,12 +765,12 @@ def feedback_only_test(	god = None,
 		
 		god.rebelieves(log)
 
-		if step and i % step == 0: # we won't sample at each step the god's status...
+		if i % step == 0: # we will sample each *step* loops the god's status
 			print("\rLogging Status...                                                       ",end = '')
 			pout = evaluate_status(god)
 			out[i] = pout
 		
-		if test and test >= i:
+		if test and i >= test:
 			break
 	
 	if not out.get(i):
@@ -794,7 +793,7 @@ def set_merging_rule(name):
 	tests.clues.updaterules.TWUpdateRule.set_merger(mr)
 
 	print('\ntwupdate_rules.MERGER default now points to ' + wrap(name,'brightred'))
-	
+
 class BlackBox(object):
 	"""
 	Wrapper for a god's belief set.
@@ -866,6 +865,9 @@ class BlackBox(object):
 		
 		for i in self.beliefs:
 			yield i
+	
+	def regret(self):
+		return sum(( 1 - self.believes(x) ) for x in self.truths)
 			
 class Evaluator(object):
 	
@@ -1113,7 +1115,7 @@ class Evaluator(object):
 		
 		from algorithms import algsbyname
 		
-		return [name for name in algsbyname if name != 'someonesuggested']
+		return [name for name in algsbyname if name not in ['someonesuggested','tag_similarity_naive','tag_similarity_extended']]
 	
 	def plot_ga_regrets(self,show = True):	
 		
@@ -1232,7 +1234,7 @@ class Evaluator(object):
 		try:
 			toplen = max( max(len(x) for x in progressions[angel].values() ) for angel in progressions if progressions[angel] )
 		except ValueError:
-			print(progressions)
+			print("AN ERROR OCCURRED: progressions == ",progressions)
 			return
 		
 		for angel in progressions:
@@ -1330,6 +1332,211 @@ class Evaluator(object):
 			
 		return
 
+	def stats_at_stage(self,stage):
+		
+		if not stage in self.raw_data:
+			
+			print('Wrong step. Try with [{}]'.format([d for d in self.raw_data if d in tuple(range(stage -10, stage +10))]))
 
+		return self.raw_data[stage].stats
 
+class MonoEvaluator(Evaluator,object):
+	
+	def __init__(self,god):
+		
+		self.god = god
+		self.knower = getknower(god)
+		self.truths = tuple(self.knower.evaluation)
+		
+	def belief_in_links(self,truthvalue = True):
+		
+		for belief in self.god.beliefs:
+			value = self.god.beliefs[belief]
+			if truthvalue is True:
+				if belief in self.truths:
+					yield value
+			elif truthvalue is False:
+				if belief not in self.truths:
+					yield value
+			else:
+				yield value
+	
+	def plot(self,*args,**kwargs):
+		
+		return lab.plot(*args,**kwargs)
+			
+	def plot_average_belief_in_links(self,truthvalue = True,show = False,linestyle = 'bD'):
+		
+		beliefs = tuple(self.belief_in_links(truthvalue))
+		
+		avgbelief = avg(beliefs)
+		
+		self.plot(avgbelief,linestyle)
+		
+		if show:
+			self.show()
+		
+	def plot_all_beliefs(self,truthvalue = True,show = False,**kwargs):
+		
+		for belief in self.belief_in_links(truthvalue):
+			self.plot(belief,**kwargs)
+			
+		if show:
+			self.show()
+		
+	def plot_true_against_false(self,truestyle = None,falsestyle = None,show = True):
+		
+		if truestyle is None:
+			truestyle = 'ro'
+			
+		if falsestyle is None:
+			truestyle = 'bD'
+			
+		self.plot_all_beliefs(True,truestyle)
+		self.plot_all_beliefs(False,falsestyle)
+		
+		if show:
+			self.show()	
 
+class RegretsPlotter(object):
+	
+	def __init__(self,god,evaluator,samplingstep = 5):
+
+		self.evaluator = evaluator
+		self.god = god
+		self.samplingstep = samplingstep
+		
+	def plot_regrets(self,showangels = True,showgod = True,onall = False):
+		# if onall goes True, the regrets will also include the (always negative) feedback for what is not in the knower's evaluation
+		
+		i = 0
+		god = self.god
+		
+		if not hasattr(god,'knower'):
+			god.knower = getknower(god)
+		
+		progressions = {}
+		
+		bar = tests.clues.ss.ProgressBar(len(self.evaluator.raw_data)/self.samplingstep ,title = 'Reading Plots')
+		for bb in self.evaluator.blackboxes():
+			
+			if i % self.samplingstep != 0:
+				i += 1
+				continue
+			
+			bar()
+			
+			stats = bb.stats
+			
+			for ga in god.guardianangels: # we load the stats for that instant
+				ga.stats = stats[ga.name]
+			
+			god.refresh(verbose = False)
+			print('\r(REFRESHING...)',end = '')
+			
+			angelsregrets = god.guardians_regrets(onall = onall)
+			for ganame,value in angelsregrets.items():
+				if not ganame in progressions:
+					progressions[ganame] = []
+				progressions[ganame].append(value)
+				
+			godregrets = god.regrets(onall = onall)
+			if not 'god' in progressions:
+				progressions['god'] = []
+				
+			progressions['god'].append(godregrets)
+			
+	
+			i += 1
+			
+
+		for name,progression in progressions.items():
+			
+			if name != 'god' and showangels:
+				lab.plot(progression,label = "{}'s regrets".format(name))
+			elif name == 'god' and showgod:
+				lab.plot(progression,'b--',label = "{}'s regrets".format(name))
+			
+		lab.legend()
+		lab.show()
+			
+class FeedbackEvaluator(object):
+	
+	def __init__(self,filename):
+
+		self.data = pickle.load(open(filename,'rb'))
+		
+	def ordered_keys(self):
+		
+		keys = list(self.data)
+		ordered = sorted(keys)
+		for key in ordered:
+			yield key
+			
+		raise StopIteration()
+		
+	def ordered_data(self):
+		
+		for num in self.ordered_keys():
+			yield self.data[num]
+		
+		raise StopIteration()
+		
+	def blackboxes(self):
+		
+		for pdata in self.ordered_data():
+			yield pdata['BlackBox']
+
+		raise StopIteration()
+
+	def plot_trustworthinesses(self):
+		
+		progressions = {}
+		
+		for bb in self.blackboxes():
+			
+			stats = bb.stats
+			
+			for ga in stats:
+				if ga not in progressions:
+					progressions[ga] = []
+					
+				progressions[ga].append(stats[ga]['trustworthiness']) # that is: their 'trustworthiness' value.
+		
+		average = [avg((pro[x] for pro in progressions.values())) for x in range(len(tuple(progressions.values())[0]))]
+		lab.plot(average,'r--',label = 'average')
+		
+		for ga,progression in progressions.items():
+			lab.plot(progression,label = ga)
+			
+		lab.legend()
+		lab.show()
+		
+	def plot_regrets(self,onall = False):
+		
+		progressions = {}
+		
+		god = setup_new_god()
+		truths = tuple(getknower(god).evaluation)
+		
+		for data in self.ordered_data():
+			god_regret = data['god_regrets']['onall'] if onall else data['god_regrets']['on_true']
+			
+			if not progressions.get('god'):
+				progressions['god'] = []
+			progressions['god'].append(onall_god)
+			
+			for angel in data['average_precision_of_algorithms']:
+				if not progressions.get(angel):
+					progressions[angel] = []
+					
+				progressions[angel].append( data['average_precision_of_algorithms'][angel]['regret_onall'] if onall else data['average_precision_of_algorithms'][angel]['distance_from_perfection==regret?'])
+		
+		
+		
+		
+		
+		
+		
+		
+		

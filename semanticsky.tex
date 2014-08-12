@@ -373,11 +373,13 @@ Finally, these are the (non-cumulative) regrets of all angels and God itself.
 
 Regret (at stage $n$, for angel $A$) was computed as follows: $sum$($(1 - A.belief\_in(x))$ for $x$ in $all\_truths$ ), where $all\_truths$ is a list of all links actually existing in Starfish (that is: the Knower's database).
 
-The angels whose regrets don't decrease are the tag-similarity angels. Currently lacking Starfish any data about how similar two tags are, no link of that type (tag-to-tag) is available in Starfish, and all the feedback will be negative.
+The angels whose regrets don't decrease are the tag-similarity angels (hidden for clarity's sake in the next plots). Currently lacking Starfish any data about how similar two tags are, no link of that type (tag-to-tag) is available in Starfish, and all the feedback will be negative.
 
 This also means that their trustworthiness (relative to the only type of link they can clue upon) will always tend to zero very quickly.
 
 One nice thing to notice is that all the algorithms' regret increment is stably decreasing: there is no faulty learner.
+
+One can also notice that god's line is not the simple average of the other lines, but is a weighted average: it will be influenced (negatively) proportionally to the regrets of the angels: an high-regrets angel will probably have low average weights, and thus influence less god's beliefs (and thus, god's regrets).
 
 \paragraph{A few extra facts}:
 
@@ -478,6 +480,20 @@ The same test, with different parameters (learning rate $= 0.8$, update rule = \
 	
   \end{picture}%
 \endgroup%
+
+\vspace{1cm}
+Summing up, tests were ran with the following parameters:
+
+\begin{itemize}
+\item Median, learning rates 0.2, 0.4, 0.5, 0.8, 1.
+
+\item Average, learning rates 0.4, 0.8, 1.
+
+\item Step by step average, learning rate 0.2.
+
+\item Median and average, learning rate 0.2, punish = True\footnote{This means that feedback was given not on known truths but also on unknown pairs (which, we remind, are assumed to have similarity $0$').}.
+\end{itemize}
+
 
 
 

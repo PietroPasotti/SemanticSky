@@ -9,7 +9,6 @@ import twupdate_rules as updaterules
 pickle = ss.pickle
 sqrt = algs.sqrt
 crop_at_nonzero = ss.crop_at_nonzero
-default_updaterule = updaterules.TWUpdateRule.builtin_update_rules.step_by_step_ls
 
 CLUES = []
 AGENTS = []
@@ -239,7 +238,7 @@ class Agent(object):
 		self.produced_feedback = set()
 		self.received_feedback = {} 	# will store the feedbacks received.
 						
-		if not isinstance(self,GuardianAngel) and not isinstance(self,God):
+		if not isinstance(self,GuardianAngel) and not isinstance(self,God) and not isinstance(self,Knower):
 			AGENTS.append(self)
 	
 	def __str__(self):
@@ -386,7 +385,7 @@ class Agent(object):
 	def receive_feedback(self,feedback,verbose = False):
 		"""
 		Agent in the past has evaluated [about]. Now someone tells him
-		that his evaluation was worth [value].
+		that the correct evaluation should instead be [value].
 		"""
 		
 		about = feedback.about
@@ -404,6 +403,7 @@ class Agent(object):
 			if not self.stats['relative_tw'].get(ctype):
 				self.stats['relative_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
 			
+			global default_updaterule
 			self.stats['relative_tw'][ctype] = default_updaterule(self.stats['relative_tw'][ctype], feedback, learningspeed,self)	
 			
 		else:
@@ -528,7 +528,7 @@ class GuardianAngel(Agent,object):
 		return False
 	
 	def __hash__(self):
-		return self.ID
+		return hash(self.ID)
 	
 	def shortname(self):
 		"""
@@ -567,11 +567,15 @@ class GuardianAngel(Agent,object):
 		before taking it into account.
 		"""
 		
-		try:
-			evaluation = self.algorithm(*what)
-		except BaseException as e:
-			print('what == ',what)
-			raise e
+		if what in self.evaluation:
+			evaluation = self.evaluation[what]
+		
+		else:
+			try:
+				evaluation = self.algorithm(*what)
+			except BaseException as e:
+				print('what == ',what)
+				raise e
 		
 		if not evaluation > 0:
 			self.zero += 1
@@ -611,11 +615,11 @@ class GuardianAngel(Agent,object):
 			print('\nSummoning {}...'.format( wrap(str(self),'brightred')) )
 		
 		if iterpairs is None:
-			iterpairs = self.supervisor.sky.iter_pairs()
+			pairlist = tuple(self.supervisor.sky.iter_pairs())
 			self.consulted = True
-			
-		pairlist = tuple(iterpairs)
-		del iterpairs
+		else:
+			pairlist = iterpairs
+				
 		li = len(pairlist)
 		
 		print('\n>evaluating its way through a {}-item cloud pairlist.<'.format(li))
@@ -778,9 +782,19 @@ class GuardianAngel(Agent,object):
 		
 		return True
 	
+	def regrets(self,onall = False):
+		
+		diff = ss.diff
+		
+		if not onall:
+			return sum(diff ((1 , self.belief_with_feedback(x))) for x in self.supervisor.knower.evaluation)	
+		
+		else:
+			return sum(diff (( self.supervisor.knower.evaluation.get(x,0) , self.belief_with_feedback(x))) for x in tuple(self.evaluation) + tuple(self.supervisor.knower.evaluation) )	
+
 class Knower(GuardianAngel,object):
 	
-	def __init__(self,supervisor):
+	def __init__(self,supervisor,silence = False):
 		
 		global knower
 		
@@ -791,7 +805,10 @@ class Knower(GuardianAngel,object):
 		super().__init__(algs.Algorithm.builtin_algs.someonesuggested,supervisor,whisperer = True)
 		knower = self
 		supervisor.knower = self
-
+		
+		if not silence:
+			self.evaluate_all(express = False)
+		
 	def __str__(self):
 		return "< The Knower >"
 		
@@ -829,8 +846,8 @@ class Knower(GuardianAngel,object):
 		
 		if str(cluelist.__class__) in ["<class 'clues.GuardianAngel'>","<class 'clues.Agent'>"]:
 			cluestovalue = cluelist.clues
-		elif isinstance(cluelist,list):
-			cluestovalue = cluelist
+		elif isinstance(cluelist,list) or hasattr(cluelist,'__iter__'):
+			cluestovalue = tuple(cluelist)
 		elif isinstance(cluelist,Clue):
 			cluestovalue = [cluelist]
 		else:
@@ -844,7 +861,7 @@ class Knower(GuardianAngel,object):
 				print( 'Knower :: Feedback, empty.')
 			return True
 		
-		elif ln <= 100 and verbose:
+		elif ln <= 50 and verbose:
 			print('Knower :: Feedbacking (short).')
 			verbose = False			
 		
@@ -1364,7 +1381,7 @@ class God(object):
 									# then a whisperer rates x 0.4, which is lower than 1.
 									# then, since A is a whisperer, the (x,0.4) clue will be whispered and not just considered 
 
-		whispering.give_feedback(targets,refresh = True) # whispering, in the case of GA's,
+		whispering.give_feedback(targets,verbose = False) # whispering, in the case of GA's,
 		#	has the effect of asking them to evaluate the whole cluelist... thus, they will spawn feedbacks for each of them		
 		return None
 	
@@ -1643,6 +1660,10 @@ class God(object):
 		
 		return ranked[:crop]
 	
+	def remove_tag_similarity_angels(self):
+		
+		self.guardianangels = [ga for ga in self.guardianangels if ga.name not in ['tag_similarity_naive','tag_similarity_extended']]
+	
 	# BELIEF MANAGEMENT
 	def believes(self,something):
 		"""
@@ -1885,7 +1906,17 @@ class God(object):
 					del self.beliefs[belief]
 				if belief in self.logs:
 					del self.logs[val]			
-
+	
+	def iter_logged_clues(self):
+		"""
+		A generator for all clues in the logs.
+		"""
+		
+		for cluelist in self.logs.values():
+			for clue in cluelist:
+				yield clue
+				
+				
 	# CLEANING
 	def remove_tag_clouds(self):
 		"""
@@ -1972,6 +2003,60 @@ class God(object):
 		
 		self.cluebuffer = []
 
+
+	# EVALUATION FUNCTIONS -- for testing
+	def regrets(self,onall = False):
+		"""
+		Regret is here understood as being only positive: FALSE POSITIVES
+		are not taken into account (as precision per se is not a priority
+		of SemanticSky)
+		"""
+		
+		if not hasattr(self,'knower'):
+			from belieftests import getknower
+			self.knower = getknower(self)
+			
+		if not self.knower.evaluation:
+			self.knower.evaluate_all(express = False)
+		
+		diff = ss.diff
+		if not onall:
+			return sum( diff(( 1, self.believes(x)))  for x in self.knower.evaluation)
+		else:
+			return sum( diff((self.knower.evaluation.get(x,0), self.believes(x))) for x in tuple(self.beliefs) + tuple(self.knower.evaluation) )	
+	
+	def guardians_regrets(self,onall = False,guardians = None):
+		"""
+		Regrets for the guardians.
+		"""
+		
+		if guardians:
+			angels = guardians
+		else:
+			guardians = self.guardianangels
+		
+		out = {}
+		
+		for guardian in guardians:
+			out[guardian.name] = guardian.regrets(onall = onall)
+		
+		return out
+	
+	def printregrets(self):
+		
+		totable = [['agent','regret_on_true','regret_on_all']]
+		
+		totable.append([str(self),self.regrets(),self.regrets(onall = True)])
+		for ga in self.guardianangels:
+			totable.append([str(ga),ga.regrets(),ga.regrets(onall = True)])
+			
+		from tests import table
+		table(totable)
+		
+		return
+		
+	
+			
 import meta_angels as metangels
 
 def set_update_rule(name):
@@ -1979,7 +2064,8 @@ def set_update_rule(name):
 	global default_updaterule
 	default_updaterule = getattr(updaterules.TWUpdateRule.builtin_update_rules,name)
 	
-default_updaterule = set_update_rule('step_by_step_ls')
+set_update_rule('step_by_step_ls') # DEFAULT
+
 
 	
 	

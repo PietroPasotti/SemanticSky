@@ -1269,28 +1269,19 @@ def load_weights_to_gas(gaslist,filepath = './guardianangels/weights/'):
 	
 	exes = [] 
 	
+	
+	print("loading weights...")
+	
+	stats = pickle.load(open(filepath,'rb'))
+	
 	for angel in gaslist:
-		
-		filename = filepath + angel.name + '.weight'
-		try:	
-			with open(filename,'rb') as f:
-				trust = pickle.load(f)
-				
-				angel.stats['trustworthiness'] = trust['trustworthiness']
-				angel.stats['relative_tw'] = trust['relative_tw']
-					
-				successful = wrap('successful','brightblue')
-				print("Lookup {} for {}.".format(successful,angel))
-				
-		except BaseException as e:
-			failed = wrap('failed','brightred')
-			print("Lookup {} for {}.".format(failed,angel))
-			exes.append(e)
-			
-	return exes
-
-# patch
-
+		print('Loading weights for {}.'.format(angel),end = '')
+		try:
+			angel.stats = stats[angel.name]
+			print( '  [Done]  ')
+		except BaseException:
+			print(	'  [Failed]  ')
+	
 def equate_all_links(deity = None):
 	"""
 	When unpickling evaluations, we often have that clouds made out of the same items
