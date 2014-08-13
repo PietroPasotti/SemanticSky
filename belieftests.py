@@ -650,7 +650,7 @@ def evaluate_status(god):
 	out['average_strength_of_god_beliefs']['in true beliefs'] = avgbeltrue
 	out['average_strength_of_god_beliefs']['in false beliefs'] = avgbelfalse
 	out['average_strength_of_god_beliefs']['in all beliefs'] = avgbelall
-	out['god_regrets'] = {'onall' = god.regrets(onall = True),'on_true' = god.regrets()}
+	#out['god_regrets'] = {'onall' = god.regrets(onall = True),'on_true' = god.regrets()}
 
 	out["average_precision_of_algorithms"] = {}
 	
@@ -1117,8 +1117,45 @@ class Evaluator(object):
 		
 		return [name for name in algsbyname if name not in ['someonesuggested','tag_similarity_naive','tag_similarity_extended']]
 	
-	def plot_ga_regrets(self,show = True):	
+	def plot_ga_regrets(self,show = True,new = False,onall = False):	
 		
+		if new:
+			progressions = {}
+			godprog = []
+			
+			bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+			for out in self.iter_values():
+				
+				bar()
+				
+				godprog.append(sum(( 1 - out['BlackBox'].believes(x) ) for x in out['BlackBox'].truths))			
+				
+				for angel in out["average_precision_of_algorithms"]:
+					
+					if not angel in progressions:
+						progressions[angel] = []
+					
+					where = 'distance_from_perfection==regret?' if not onall else 'regret_onall'
+					progressions[angel].append( out["average_precision_of_algorithms"][angel][where] )
+			
+					
+			maxlen = max(len(x) for x in progressions.values())
+			print()
+			bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Normalizing Values',displaynumbers = True)
+			for name in progressions:
+				
+				bar()
+				
+				if len(progressions[name]) < maxlen:
+					progressions[name] = [0]*(maxlen - len(progressions[name])) + progressions[name]
+			print()
+			
+			for angel,prog in progressions.items():
+				lab.plot(prog,label = "{}'s regrets".format(angel))
+			 
+			lab.plot(godprog,'bD',label = 'God')
+			return self.show() if show else None
+
 		progressions = {}
 		godprog = [] # god's progression
 		
@@ -1245,13 +1282,28 @@ class Evaluator(object):
 				progressions[angel][ctype] = [0]*(toplen - len(progressions[angel][ctype])) + progressions[angel][ctype]
 		
 		
-		for angel in progressions:
+		#for angel in progressions:
 
-			for ctype in progressions[angel]:
+		#	for ctype in progressions[angel]:
 				
-				array = np.array(progressions[angel][ctype])
+		#		array = np.array(progressions[angel][ctype])
 			
-				self.addtoplot(array, text = "{}'s {}".format(angel,ctype) if legend else None)
+		#		self.addtoplot(array, text = "{}'s {}".format(angel,ctype) if legend else None)
+		
+		for angel in progressions:
+				[lab.plot( p ) for p in progressions[angel]]
+				angelsaverage = [avg(progressions[angel][pprog][i] for pprog in progressions[angel]) for i in range(len( tuple(progressions[angel].values())[1] ))]
+				lab.plot(angelsaverage,'--',label = "{}'s average tw".format(angel))
+		
+		paverages = []
+		for angel in progressions:
+			paverage = [avg(     pro[i] for pro in progressions[angel].values()  ) for i in range(len( tuple(progressions[angel].values())[0] ))   ]
+			paverages.append(paverage)
+		
+		average = [ avg(paverage[i] for paverage in paverages) for i in range(len(paverages[0]))]
+		
+		lab.plot(average,'rD',label = 'total average')
+			
 		
 		if show:
 			self.show()
@@ -1294,7 +1346,7 @@ class Evaluator(object):
 					if not allbeliefs.get('God'):
 						allbeliefs['God'] = []
 					
-					allbeliefs['God'].append(box.beliefs[log]) # average of weighted ga's
+					allbeliefs['God'].append(box.beliefs.get(log,avg(clue[2] for clue in cluelist))) # average of weighted ga's
 					
 			# now allbeliefs stores, by name, a list of belief-values about sthg of the desired category
 			
@@ -1404,6 +1456,7 @@ class RegretsPlotter(object):
 
 		self.evaluator = evaluator
 		self.god = god
+		self.god.remove_tag_similarity_angels()
 		self.samplingstep = samplingstep
 		
 	def plot_regrets(self,showangels = True,showgod = True,onall = False):

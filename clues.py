@@ -2055,8 +2055,7 @@ class God(object):
 		
 		return
 		
-	
-			
+				
 import meta_angels as metangels
 
 def set_update_rule(name):

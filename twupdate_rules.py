@@ -66,7 +66,10 @@ class TWUpdateRule(object):
 			"""
 			
 			return TWUpdateRule.default_merger(oldvalue,feedback.value,learningspeed)
-			
+		
+		def forgetful_average(oldvalue,feedback,learningspeed,recipient):
+			pass # oldvalue = 1
+		
 		def average_of_all_fbs(oldvalue,feedback,learningspeed,recipient):
 			"""
 			A more stable feedback calculator: the trustworthiness for a given
@@ -78,7 +81,7 @@ class TWUpdateRule(object):
 						
 			allvalues = tuple(fb.value for fb in allfeedback)
 			
-			newvalue = sum(allvalues) / len(allvalues) if allvalues else 0.5
+			newvalue = sum(allvalues) / len(allvalues) if allvalues else 0.5 # # tocheck
 			
 			return TWUpdateRule.default_merger(oldvalue,newvalue,learningspeed)
 
