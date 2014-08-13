@@ -876,13 +876,13 @@ class Knower(GuardianAngel,object):
 				
 			eva = self.evaluation.get(clue.about,0) # evaluation is 0 iff not 1
 				
-			#diff = lambda x,y: max([x,y]) - min([x,y])
+			diff = lambda x,y: max([x,y]) - min([x,y])
 
-			#vals = (clue.value,eva) # how much SELF evaluates it and the other does
+			vals = (clue.value,eva) # how much SELF evaluates it and the other does
 			
 			# previously it was: our_rating = 1 - diff(*vals) # between 0 and 1, depends on how much the two evaluations differ 
 			
-			our_rating = eva
+			our_rating = 1 - diff(*vals) # it will be higher for similar evaluations
 			
 			# self's opinion on the clue's about.
 			self.feedback(clue.agent,clue.about,our_rating,checkforduplicates = False)  # actually produces a Feedback object and sends it through
