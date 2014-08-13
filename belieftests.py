@@ -1093,7 +1093,12 @@ class Evaluator(object):
 		
 		for name in names:
 			self.plot_guardian(name,*params)
-			
+		
+		if len(names )> 5:
+			names = '{} angels'.format(len(names))
+		
+		lab.title('display_guardians({},{})'.format(names,params))
+		
 		self.show()
 
 	def plot_god_regrets(self,showangels = True):
@@ -1128,7 +1133,10 @@ class Evaluator(object):
 				
 				bar()
 				
-				godprog.append(sum(( 1 - out['BlackBox'].believes(x) ) for x in out['BlackBox'].truths))			
+				if onall:
+					godprog.append(sum(tuple((1 - out['BlackBox'].believes(x)) for x in out['BlackBox'].truths) + tuple(bb.believes(x) for x in bb.beliefs if x not in bb.truths) ))
+				else:
+					godprog.append(sum(( 1 - out['BlackBox'].believes(x) ) for x in out['BlackBox'].truths))			
 				
 				for angel in out["average_precision_of_algorithms"]:
 					
@@ -1138,21 +1146,12 @@ class Evaluator(object):
 					where = 'distance_from_perfection==regret?' if not onall else 'regret_onall'
 					progressions[angel].append( out["average_precision_of_algorithms"][angel][where] )
 			
-					
-			maxlen = max(len(x) for x in progressions.values())
-			print()
-			bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Normalizing Values',displaynumbers = True)
-			for name in progressions:
-				
-				bar()
-				
-				if len(progressions[name]) < maxlen:
-					progressions[name] = [0]*(maxlen - len(progressions[name])) + progressions[name]
 			print()
 			
 			for angel,prog in progressions.items():
 				lab.plot(prog,label = "{}'s regrets".format(angel))
-			 
+			
+			lab.title('Regrets of GuardianAngels (no new)')
 			lab.plot(godprog,'bD',label = 'God')
 			return self.show() if show else None
 
@@ -1160,32 +1159,33 @@ class Evaluator(object):
 		godprog = [] # god's progression
 		
 		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
-		TRUEVAL = {}
-		
-		i = 0
+
 		for bb in self.blackboxes():
 			
-			godprog.append(sum(( 1 - bb.believes(x) ) for x in bb.truths))
-		
-			if i == 0:
-				i += 1 # just once
-				[ TRUEVAL.__setitem__(u,1) for u in bb.truths ]
+			if onall:
+				godprog.append(sum(tuple((1 - bb.believes(x)) for x in bb.truths) + tuple(bb.believes(x) for x in bb.beliefs if x not in bb.truths) ))
+			else:
+				godprog.append(sum(( 1 - bb.believes(x) ) for x in bb.truths))
 			
 			bar()
 			
 			partial = {aname : [] for aname in self.guardian_names()}
-		
-			for truth in bb.truths:
-				if truth not in bb.logs:
+			
+			beliefstocheck = bb.truths if not onall else bb.beliefs 
+			
+			diff = lambda x,y: max([x,y]) - min([x,y])
+			
+			for belief in beliefstocheck:
+				if belief not in bb.logs:
 					for angel in partial:
 						partial[angel] += [0]
 				else:
-					for logged in bb.logs[truth]:
-						partial[logged[0]] += [logged[2]]
+					for logged in bb.logs[belief]:
+						partial[logged[0]] += [diff ( logged[2], 0 if belief not in bb.truths else 1 ) ]
 						
 					for angel in partial:
-						if angel not in (x[0] for x in bb.logs[truth]):
-							partial[angel] += [0]
+						if angel not in (x[0] for x in bb.logs[belief]):
+							partial[angel] += [0] # we give zero regret for beliefs on which they have no clue (regardless of the truth of the belief)
 
 			# now partial is a map from ga.names to (1 - their weighted evaluation of *true* clues).
 			
@@ -1193,7 +1193,7 @@ class Evaluator(object):
 				if not progressions.get(name):
 					progressions[name] = []
 				
-				progressions[name].append(sum( (1-x) for x in partial[name] ))
+				progressions[name].append(sum( partial[name] ))
 				
 				# regret is computed as the distance from 1 of all pairs that should be true.
 			
@@ -1221,12 +1221,14 @@ class Evaluator(object):
 		print('Plotting...')
 		
 		lab.plot(np.array(godprog),'b.',label = "god",linewidth = 2)
+		
+		lab.title('Regrets of GuardianAngels (new)')
 		if show:
 			self.show()
 		
 		return
 		
-	def plot_relative_tw(self,gas = False,ctypes = False,show = True,legend = False):
+	def plot_relative_tw(self,gas = False,ctypes = False,show = True,legend = False,averaging = True):
 		
 		progressions = {angel : {} for angel in self.guardian_names()}
 		
@@ -1282,29 +1284,30 @@ class Evaluator(object):
 				progressions[angel][ctype] = [0]*(toplen - len(progressions[angel][ctype])) + progressions[angel][ctype]
 		
 		
-		#for angel in progressions:
+		for angel in progressions:
 
-		#	for ctype in progressions[angel]:
+			for ctype in progressions[angel]:
 				
-		#		array = np.array(progressions[angel][ctype])
+				array = np.array(progressions[angel][ctype])
 			
-		#		self.addtoplot(array, text = "{}'s {}".format(angel,ctype) if legend else None)
+				self.addtoplot(array, text = "{}'s {}".format(angel,ctype) if legend else None)
 		
-		for angel in progressions:
-				[lab.plot( p ) for p in progressions[angel]]
-				angelsaverage = [avg(progressions[angel][pprog][i] for pprog in progressions[angel]) for i in range(len( tuple(progressions[angel].values())[1] ))]
-				lab.plot(angelsaverage,'--',label = "{}'s average tw".format(angel))
+		#for angel in progressions:
+		#		[lab.plot( p ) for p in progressions[angel].values()]
+		#		angelsaverage = [avg(progressions[angel][pprog][i] for pprog in progressions[angel]) for i in range(len( tuple(progressions[angel].values())[0] ))]
+		#		lab.plot(angelsaverage,'--',label = "{}'s average tw".format(angel))
 		
-		paverages = []
-		for angel in progressions:
-			paverage = [avg(     pro[i] for pro in progressions[angel].values()  ) for i in range(len( tuple(progressions[angel].values())[0] ))   ]
-			paverages.append(paverage)
-		
-		average = [ avg(paverage[i] for paverage in paverages) for i in range(len(paverages[0]))]
-		
-		lab.plot(average,'rD',label = 'total average')
+		if averaging:
+			paverages = []
+			for angel in progressions:
+				paverage = [avg(     pro[i] for pro in progressions[angel].values()  ) for i in range(len( tuple(progressions[angel].values())[0] ))   ]
+				paverages.append(paverage)
 			
-		
+			average = [ avg(paverage[i] for paverage in paverages) for i in range(len(paverages[0]))]
+			
+			lab.plot(average,'rD',label = 'total average')
+			
+		lab.title('Progression of Relative trustworthiness')
 		if show:
 			self.show()
 
@@ -1378,6 +1381,8 @@ class Evaluator(object):
 				continue
 				
 			self.addtoplot(array,text = name if legend else '')
+		
+		lab.title('Average belief in {} links'.format(linktype))
 		
 		if show:
 			self.show()
@@ -1509,7 +1514,8 @@ class RegretsPlotter(object):
 				lab.plot(progression,label = "{}'s regrets".format(name))
 			elif name == 'god' and showgod:
 				lab.plot(progression,'b--',label = "{}'s regrets".format(name))
-			
+		
+		lab.title('Regrets for series of weights'.format(linktype))
 		lab.legend()
 		lab.show()
 			
