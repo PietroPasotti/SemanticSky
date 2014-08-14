@@ -19,11 +19,10 @@ codedict = None
 knower = None
 
 learningspeed = 0.2 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
-belief_inertia = 0.1 # pertenth of the previous belief which is maintained no-matter-what
 
 class Feedback(object):
 	
-	def __init__(self,origin,destination,about,value):
+	def __init__(self,origin,destination,about,value,sign):
 		"""
 		Lighter than clues, and no need for god's mediation.
 		"""
@@ -32,6 +31,7 @@ class Feedback(object):
 		self.destination = destination
 		self.about = about
 		self.value = value
+		self.sign = sign
 	
 	def __add__(self,other):
 		"""
@@ -282,12 +282,12 @@ class Agent(object):
 				return True
 		return False
 		
-	def feedback(self,destination,about,value,checkforduplicates = True):
+	def feedback(self,destination,about,value,sign,checkforduplicates = True):
 		"""
 		Produces a feedback object and sends it to destination.
 		"""
 		
-		fb = Feedback(self,destination,about,value)
+		fb = Feedback(self,destination,about,value,sign)
 		
 		if fb in destination.received_feedback.get(about,[]): # this is true also if there is an exactly equivalent feedback there! (though being a different object)
 			return
@@ -690,11 +690,58 @@ class GuardianAngel(Agent,object):
 		print()
 		return True
 
+	def equalize(self,pair,evaluation):
+		"""
+		Based on the feedback he received for that ctype, outputs an enhanced or
+		shrinked contextual tw, in order to maximise correct output.
+		"""
+		
+		ctype = ss.utils.ctype(pair)
+		diff = ss.utils.diff
+		avg = ss.avg
+		
+		allfbs = []
+		
+		for belief,feedbacks in self.received_feedback:
+			if clues.ss.ctype(belief) == ctype:
+				allfbs.extend(feedbacks)
+		
+		# this is all the feedback you ever received for that ctype
+		
+		allfbs = tuple(sorted(allfbs)) # sorted by their value, from low to high.
+		
+		average_belief_in_links_now_known_to_be = lambda truthvalue : avg(self.evaluation[x] for x in
+								[fb.about for fb in allfbs if fb.sign == {True : '+',False: '-'}[truthvalue]])
+		
+		# returns the average belief in links now known (due to feedback) to be true/false.
+		
+		avgtrue = average_belief_in_links_now_known_to_be(True)
+		avgfalse = average_belief_in_links_now_known_to_be(False)
+		
+		if diff(evaluation,avgtrue) > diff(evaluation,avgfalse):
+			# we shoot low:
+			return 0
+		elif diff(evaluation,avgtrue) < diff(evaluation,avgfalse):
+			# we shoot high:
+			return 1
+		
+		
+		
 	def belief_without_feedback(self,pair):
 		return self.evaluation.get(pair,0)
 	
 	def belief_with_feedback(self,pair):
-		return self.evaluation.get(pair,0) * self.stats['relative_tw'].get(ss.utils.ctype(pair),self.trustworthiness )
+		
+		ctype = ss.utils.ctype(pair)
+		contextual_tw = self.stats['relative_tw'].get(ctype,self.trustworthiness)
+		
+		#previous : return self.evaluation.get(pair,0) * contextual_tw
+		
+		evaluation = self.evaluation.get(pair,0)
+		if evaluation:
+			equalized_tw = self.equalize(pair,evaluation)
+		
+		return 
 	
 	def reltrust(self,ctype):
 		"""
@@ -782,16 +829,13 @@ class GuardianAngel(Agent,object):
 		
 		return True
 	
-	def regrets(self,onall = False):
+	def regrets(self):
 		
+		regret = ss.regret
 		diff = ss.diff
 		
-		if not onall:
-			return sum(diff ((1 , self.belief_with_feedback(x))) for x in self.supervisor.knower.evaluation)	
+		return regret( {b:self.belief_with_feedback(b) for b in self.evaluation} ,self.supervisor.knower.evaluation)
 		
-		else:
-			return sum(diff (( self.supervisor.knower.evaluation.get(x,0) , self.belief_with_feedback(x))) for x in tuple(self.evaluation) + tuple(self.supervisor.knower.evaluation) )	
-
 class Knower(GuardianAngel,object):
 	
 	def __init__(self,supervisor,silence = False):
@@ -880,12 +924,13 @@ class Knower(GuardianAngel,object):
 
 			vals = (clue.value,eva) # how much SELF evaluates it and the other does
 			
-			# previously it was: our_rating = 1 - diff(*vals) # between 0 and 1, depends on how much the two evaluations differ 
-			
 			our_rating = 1 - diff(*vals) # it will be higher for similar evaluations
 			
+			sign = '+' if eva else '-' # the sign of a feedback is + iff, whatever the confidence of the feedbacked is, his suspect was correct
+			# insofar as the link is actually there.
+			
 			# self's opinion on the clue's about.
-			self.feedback(clue.agent,clue.about,our_rating,checkforduplicates = False)  # actually produces a Feedback object and sends it through
+			self.feedback(clue.agent,clue.about,our_rating,sign,checkforduplicates = False)  # actually produces a Feedback object and sends it through
 		
 		if verbose:
 			print()
@@ -1826,7 +1871,7 @@ class God(object):
 	def refresh(self,verbose = True):
 		"""
 		for belief in self.beliefs:
-		self.beliefs[belief] = self.rebelieves(belief)
+		self.rebelieves(belief)
 		"""
 		
 		so = ss.stdout
@@ -2019,13 +2064,9 @@ class God(object):
 		if not self.knower.evaluation:
 			self.knower.evaluate_all(express = False)
 		
-		diff = ss.diff
-		if not onall:
-			return sum( diff(( 1, self.believes(x)))  for x in self.knower.evaluation)
-		else:
-			return sum( diff((self.knower.evaluation.get(x,0), self.believes(x))) for x in tuple(self.beliefs) + tuple(self.knower.evaluation) )	
+		return regret(self.beliefs,self.knower.evaluation)
 	
-	def guardians_regrets(self,onall = False,guardians = None):
+	def guardians_regrets(self,guardians = None):
 		"""
 		Regrets for the guardians.
 		"""
@@ -2038,24 +2079,23 @@ class God(object):
 		out = {}
 		
 		for guardian in guardians:
-			out[guardian.name] = guardian.regrets(onall = onall)
+			out[guardian.name] = guardian.regrets()
 		
 		return out
 	
 	def printregrets(self):
 		
-		totable = [['agent','regret_on_true','regret_on_all']]
+		totable = [['agent','regret']]
 		
-		totable.append([str(self),self.regrets(),self.regrets(onall = True)])
+		totable.append([str(self),self.regrets()])
 		for ga in self.guardianangels:
-			totable.append([str(ga),ga.regrets(),ga.regrets(onall = True)])
+			totable.append([str(ga),ga.regrets()])
 			
 		from tests import table
 		table(totable)
 		
 		return
-		
-				
+					
 import meta_angels as metangels
 
 def set_update_rule(name):

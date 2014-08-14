@@ -22,7 +22,6 @@ destemdb = {}
 revert_destemdb = {}
 # stem --> word dictionary (it's a mapping)
 
-
 def crop_at_nonzero(fl,bot = 4):
 	sfl = str(fl)
 	
@@ -641,3 +640,47 @@ def avg(itr):
 
 def diff(iterator):
 	return max(iterator) - min(iterator)
+
+def regret(beliefs,truths):
+
+	regret = 0
+	
+	for belief in beliefs:
+		if belief in truths:
+			regret += 1 - beliefs[belief]
+		else:
+			regret += beliefs[belief]
+	
+	for belief in truths:
+		if belief not in beliefs:
+			regret += 1
+	
+	return regret
+
+def normalize(iterator,topvalue = 1):
+	# shrinks down all values in iterator between 0 and topvalue
+	
+	T = type(iterator)
+	
+	new = T() # a new instance of the same type
+	
+	if hasattr(T, 'append'):
+		tool = getattr(T,'append')
+	elif hasattr(T, 'add'):
+		tool = getattr(T,'add')
+	else:
+		raise BaseException('Unnormalizable type: {}.'.format(T))
+	
+	cp = tuple(iterator)
+	
+	maximum = max(cp)
+	
+	for c in cp:
+		tool(new,c/maximum)
+		
+	return new
+		
+	
+	
+	
+	

@@ -5,14 +5,8 @@ import numpy as np
 import matplotlib as plt
 import pylab as lab
 from copy import deepcopy
-
-pickle = tests.pickle
-center = tests.center
-wrap = tests.wrap
-table = tests.table
-bmag = tests.bmag
-stdout = tests.clues.ss.stdout
-crop_at_nonzero = tests.crop_at_nonzero
+from tests import pickle,center,wrap,table,bmag,crop_at_nonzero
+from semanticsky import stdout,regret
 
 def binput(msg):
 	a = input(bmag('\t>> {}'.format(msg)))
@@ -631,6 +625,7 @@ def add_to_sky_evaluate_feedback(god,listofclouds,punish_false_negatives):
 
 OUTPUT = {}
 
+
 def evaluate_status(god):
 	
 	knower = getknower(god)
@@ -650,8 +645,8 @@ def evaluate_status(god):
 	out['average_strength_of_god_beliefs']['in true beliefs'] = avgbeltrue
 	out['average_strength_of_god_beliefs']['in false beliefs'] = avgbelfalse
 	out['average_strength_of_god_beliefs']['in all beliefs'] = avgbelall
-	#out['god_regrets'] = {'onall' = god.regrets(onall = True),'on_true' = god.regrets()}
-
+	out['god_regrets'] = god.regrets()
+	
 	out["average_precision_of_algorithms"] = {}
 	
 	for ga in god.guardianangels:
@@ -685,16 +680,14 @@ def evaluate_status(god):
 		wavgtruebels = avg(wtrueconfs)
 		wavgfalsebels = avg(wfalseconfs)		
 		
-		
 		out["average_precision_of_algorithms"][ga.name]['weighted'] = {}
 	
 		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in true links'] = wavgtruebels
 		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in false links'] = wavgfalsebels
-		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in all links'] = wavgallbels	
-					
-		out["average_precision_of_algorithms"][ga.name]['distance_from_perfection==regret?'] = ga.regrets()
-		out["average_precision_of_algorithms"][ga.name]['regret_onall'] = ga.regrets(onall = True)
-		out["BlackBox"] = BlackBox(god)
+		out["average_precision_of_algorithms"][ga.name]['weighted']['average belief in all links'] = wavgallbels			
+		out["average_precision_of_algorithms"][ga.name]['regrets'] = ga.regrets()
+		
+	out["BlackBox"] = BlackBox(god)
 
 	return out
 	
@@ -866,8 +859,8 @@ class BlackBox(object):
 		for i in self.beliefs:
 			yield i
 	
-	def regret(self):
-		return sum(( 1 - self.believes(x) ) for x in self.truths)
+	def regrets(self):
+		return regret(self.beliefs,self.truths)
 			
 class Evaluator(object):
 	
@@ -1101,128 +1094,65 @@ class Evaluator(object):
 		
 		self.show()
 
-	def plot_god_regrets(self,showangels = True):
-		
-		progression = []
-		
-		for out in self.iter_values():
-			bb = out['BlackBox']
-			progression.append(sum(( 1 - bb.believes(x) ) for x in bb.truths))
-		
-		lab.plot(progression,'b.',label = "God's regrets",linewidth = 2)
-		
-		if showangels:
-			self.plot_ga_regrets(show = False)
-			
-		self.show()
-	
 	def guardian_names(self):
 		
 		from algorithms import algsbyname
 		
 		return [name for name in algsbyname if name not in ['someonesuggested','tag_similarity_naive','tag_similarity_extended']]
 	
-	def plot_ga_regrets(self,show = True,new = False,onall = False):	
+	def plot_ga_regrets(self,show = True,use_stored_values = True):	
 		
-		if new:
+		if use_stored_values: # we use values filled in at runtime, instead of computing them again
 			progressions = {}
 			godprog = []
-			
-			bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 			for out in self.iter_values():
+				print("\rComputing god's regrets...",end = '')
+				godprog.append( out.get('god_regrets'), out['BlackBox'].regrets())
 				
-				bar()
-				
-				if onall:
-					godprog.append(sum(tuple((1 - out['BlackBox'].believes(x)) for x in out['BlackBox'].truths) + tuple(bb.believes(x) for x in bb.beliefs if x not in bb.truths) ))
-				else:
-					godprog.append(sum(( 1 - out['BlackBox'].believes(x) ) for x in out['BlackBox'].truths))			
-				
+				print("\rAngels...                 ",end = '')
 				for angel in out["average_precision_of_algorithms"]:
 					
 					if not angel in progressions:
 						progressions[angel] = []
 					
-					where = 'distance_from_perfection==regret?' if not onall else 'regret_onall'
-					progressions[angel].append( out["average_precision_of_algorithms"][angel][where] )
+					progressions[angel].append( out["average_precision_of_algorithms"][angel]['regrets'] ) # which was filled in at test runtime
 			
-			print()
+			print("\rPlotting...                   ",end = '')
 			
 			for angel,prog in progressions.items():
 				lab.plot(prog,label = "{}'s regrets".format(angel))
 			
-			lab.title('Regrets of GuardianAngels (no new)')
+			lab.title('Regrets of GuardianAngels (as logged)')
 			lab.plot(godprog,'bD',label = 'God')
 			return self.show() if show else None
 
-		progressions = {}
+		# ----------------------------------------------------------------------- #
+
+		progressions = {aname : [] for aname in self.guardian_names()}
 		godprog = [] # god's progression
 		
 		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 
 		for bb in self.blackboxes():
 			
-			if onall:
-				godprog.append(sum(tuple((1 - bb.believes(x)) for x in bb.truths) + tuple(bb.believes(x) for x in bb.beliefs if x not in bb.truths) ))
-			else:
-				godprog.append(sum(( 1 - bb.believes(x) ) for x in bb.truths))
+			godprog.append(bb.regrets())
 			
 			bar()
 			
-			partial = {aname : [] for aname in self.guardian_names()}
+			BELIEFS = {aname : {} for aname in self.guardian_names()}
 			
-			beliefstocheck = bb.truths if not onall else bb.beliefs 
+			for belief,loglist in bb.logs.items():
+				for log in loglist:
+					BELIEFS[log[0]][belief] = log[2] # we set the belief to the WEIGHTED BELIEF!
 			
-			diff = lambda x,y: max([x,y]) - min([x,y])
-			
-			for belief in beliefstocheck:
-				if belief not in bb.logs:
-					for angel in partial:
-						partial[angel] += [0]
-				else:
-					for logged in bb.logs[belief]:
-						partial[logged[0]] += [diff ( logged[2], 0 if belief not in bb.truths else 1 ) ]
-						
-					for angel in partial:
-						if angel not in (x[0] for x in bb.logs[belief]):
-							partial[angel] += [0] # we give zero regret for beliefs on which they have no clue (regardless of the truth of the belief)
-
-			# now partial is a map from ga.names to (1 - their weighted evaluation of *true* clues).
-			
-			for name in partial:
-				if not progressions.get(name):
-					progressions[name] = []
-				
-				progressions[name].append(sum( partial[name] ))
-				
-				# regret is computed as the distance from 1 of all pairs that should be true.
-			
-		# normalize...
-				
-		maxlen = max(len(x) for x in progressions.values())
+			for angel in BELIEFS:
+				progressions[angel].append( regret(BELIEFS[angel],bb.truths) )
 		
-		bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Normalizing Values',displaynumbers = True)
-		for name in progressions:
-			
-			bar()
-			
-			if len(progressions[name]) < maxlen:
-				progressions[name] = [0]*(maxlen - len(progressions[name])) + progressions[name]
-		
-		
-		bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Preparing Plots',displaynumbers = True)	
 		for name,progression in progressions.items():
-			
-			bar()
-			
-			array = np.array(progression)
 			self.addtoplot(progression,name)
 		
-		print('Plotting...')
-		
-		lab.plot(np.array(godprog),'b.',label = "god",linewidth = 2)
-		
-		lab.title('Regrets of GuardianAngels (new)')
+		lab.plot(godprog,'b.',label = "god",linewidth = 2)
+		lab.title('Regrets of GuardianAngels (computed all over)')
 		if show:
 			self.show()
 		
@@ -1492,22 +1422,20 @@ class RegretsPlotter(object):
 			god.refresh(verbose = False)
 			print('\r(REFRESHING...)',end = '')
 			
-			angelsregrets = god.guardians_regrets(onall = onall)
+			angelsregrets = god.guardians_regrets()
 			for ganame,value in angelsregrets.items():
 				if not ganame in progressions:
 					progressions[ganame] = []
 				progressions[ganame].append(value)
 				
-			godregrets = god.regrets(onall = onall)
+			godregrets = god.regrets()
 			if not 'god' in progressions:
 				progressions['god'] = []
 				
 			progressions['god'].append(godregrets)
 			
-	
 			i += 1
-			
-
+		
 		for name,progression in progressions.items():
 			
 			if name != 'god' and showangels:

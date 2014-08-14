@@ -33,7 +33,7 @@
 
 \section{Overview of Semanticsky.}
 
-SemanticSky (currently) is a program which, given as input a set of documents, outputs a small multi-agent system where some built-in algorithmic agents try to infer similarity relations between the input documents.
+SemanticSky (currently) is a program which, given as input a set of documents, outputs a small multi-agent system where some built-in algorithmic agents try to infer similarity relations (currently, only content/topic similarity) between the input documents.
 
 The main steps through which this is achieved follow:
 
@@ -69,7 +69,7 @@ myguardian.evaluate_all()
 # all 2-permutations of clouds.
 \end{lstlisting}
 
-But not all algorithm are good, and some are good just on very specific subsets of the system. Suppose that we have an algorithm that just checks whether the authors of the document are the same person (and does that by regex matching some query). This algorithm will then return zero for all documents where an 'author' is not defined or the query doesn't match. God then will (try to) understand that the algorithm is useful in some subdomain, even though his average accuracy is very low.
+But not all algorithm are good, and most are good just on very specific subsets of the system. Suppose that we have an algorithm that just checks whether the authors of the document are the same person (and does that by regex matching some query). This algorithm will then return zero for all documents where an 'author' is not defined or the query doesn't match. God then will (try to) understand that the algorithm is useful in some subdomain, even though his average accuracy is very low.
 
 The evaluations that a Guardian Angel performs differ from those of an human agent only in that they are produced automatically. Their route is in fact basically the same: they either get queued and later on processed by God, or (by default) they get immediately processed.
 
@@ -119,6 +119,27 @@ Possible sources for the information to fill these layers with include:
 \end{enumerate}
 
 The latter example about stars and Carl Sagan is a clear situation where we want to make sure that this information is taken as second-hand only and is given appropriately less weight than the first-hand one.
+
+
+\section{Agents.}
+
+Agents in Semantic Sky are basically pipes for human input. In Starfish, they will probably be associated with accounts of people who has write access to the Starfish network, but at a more general level, they are `whatever human source of information we have'.
+
+Beside being able to rate similarity of item-pairs, relevance of tags to items, modifying the items, suggesting (removal of) new links or tags, agents are crucial insofar as their discussions and final decisions trigger feedback, which in turn teaches the system what they want. 
+
+Ideally, whenever the system will detect that the discussion about some issue is closed, feedback will trigger and backpropagate to all algorithms (and maybe even agents) that had something to say about it, punishing them for their bad suggestions or rewarding them for the good ones.
+
+The most immediate effect of the feedback is to influence (up or down) the trustworthiness of an agent, be it algorithmic or human in nature.
+Trustworthiness is not absolute, however, but relative to some domain or `area of expertise': a person (an algorithm) can be very good on items regarding people but very bad at spotting connections between glossaries and tags. So, we want to learn his expertises and hold as valuable his suggestions in that field, while (proportionately) ignoring his suggestions on topics which we know he is not keen on.
+
+\subsection{Future work.}
+
+Detecting when a discussion is `settled' is not an obvious thing. One could use various `hotness' metrics or functions of the number of people participating to the discussion, the length of their posts and the time gap between them, or more simply the time since the last update of the content of a page. My guess is that some experimental work is needed to find the optimal technique to evaluate when to trigger the feedback: we don't want to increase or decrease trustworthiness of people when the voting is still open (and changes of mind still possible).
+
+Secondly, at the moment feedback is irreversible. This can and should be questioned sometime in the future.
+
+
+
 
 \section{Guardians.}
 
@@ -234,9 +255,20 @@ A first attempt in this direction has already been made: I constructed an algori
 
 $\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted clearly by how near they are) in the current state of the system.}
 
-\section{Agents.}
-
 \section{The Supervisor.}
+
+The Supervisor, also called God, is a gating machine that mediates between the angels and the final output of the system, doing the mostly bureaucratic work of gathering the judgements of the algorithms and agents involved in some voting and weighting them up or down according to the source's trustworthiness, finally merging them (by averaging) into a conclusive judgement that goes to build a belief state.
+
+Such belief state is the final outcome of the system, and represents a snapshot of the link structure within Starfish according to the system. Ideally, we want such structure to closely match Starfish's own link structure (the links that physically appear in the pages) that currently have been hand-hard-wired there by physical persons.
+
+But, as Starfish is planned to be a dynamical network, where many discussions are open-ended and there is not always a clear yes/no answer to all questions, we won't pretend Semantic Sky to aim at that goal either. Its highest-rated beliefs should of course have a strong correspondence with the actual structure of Starfish, but the whole body of the iceberg (hidden for example through some thresholding) can be open-ended as much as the underlying discussion (carried out by humans in parallel) is.
+
+These considerations, among others, led us to the conclusion that recall is not a priority for Semantic Sky neither as a suggestions machine nor as a link-spotter in general, making it somewhat closer to a ranker.
+
+The fact that there is a centralised object gating the outputs of several other objects (partly algorithmic, but mostly human) makes Semantic Sky close to what goes under the label of `ensemble methods'.
+
+More specifically, we found the closest neighbours of Semantic Sky in the literature to be the \emph{mixture of experts} methods and the \emph{stacked generalization model} models.\footnote{For terminology and explanations, see for example [Introduction to machine learning, 2nd ed. Ethem Alpaydin, pp. 434-435].}
+
 
 \section{(Results)}
 

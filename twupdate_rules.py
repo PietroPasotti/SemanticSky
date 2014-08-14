@@ -15,8 +15,7 @@ class TWUpdateRule(object):
 		
 		try:
 			return MERGER(oldvalue,newvalue,learningspeed)
-		except NameError:
-			
+		except NameError as e:
 			raise NameError('No MERGER was set as default. To do so, use TWUpdateRule.set_merger(function) for some function.')
 		
 	def set_merger(function):
@@ -65,10 +64,16 @@ class TWUpdateRule(object):
 			the learning speed.
 			"""
 			
-			return TWUpdateRule.default_merger(oldvalue,feedback.value,learningspeed)
+			suggested_value = (oldvalue + feedback.value) / 2
+			
+			return TWUpdateRule.default_merger(oldvalue,suggested_value,learningspeed)
 		
 		def forgetful_average(oldvalue,feedback,learningspeed,recipient):
-			pass # oldvalue = 1
+			"""
+			We pretend that the previous value was one. Who knows what might
+			happen.
+			"""
+			return average_of_all_fbs(1,feedback,learningspeed,recipient)
 		
 		def average_of_all_fbs(oldvalue,feedback,learningspeed,recipient):
 			"""
