@@ -1,8 +1,43 @@
 #!/usr/bin/python3
 
-from semanticsky_utilityfunctions import ctype
+from semanticsky_utilityfunctions import ctype,avg,diff,pull_tails
+import math
 
 class TWUpdateRule(object):
+	"""
+	Groups a set of core algorithms for easy access and edit.
+	
+	*update rules* encompass all those rules used to compute the new value of
+	a belief given alls sorts of priors such as the previous belief and the
+	feedback received on its regard.
+	
+	*mergers* are algorithms for determining which the new value of the belief
+	should be, given the output of the update rule and the previous belief.
+	The most classical one relies on learning speed / rate.
+	
+	*antigravity* algorithms are used to determine the antigravity point 
+	of a [0,1] distribution of (strength of) (unweighted) beliefs. That is
+	the point such that most beliefs with a feedback that confirms their being
+	justified (i.e. True in some sense) are greater than it, and all the
+	beliefs whose feedback confirms their being false are smaller than it.
+	Intuitively, all algorithms are somewhat good at doing whatever they do.
+	So, their average of correct decisions will lie (a bit) above their average
+	of wrong decisions. Antigravity point lies somewhere between the two,
+	and is used as a radiation center to push the values closer to the extremes
+	of the [0,1] spectrum, when we suspect their being biased towards one of
+	the sides or when we want to get rid of long tail distributions.
+	The default antigravity point is simply the average of the averages 
+	of the good decisions and the bad ones.
+	
+	*equalizers* use the antigravity point of a distribution of beliefs
+	to transform all beliefs' strength according to some rule, thus extremising
+	beliefs' values such that belief strengths usually associated with good
+	decisions be pushed upwards, and vice versa. This way, hopefully, future
+	decisions with the same strength (that hopefully will be true as well)
+	will be overrated and thus produce better results. (The angel will decide
+	to shoot high or low, knowing his bias.) Builtin rules include a circular 
+	increment, exponential and linear shift.
+	"""	
 	
 	def default_merger(oldvalue,newvalue,learningspeed):
 		"""
@@ -26,7 +61,7 @@ class TWUpdateRule(object):
 			try:
 				function = getattr(TWUpdateRule.builtin_mergers, function)
 			except AttributeError:
-				raise AttributeError('Bad choice. Builtin mergers are: {}.'.format([function.__name__ for function in builtin_mergers.__dict__.values() if hasattr(function,'__call__')]))
+				raise AttributeError('Bad choice. Builtin mergers are: {}.'.format([function.__name__ for function in TWUpdateRule.builtin_mergers.__dict__.values() if hasattr(function,'__call__')]))
 		
 		if not hasattr(function,'__call__'):
 			raise BaseException('The provided function is not callable.')
@@ -34,12 +69,46 @@ class TWUpdateRule(object):
 		MERGER = function
 		
 		return MERGER
+
+	def set_equalizer(function):
+		
+		global EQUALIZER
+		
+		if isinstance(function,str):
+			try:
+				function = getattr(TWUpdateRule.builtin_equalizers, function)
+			except AttributeError:
+				raise AttributeError('Bad choice. Builtin equalizers are: {}.'.format([function.__name__ for function in TWUpdateRule.builtin_equalizers.__dict__.values() if hasattr(function,'__call__')]))
+		
+		if not hasattr(function,'__call__'):
+			raise BaseException('The provided function is not callable.')
+		
+		EQUALIZER = function
+		
+		return EQUALIZER
+	
+	def set_antigravity(function):
+		
+		global ANTIGRAVITY
+		
+		if isinstance(function,str):
+			try:
+				function = getattr(TWUpdateRule.builtin_antigravity, function)
+			except AttributeError:
+				raise AttributeError('Bad choice. Builtin antigravity point getters are: {}.'.format([function.__name__ for function in TWUpdateRule.builtin_antigravity.__dict__.values() if hasattr(function,'__call__')]))
+		
+		if not hasattr(function,'__call__'):
+			raise BaseException('The provided function is not callable.')
+		
+		ANTIGRAVITY = function
+		
+		return ANTIGRAVITY
 		
 	class builtin_mergers():
 		
-		def nomerge(oldvalue,newvalue,learningspeed):
+		def dummy(oldvalue,newvalue,learningspeed):
 			"""
-			Toy merger.
+			Dummy.
 			"""
 			return newvalue
 		
@@ -56,6 +125,13 @@ class TWUpdateRule(object):
 		Note that currently most rules base their calculations only on
 		feedback received from the Knower.
 		"""
+		
+		def dummy(oldvalue,feedback,learningspeed,recipient):
+			"""
+			Dummy.
+			"""
+			
+			return oldvalue
 		
 		def step_by_step_ls(oldvalue,feedback,learningspeed,recipient):
 			"""
@@ -146,5 +222,194 @@ class TWUpdateRule(object):
 				center = sum(centers) / 2
 				
 			return TWUpdateRule.default_merger(oldvalue,center,learningspeed)
-
+	
+	class builtin_antigravity():
+		
+		def dummy(beliefset,angel):
+			"""
+			Dummy.
+			Returns the middle point of the array of values.
+			"""
+			
+			return max(beliefset.values()) / 2
+		
+		def average_of_average_TF(beliefset,angel):
+			"""
+			Returns a point, from the given beliefset's values, corresponding
+			to the average of two points A, B such that:
+			A is the average strength of all beliefs which have been confirmed 
+			positively true (that is: their object is indeed true, whatever your
+			confidence in it was.)
+			B '' ... confirmed false.
+			"""
+			
+			trues = []
+			falses = []
+			
+			for belief in beliefset:
+				if belief in angel.received_feedback:
+					if all(fb.sign == '+' for fb in angel.received_feedback[belief]): # TOCHECK!
+						trues.append(beliefset[belief])
+			
+					else:
+						falses.append(beliefset[belief])
+				# if no feedback was ever received, this means that it's not a confirmed truth or falsity, so we do nothing about it
+			
+			centerf = avg(falses)
+			centert = avg(trues)
+			
+			return(avg((centerf,centert)))
+			
+	class builtin_equalizers():
+		"""
+		This class groups functions for transforming the output of Guardian
+		Angels' raw evaluations. Given as input an evaluation set (or a part of it)
+		these functions should return a transformed evaluation set which
+		can then be used to give actual output.
+		"""
+		
+		def dummy(beliefset,angel = None):
+			"""
+			Dummy.
+			
+			angel is required if we need to retrieve information such as
+			received feedback, or so.
+			"""
+			
+			return beliefset
+		
+		def linear(beliefset,angel,top = 1,factor = 0.2):
+			"""
+			Performs a translation of all beliefsets after retrieving
+			a gravity point as for the exponential equalizer.
+			All samples are moved *factor* the other direction w.r.t. the
+			gravity point 			
+			
+			curve = lambda oldvalue,antigrav,factor: oldvalue + factor 
+									if oldvalue > antigrav else 
+									oldvalue - factor if oldvalue < antigrav 
+									else oldvalue
+			"""
+			
+			antigrav = ANTIGRAVITY(beliefset,angel)
+			# this is the point where the pushing moment will originate from.
+			
+			newbset = {}
+			
+			curve = lambda oldvalue,antigrav,factor: oldvalue + factor if oldvalue > antigrav else oldvalue - factor if oldvalue < antigrav else oldvalue
+			
+			for belief,value in beliefset.items():
+				
+				newvalue = curve(oldvalue,antigrav,factor)
+					
+				if newvalue > 1: # cut outsiders
+					newvalue = 1
+				elif newvalue < 0:
+					newvalue = 0
+				
+				newbset[belief] = newvalue
+				
+			return newbset
+		
+		def exponential(beliefset,angel,factor = 1.3):
+			"""
+			This function pushes to the borders of the [0,1] spectrum the 
+			values of the beliefset. This is achieved by first computing 
+			the medium point between the positive items (that is: the beliefs
+			for which we have a confirmation that they are true) and the
+			negative ones (for which we KNOW they are NOT true).
+			Then, we take the medium point to be the zero of two exponentials,
+			whose touchpoints will be the 0 and the 1 of the output spectrum
+			of the belief set.
+			
+			curve = lambda x,antigrav : 
+							(x + 1.3**(x-antigrav) - 1) if antigrav < x else 
+							(x + 1.3**(- (antigrav-x)) - 1) if antigrav > x 
+							else x
+			
+			Then, all values get scaled accordingly and the resulting beliefset
+			is returned.
+			"""
+			antigrav = ANTIGRAVITY(beliefset,angel)
+			
+			curve = lambda x,antigrav : (x + 1.3**(x-antigrav) - 1) if antigrav < x else (x + 1.3**(- (antigrav-x)) - 1) if antigrav > x else x
+			
+			newbset = {}
+			
+			for belief,value in beliefset.items():
+			
+				newvalue = curve(value,antigrav)
+				
+				if newvalue > 1: # cut outsiders
+					newvalue = 1
+				elif newvalue < 0:
+					newvalue = 0			
+			
+				newbset[belief] = value
+				
+			return newbset
+			
+		def circular(beliefset,angel,maxbonus = False):
+			"""
+			Similar to exponential, but we take the circles whose radius
+			is equal to the distance between the medium point of  the 
+			average of positives negatives and zero / one.
+			This means that values closer to the center will move a bit
+			less, and values that trespass the medium point between 1 and
+			the gravity point get moved straight to 1.
+			
+			If G is very close to 0 or 1, though, this might result in 
+			excessive shift of close-to-0.5 values, which we might want to
+			stay where they were.
+			To trigger thresholding against this behaviour, you can set
+			*maxbonus* to some value that won't be overcome by the shift
+			factor of the old value.
+			def curve():	
+				
+				if antigrav < x:
+					output = x+((1-x)*(((1-antigrav)/2)/(((1-antigrav)/2)
+						-((1-((1-antigrav)/2))-x)))) 
+				elif antigrav > x:
+					output = x-((x)*(((1-antigrav)/2)/(((1-antigrav)/2)
+						-((1-((1-antigrav)/2))-x))))
+				else:
+					output = x			
+			
+			"""
+			antigrav = ANTIGRAVITY(beliefset,angel)
+			
+			def curve(x,antigrav,maxbonus = False):
+				if antigrav < x:
+					output = x+((1-x)*(((1-antigrav)/2)/(((1-antigrav)/2)-((1-((1-antigrav)/2))-x)))) 
+				elif antigrav > x:
+					output = x-((x)*(((1-antigrav)/2)/(((1-antigrav)/2)-((1-((1-antigrav)/2))-x))))
+				else:
+					output = x
+				
+				if maxbonus:
+					if diff(x,output) > maxbonus:
+						if x < output:
+							return maxbonus
+						elif x > output:
+							return - maxbonus
+				
+				return output	
+			
+			newbset = {}
+			
+			for belief,value in beliefset.items():
+			
+				newvalue = curve(value,antigrav)
+				
+				if newvalue > 1: # cut outsiders
+					newvalue = 1
+				elif newvalue < 0:
+					newvalue = 0			
+			
+				newbset[belief] = value
+				
+			return newbset
+			
+TWUpdateRule.set_antigravity('average_of_average_TF')	
+TWUpdateRule.set_equalizer('exponential')	
 TWUpdateRule.set_merger('classical_merger')
