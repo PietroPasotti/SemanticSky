@@ -6,20 +6,38 @@ from copy import deepcopy
 from group import Group
 import twupdate_rules as updaterules
 
-pickle = ss.pickle
-sqrt = algs.sqrt
-crop_at_nonzero = ss.crop_at_nonzero
+@Group
+def init_globals():
+	global pickle, sqrt,crop_at_nonzero,regret,CLUES,AGENTS,GUARDIANANGELS,god,anonymous,codedict,knower
+	global belief_inertia, learningspeed, negative_feedback_learningspeed_reduction_factor, differentiate_learningspeeds
+	global equalization
+	
+	pickle = ss.pickle
+	sqrt = algs.sqrt
+	crop_at_nonzero = ss.crop_at_nonzero
+	regret = ss.regret
 
-CLUES = []
-AGENTS = []
-GUARDIANANGELS = []
-god = None
-anonymous = None
-codedict = None 
-knower = None
+	CLUES = []
+	AGENTS = []
+	GUARDIANANGELS = []
+	god = None
+	anonymous = None
+	codedict = None 
+	knower = None
 
-learningspeed = 0.2 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
-
+	belief_inertia = 0.03
+	learningspeed = 0.2 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
+	negative_feedback_learningspeed_reduction_factor = 50
+	differentiate_learningspeeds = True
+	equalization = True
+	default_equalizer = updaterules.TWUpdateRule.set_equalizer('linear')
+	
+	print('Global default equalization is now set to {}.'.format(updaterules.EQUALIZER))
+	print('Global default differentiate_learningspeeds is now set to {}; thus, for a factor of {}, learningspeeds are now {} for + and {} for -.'
+	 ''.format(differentiate_learningspeeds,negative_feedback_learningspeed_reduction_factor,learningspeed,learningspeed / negative_feedback_learningspeed_reduction_factor))
+	
+	return
+	
 class Feedback(object):
 	
 	def __init__(self,origin,destination,about,value,sign):
@@ -121,13 +139,10 @@ class Clue(object):
 		self.supervisor = supervisor			
 		self.agent = agent
 		
-		if self.cluetype == 'feedback':
-			if hasattr(agent,'feedbackclues'):
-				agent.feedbackclues.append(self)
-		else:	
-			if hasattr(agent,'clues'):
-				agent.clues.append(self)
-			
+	
+		if hasattr(agent,'clues'):
+			agent.clues.append(self)
+		
 		if autoconsider:
 			self.supervisor.consider(self) # there the clue gets logged
 		else:
@@ -403,7 +418,14 @@ class Agent(object):
 			if not self.stats['relative_tw'].get(ctype):
 				self.stats['relative_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
 			
-			global default_updaterule
+			global default_updaterule, learningspeed, negative_feedback_learningspeed_reduction_factor
+			
+			if feedback.sign == '-':
+				LS = learningspeed / negative_feedback_learningspeed_reduction_factor
+				# for negative feedback we give less impacting feedback.
+			else:
+				LS = learningspeed
+			
 			self.stats['relative_tw'][ctype] = default_updaterule(self.stats['relative_tw'][ctype], feedback, learningspeed,self)	
 			
 		else:
@@ -629,7 +651,7 @@ class GuardianAngel(Agent,object):
 		for pair in pairlist:
 			
 			if verbose:
-				bar(i)
+				bar()
 			
 			silence = False if express else True
 			self.evaluate(pair,silent = silence) # silent: no clue is spawned
@@ -683,7 +705,7 @@ class GuardianAngel(Agent,object):
 		bar = ss.ProgressBar(number,title = '{} :: Expressing'.format(self.shortname()))
 		for i in range(number):
 			pair = list(self.evaluation.keys())[i]
-			bar(i)
+			bar()
 			
 			value = self.evaluation[pair]
 			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
@@ -735,8 +757,9 @@ class GuardianAngel(Agent,object):
 		ctype = ss.utils.ctype(pair)
 		contextual_tw = self.stats['relative_tw'].get(ctype,self.trustworthiness)
 		
-		#previous : return self.evaluation.get(pair,0) * contextual_tw
+		return self.evaluation.get(pair,0) * contextual_tw
 		
+		# NEW EQUALIZER PART
 		evaluation = self.evaluation.get(pair,0)
 		if evaluation:
 			equalized_tw = self.equalize(pair,evaluation)
@@ -833,8 +856,8 @@ class GuardianAngel(Agent,object):
 		
 		regret = ss.regret
 		diff = ss.diff
-		
-		return regret( {b:self.belief_with_feedback(b) for b in self.evaluation} ,self.supervisor.knower.evaluation)
+		# we can't give regret on all the beliefs: otherwise, when loading evaluation from file, we'll give full regret.
+		return regret( {b:self.belief_with_feedback(b) for b in [clue.about for clue in self.clues]} ,self.supervisor.knower.evaluation)
 		
 class Knower(GuardianAngel,object):
 	
@@ -923,6 +946,8 @@ class Knower(GuardianAngel,object):
 			diff = lambda x,y: max([x,y]) - min([x,y])
 
 			vals = (clue.value,eva) # how much SELF evaluates it and the other does
+			# we take the RAW == UNWEIGHTED VALUE, so as to avoid recursion and self-reinforcement. What matters is how he thinks it is ('raw' value),
+			# not what we take out of what he thinks it is (weighted value)
 			
 			our_rating = 1 - diff(*vals) # it will be higher for similar evaluations
 			
@@ -949,7 +974,7 @@ class Knower(GuardianAngel,object):
 			
 			if verbose:
 				i += 1
-				bar(i)
+				bar()
 			
 			resps = tuple(clue.agent for clue in god.logs[link])
 			for resp in resps:
@@ -1139,7 +1164,6 @@ class God(object):
 			after_update = ( (VALUE + previous_belief) / 2 ) - inertia_strength
 		
 		#####
-
 
 		# positive factor: the previous belief. If previous belief was high, to take it down will take some effort.
 		# negative factor: the value of a clue: that is, the strength and direction of the clue.
@@ -1810,7 +1834,7 @@ class God(object):
 				experts[ctype] = self.most_trustworthy(ctype,crop)
 			cexperts = experts[ctype]
 			
-			bar(i) # status bar
+			bar() # status bar
 				
 			rebelief = self.expert_rebelieves(belief,crop,cexperts) # retrieves a weighted sum of what these experts believe about belief
 			
@@ -1883,7 +1907,7 @@ class God(object):
 		for belief in self.beliefs:
 			if verbose and topno:
 				i += 1			
-				bar(i)
+				bar()
 			
 			
 			self.rebelieves(belief,silent = False) # will update beliefs

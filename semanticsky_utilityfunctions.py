@@ -492,7 +492,10 @@ class ProgressBar():
 		self.monitor = monitor
 		self.displaynumbers = displaynumbers
 
-	def __call__(self,index='auto'):
+	def __call__(self,title = False,index='auto'):
+		
+		if title:
+			self.title = title
 		
 		if index == 'auto':
 			if not hasattr(self,'index'):
@@ -659,28 +662,39 @@ def regret(beliefs,truths):
 
 def normalize(iterator,topvalue = 1):
 	# shrinks down all values in iterator between 0 and topvalue
-	
-	T = type(iterator)
-	
-	new = T() # a new instance of the same type
-	
-	if hasattr(T, 'append'):
-		tool = getattr(T,'append')
-	elif hasattr(T, 'add'):
-		tool = getattr(T,'add')
-	else:
-		raise BaseException('Unnormalizable type: {}.'.format(T))
-	
+
 	cp = tuple(iterator)
 	
-	maximum = max(cp)
+	maximum = max(cp) 
+	
+	nl = []
 	
 	for c in cp:
-		tool(new,c/maximum)
+		nl.append(c/maximum)
+	
+	del cp
+	
+	final = []
+	
+	ratio = topvalue / max(nl)
+	for n in nl:
+		final.append(n * ratio)
+	
+	return final
 		
-	return new
-		
+def pull_tails(iterator,top = 1,bottom = 0):
+	cp = tuple(iterator)
+	nw = []
+	for x in cp:
+		if x < bottom:
+			nw.append(bottom)
+		elif x > top:
+			nw.append(top)
+		else:
+			nw.append(x)
+	return nw
 	
 	
 	
-	
+
+

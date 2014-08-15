@@ -1105,19 +1105,24 @@ class Evaluator(object):
 		if use_stored_values: # we use values filled in at runtime, instead of computing them again
 			progressions = {}
 			godprog = []
+			bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 			for out in self.iter_values():
-				print("\rComputing god's regrets...",end = '')
-				godprog.append( out.get('god_regrets'), out['BlackBox'].regrets())
+				bar()
+				greg = out.get('god_regrets')
+				if not greg:
+					greg = out['BlackBox'].regrets()
+					out['god_regrets'] = greg
+					
+				godprog.append(greg)
 				
-				print("\rAngels...                 ",end = '')
 				for angel in out["average_precision_of_algorithms"]:
 					
 					if not angel in progressions:
 						progressions[angel] = []
 					
 					progressions[angel].append( out["average_precision_of_algorithms"][angel]['regrets'] ) # which was filled in at test runtime
-			
-			print("\rPlotting...                   ",end = '')
+			print()
+			print("Plotting...                   ",end = '')
 			
 			for angel,prog in progressions.items():
 				lab.plot(prog,label = "{}'s regrets".format(angel))
