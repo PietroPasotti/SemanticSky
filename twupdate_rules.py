@@ -2,6 +2,7 @@
 
 from semanticsky_utilityfunctions import ctype,avg,diff,pull_tails
 import math
+from group import Group
 
 class TWUpdateRule(object):
 	"""
@@ -268,7 +269,7 @@ class TWUpdateRule(object):
 		can then be used to give actual output.
 		"""
 		
-		def dummy(beliefset,angel = None):
+		def dummy(beliefset,angel = None,antigravity_override = None):
 			"""
 			Dummy.
 			
@@ -278,7 +279,7 @@ class TWUpdateRule(object):
 			
 			return beliefset
 		
-		def linear(beliefset,angel,top = 1,factor = 0.2):
+		def linear(beliefset,angel,top = 1,factor = 0.2,antigravity_override = None):
 			"""
 			Performs a translation of all beliefsets after retrieving
 			a gravity point as for the exponential equalizer.
@@ -291,7 +292,10 @@ class TWUpdateRule(object):
 									else oldvalue
 			"""
 			
-			antigrav = ANTIGRAVITY(beliefset,angel)
+			if antigravity_override:
+				antigrav = antigravity_override(beliefset,angel)
+			else:
+				antigrav = ANTIGRAVITY(beliefset,angel)
 			# this is the point where the pushing moment will originate from.
 			
 			newbset = {}
@@ -311,7 +315,7 @@ class TWUpdateRule(object):
 				
 			return newbset
 		
-		def exponential(beliefset,angel,factor = 1.3):
+		def exponential(beliefset,angel,antigravity_override = None):
 			"""
 			This function pushes to the borders of the [0,1] spectrum the 
 			values of the beliefset. This is achieved by first computing 
@@ -330,9 +334,12 @@ class TWUpdateRule(object):
 			Then, all values get scaled accordingly and the resulting beliefset
 			is returned.
 			"""
-			antigrav = ANTIGRAVITY(beliefset,angel)
-			
-			curve = lambda x,antigrav : (x + 1.3**(x-antigrav) - 1) if antigrav < x else (x + 1.3**(- (antigrav-x)) - 1) if antigrav > x else x
+			if antigravity_override:
+				antigrav = antigravity_override(beliefset,angel)
+			else:
+				antigrav = ANTIGRAVITY(beliefset,angel)
+							
+			curve = lambda x,antigrav : x ** (1 + ((antigrav-x)/(1-g)))
 			
 			newbset = {}
 			
@@ -349,7 +356,7 @@ class TWUpdateRule(object):
 				
 			return newbset
 			
-		def circular(beliefset,angel,maxbonus = False):
+		def circular(beliefset,angel,maxbonus = False,antigravity_override = None):
 			"""
 			Similar to exponential, but we take the circles whose radius
 			is equal to the distance between the medium point of  the 
@@ -376,8 +383,11 @@ class TWUpdateRule(object):
 					output = x			
 			
 			"""
-			antigrav = ANTIGRAVITY(beliefset,angel)
-			
+			if antigravity_override:
+				antigrav = antigravity_override(beliefset,angel)
+			else:
+				antigrav = ANTIGRAVITY(beliefset,angel)	
+					
 			def curve(x,antigrav,maxbonus = False):
 				if antigrav < x:
 					output = x+((1-x)*(((1-antigrav)/2)/(((1-antigrav)/2)-((1-((1-antigrav)/2))-x)))) 
@@ -409,7 +419,10 @@ class TWUpdateRule(object):
 				newbset[belief] = value
 				
 			return newbset
-			
-TWUpdateRule.set_antigravity('average_of_average_TF')	
-TWUpdateRule.set_equalizer('exponential')	
-TWUpdateRule.set_merger('classical_merger')
+		
+@Group
+def init_base():	
+	TWUpdateRule.set_antigravity('average_of_average_TF')	
+	TWUpdateRule.set_equalizer('exponential')	
+	TWUpdateRule.set_merger('classical_merger')
+	
