@@ -649,47 +649,38 @@ def evaluate_status(god):
 	out = {}
 	
 	beltrue = tuple(god.believes(x) for x in knower.evaluation)
-	avgbeltrue = sum(beltrue) / len(beltrue) if beltrue else 0
-	
 	belfalse = tuple(god.believes(x) for x in god.beliefs if x not in knower.evaluation)
-	avgbelfalse = sum(belfalse) / len(belfalse) if belfalse else 0
-	
 	belall = tuple(god.beliefs.values())
-	avgbelall = sum(belall) / len(belall) if belall else 0
 	
 	out['average_strength_of_god_beliefs'] = {}
-	out['average_strength_of_god_beliefs']['in true beliefs'] = avgbeltrue
-	out['average_strength_of_god_beliefs']['in false beliefs'] = avgbelfalse
-	out['average_strength_of_god_beliefs']['in all beliefs'] = avgbelall
+	out['average_strength_of_god_beliefs']['in true beliefs'] = avg(beltrue)
+	out['average_strength_of_god_beliefs']['in false beliefs'] = avg(belfalse)
+	out['average_strength_of_god_beliefs']['in all beliefs'] = avg(belall)
 	out['god_regrets'] = god.regrets()
 	
 	out["average_precision_of_algorithms"] = {}
 	
 	for ga in god.guardianangels:
-		truebels = tuple(set(knower.evaluation).intersection(ga.evaluation))
-		trueconfs = tuple(ga.evaluation[x] for x in truebels) # unweighted confidences in true beliefs
+		truebels = tuple(set(knower.evaluation).intersection(ga.evaluation)) # if evaluations are loaded, this will screw up the averages
+		trueconfs = tuple(ga.evaluation[x] for x in truebels if x in god.logs) # unweighted confidences in true beliefs
+		# if evaluations are loaded, this will screw up the averages. So, we add 'if x in god.logs' to ensure that a clue was produced.
 		
 		falsebels = tuple(set(ga.evaluation).difference(truebels))
-		falseconfs = tuple(ga.evaluation[x] for x in falsebels) 
-		avgallbels = avg(ga.evaluation.values())
-	
-		avgtruebels = avg(trueconfs)
-		avgfalsebels = avg(falseconfs)
+		falseconfs = tuple(ga.evaluation[x] for x in falsebels if x in god.logs) 
 		
 		out["average_precision_of_algorithms"][ga.name] = {}
 		out["average_precision_of_algorithms"][ga.name]['unweighted'] = {}
-		
-		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in true links'] = avgtruebels
-		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in false links'] = avgfalsebels
-		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in all links'] = avgallbels
+		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in true links'] = avg(trueconfs)
+		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in false links'] = avg(falseconfs)
+		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in all links'] = avg(ga.evaluation.values())
 		
 		wevaluation = {belief: ga.belief_with_feedback(belief) for belief in ga.evaluation}
 		
 		wtruebels = tuple(set(knower.evaluation).intersection(wevaluation))
-		wtrueconfs = tuple(wevaluation[x] for x in wtruebels)	# weighted confidences in true beliefs
+		wtrueconfs = tuple(wevaluation[x] for x in wtruebels if x in god.logs)	# weighted confidences in true beliefs
 		
 		wfalsebels = tuple(set(wevaluation).difference(truebels))
-		wfalseconfs = tuple(wevaluation[x] for x in wfalsebels) # weighted confidences in false beliefs
+		wfalseconfs = tuple(wevaluation[x] for x in wfalsebels if x in god.logs) # weighted confidences in false beliefs
 		
 		wavgallbels = avg(wevaluation.values())
 	
@@ -1373,9 +1364,10 @@ class Evaluator(object):
 		if show:
 			self.show()
 
-	def plot_ga_average_belief_in_links(self,linktype = True,gas = False,includegod = True, show = True,legend = True,uselogged = True):
+	def plot_ga_average_belief_in_links(self,linktype = True,gas = False,includegod = True, show = True,legend = True):
 		
 		beliefs = {ga:[] for ga in self.guardian_names()}
+		beliefs['God'] = []
 		
 		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 		for out in self.iter_values():
@@ -1384,35 +1376,9 @@ class Evaluator(object):
 				
 			bar()
 			
-			allbeliefs = {}
+			allbeliefs = {name: [] for name in self.guardian_names()}
 			
-			transdict = {True: 'average belief in true links',
-						False: 'average belief in false links',
-						None: 'average belief in all links'}
-			godtransdict = {True: 'in true beliefs', False : 'in false beliefs', None: 'in all beliefs'}
-			
-			wanted = transdict[linktype]
-			
-			if uselogged:
-				try:
-					
-					for ga in self.guardian_names():
-						gaverage = out['average_precision_of_algorithms'][ga]['weighted'][wanted]
-						beliefs[ga].append(gaverage)
-					
-					if includegod: 
-						if not 'God' in beliefs:
-							beliefs['God'] = []
-							
-						beliefs['God'].append(out['average_strength_of_god_beliefs'][godtransdict[linktype]])
-					
-					
-					continue # next loop
-				except BaseException:
-					uselogged = False
-					pass # computes them all over
-			
-			for log,cluelist in box.logs.items():
+			for log,cluelist in box.logs.items(): # we read the logs and extract all weighted values of clues of the given linktype
 				
 				if linktype is True: # we take only true links
 					if log not in box.truths: # i.e. those which are in truths
@@ -1428,12 +1394,7 @@ class Evaluator(object):
 				# here cluelist is a list of guesses by some algs about something of the desired category
 					
 				for clue in cluelist:
-					name,unweighted,weighted = clue # unpack stored values
-					
-					if not allbeliefs.get(name):
-						allbeliefs[name] = []
-						
-					allbeliefs[name].append(weighted)
+					allbeliefs[clue[0]].append(clue[2]) # name,unweighted,weighted = clue unpack stored values
 				
 				if includegod:
 					if not allbeliefs.get('God'):
@@ -1445,6 +1406,8 @@ class Evaluator(object):
 			
 			for name,believeds in allbeliefs.items():
 				averaged = avg(believeds)
+				
+				beliefs[name].append(averaged)
 							
 		bar = tests.clues.ss.ProgressBar(len(beliefs),title = 'Normalizing')
 		toplen = max(len(x) for x in beliefs.values())

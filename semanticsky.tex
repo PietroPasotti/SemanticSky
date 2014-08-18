@@ -294,7 +294,7 @@ $\bullet \quad$ Step = 6: clouds were added back to the sky 6 by 6.
 
 $\bullet \quad$ Update rule = median of all feedbacks. The current trustworthiness of some angel relative to some link type (person-to-person, question-to-answer...) is the \emph{median} of all the feedback he has ever received about links with that link type. Other available solutions include averaging (sum(all feedbacks)/ len(all feedbacks)) and step-by-step averaging (value = (previous value + value) / 2).
 
-$\bullet \quad$ Merging rule = standard merge. This affects how the new suggested value (as computed by the update rule) is merged with the previous one. Extremes include ignoring it and replacing the latter with the former. The standard merge is:
+$\bullet \quad$ Merging rule. This affects how the new suggested value (as computed by the update rule) is merged with the previous one. Extremes include ignoring it and replacing the latter with the former. The standard merge is:
 \[new\_value = previous\_value - [(previous\_value - new\_value) * learning\_rate] \]
 
 This is, at each loop of the test, the average value of each agent's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are there.
@@ -507,7 +507,7 @@ The same test, with different parameters (learning rate $= 0.2$, update rule = \
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/guardians_regrets_average_no_punish_lr08_FULL.pdf}\hspace{-355pt} Figure \themyfigure : regrets on true links }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/regrets_ontrue.pdf}\hspace{-355pt} Figure \themyfigure : regrets on true links }%
 	
   \end{picture}%
 \endgroup%
@@ -525,6 +525,7 @@ Summing up, tests of this kind were ran with the following parameters:
 \item Step by step average, learning rate 0.2.
 
 \item Median and average, learning rate 0.2, punish = True\footnote{This means that feedback was given not on known truths but also on unknown pairs (which, we remind, are assumed to have similarity $0$'). More on this in the appendix.}.
+\end{itemize}
 
 From these tests clearly emerged that regret on true links (figures 3 and 6) stably decreased, but average belief in true links stays as low as 0.05.
 
@@ -534,9 +535,79 @@ This doubt is easily dispelled, and the answer follows in a graph.
 
 \# GRAPH
 
+\stepcounter{myfigure}
+\def\svgwidth{550pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/regrets_for_series_of_weights_ontrue.pdf}\hspace{-375pt} Figure \themyfigure : regrets on true links : absolute }%
+	
+  \end{picture}%
+\endgroup%
+
+This graph represents what happens to a belief set whose weights have been all set to 1 (their initial value), if we assign to it the weights as they have come out of the test we just described. Each step on the $x$ axis then represents the non-cumulative regret at that moment, and depends solely on the weights we have assigned to the system at that step.
+
+As the weights evolve (via feedback) from their initial value to their final one, we can see that the regrets for true links is actually increasing.
+
+Even though, if we don't just look at true links, regrets are falling:
 
 
-\end{itemize}
+\stepcounter{myfigure}
+\def\svgwidth{550pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/regrets_for_series_of_weights.pdf}\hspace{-375pt} Figure \themyfigure : regrets on all links : absolute }%
+	
+  \end{picture}%
+\endgroup%
+
+
+
 
 
 
