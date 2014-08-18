@@ -9,8 +9,8 @@ import twupdate_rules as updaterules
 @Group
 def init_globals():
 	global pickle, sqrt,crop_at_nonzero,regret,CLUES,AGENTS,GUARDIANANGELS,god,anonymous,codedict,knower
-	global belief_inertia, learningspeed, negative_feedback_learningspeed_reduction_factor, differentiate_learningspeeds
-	global equalization,default_equalizer
+	global learningspeed, negative_feedback_learningspeed_reduction_factor, differentiate_learningspeeds
+	global equalization,default_equalizer,normalization_of_trustworthinesses,feedback_production_rule, god_learningspeed
 	
 	pickle = ss.pickle
 	sqrt = algs.sqrt
@@ -25,13 +25,15 @@ def init_globals():
 	codedict = None 
 	knower = None
 
-	belief_inertia = 0.03
+	god_learningspeed = 0.8
 	learningspeed = 0.2 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
 	negative_feedback_learningspeed_reduction_factor = 50
-	differentiate_learningspeeds = True
+	differentiate_learningspeeds = False
 	equalization = True
 	default_equalizer = updaterules.EQUALIZER
-		
+	normalization_of_trustworthinesses = False
+	feedback_production_rule = updaterules.TWUpdateRule.builtin_feedback_rules.dummy
+	
 	return
 	
 class Feedback(object):
@@ -416,13 +418,13 @@ class Agent(object):
 			
 			global default_updaterule, learningspeed, negative_feedback_learningspeed_reduction_factor
 			
-			if feedback.sign == '-':
+			if feedback.sign == '-' and differentiate_learningspeeds:
 				LS = learningspeed / negative_feedback_learningspeed_reduction_factor
 				# for negative feedback we give less impacting feedback.
 			else:
 				LS = learningspeed
 			
-			self.stats['relative_tw'][ctype] = default_updaterule(self.stats['relative_tw'][ctype], feedback, learningspeed,self)	
+			self.stats['relative_tw'][ctype] = default_updaterule(self.stats['relative_tw'][ctype], feedback, LS, self)	
 			
 		else:
 			print('feedback ignored: about unhandleable (type :  {})'.format(type(about)))
@@ -457,15 +459,26 @@ class Agent(object):
 		self.stats['trustworthiness'] = sum(self.stats['relative_tw'].values()) / len(self.stats['relative_tw']) if self.stats['relative_tw'] else self.stats['trustworthiness']
 		return self.stats['trustworthiness']
 	
+	def normalize_tw(self,weight):
+		"""
+		Transforms a weight into a weight relative to the agent's maximum
+		relative trustworthiness, so that some tw is always one.
+		"""
+		
+		return weight / max(self.stats['relative_tw'].values()) # returns a value between 0 and 1
+	
 	def get_tw(self,clue):
 		"""
 		Returns the relative tw if available; else returns overall trustworthiness
 		"""
 		
-		relative = self.relative_trustworthiness(clue)
+		contextual = self.relative_trustworthiness(clue)
 		
-		if relative:
-			return relative
+		if contextual:
+			if normalization_of_trustworthinesses:
+				return self.normalize_tw(contextual)
+			else:
+				return contextual
 		else:
 			return self.trustworthiness
 			
@@ -742,12 +755,7 @@ class GuardianAngel(Agent,object):
 		#### ------------ ####
 		
 		return True
-			
-		
-		
-		
-		
-		
+	
 	def belief_without_feedback(self,pair):
 		return self.evaluation.get(pair,0)
 	
@@ -937,22 +945,14 @@ class Knower(GuardianAngel,object):
 
 			if clue.agent is self:
 				continue
-				
-			eva = self.evaluation.get(clue.about,0) # evaluation is 0 iff not 1
-				
-			diff = lambda x,y: max([x,y]) - min([x,y])
-
-			vals = (clue.value,eva) # how much SELF evaluates it and the other does
-			# we take the RAW == UNWEIGHTED VALUE, so as to avoid recursion and self-reinforcement. What matters is how he thinks it is ('raw' value),
-			# not what we take out of what he thinks it is (weighted value)
-			
-			our_rating = 1 - diff(*vals) # it will be higher for similar evaluations
+					
+			myrating = feedback_production_rule(clue,self)
 			
 			sign = '+' if eva else '-' # the sign of a feedback is + iff, whatever the confidence of the feedbacked is, his suspect was correct
 			# insofar as the link is actually there.
 			
 			# self's opinion on the clue's about.
-			self.feedback(clue.agent,clue.about,our_rating,sign,checkforduplicates = False)  # actually produces a Feedback object and sends it through
+			self.feedback(clue.agent,clue.about,myrating, sign,checkforduplicates = False)  # actually produces a Feedback object and sends it through
 		
 		if verbose:
 			print()
@@ -1001,6 +1001,7 @@ class God(object):
 		self.totcluecount = 0
 		self.ignoreds = []
 		self.name = 'Yahweh'
+		self.beliefs = {}
 		
 		self.merging_strategy = merging_strategy # this is what god does to merge his angel's opinions into one.
 				
@@ -1053,6 +1054,7 @@ class God(object):
 		self.cluecount = 0
 		self.totcluecount += oldcount
 		return oldcount
+	
 		
 	# HANDLERS
 	def handle_metaclue(self,metaclue):
@@ -1117,58 +1119,26 @@ class God(object):
 		Where clue is a clue about anything believable by god.
 		"""
 		
-		if isinstance(clue.about,Agent):
-			print('warning: updating beliefs with a feedback clue')
-		
-		if clue.agent in self.ignoreds:  ######### IGNORING
-			return None
-		
-		if not getattr(self,'beliefs'):
-			self.beliefs = {}
-		
 		if not self.beliefs.get(clue.about,False):
-			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'do you believe x?' default answer is 'no'
-					
-		previous_belief = self.beliefs[clue.about]
+			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'does God believe x?' default answer is 'no'
 		
 		preclue = self.has_already_guessed(clue)
 		if preclue: # if the agent has already clue'd about that link or object, we assume he has changed his mind:
 			self.logs[clue.about].remove(preclue)	# his previous clue is erased from the history
 													# and the value of the belief in about is updated to the average of the values still in the history
-
 		###### UPDATE ALGORITHM
 		
-		global belief_inertia
-		inertia = belief_inertia
+		global god_learningspeed
+		from belieftests import avg
 		
-		VALUE = clue.weightedvalue()
+		previous_value = self.believes(clue.about)
+		new_value = avg(clue.weightedvalue() for clue in self.logs[clue.about])
+	
+		new_learned_value = updaterules.TWUpdateRule.builtin_mergers.classical_merger(previous_value,new_value,god_learningspeed)
 		
-		if not previous_belief > 0: # no previous belief: inertia doesn't apply
-			after_update = 	VALUE
+		### we use a classical merge!! function of previous value, new value and learningspeed
 		
-		else:
-			if VALUE > previous_belief: # the belief is growing:
-				# inertia will push it down
-				inertia_strength = (VALUE - previous_belief) * inertia # if inertia is 0.3, the 30% of all 'changes of mind' will be ignored
-			
-			elif previous_belief > VALUE: # belief is being devaluated
-				
-				inertia_strength = (previous_belief - VALUE) * inertia
-			
-			else:
-				inertia_strength = 0
-			
-			after_update = ( (VALUE + previous_belief) / 2 ) - inertia_strength
-		
-		#####
-
-		# positive factor: the previous belief. If previous belief was high, to take it down will take some effort.
-		# negative factor: the value of a clue: that is, the strength and direction of the clue.
-		# 	the negative factor in turn is affected by the trustworthiness of he who formulated it.
-		#	by logging these clues' execution, we can know when an Agent gave 'bad' feedback: that is, feedback that was
-		#	later contradicted by many feedbacks on the opposite direction.
-		
-		self.beliefs[clue.about] = after_update		
+		self.beliefs[clue.about] = new_learned_value
 	
 	
 	# LOGGERS
@@ -1750,9 +1720,8 @@ class God(object):
 		This clearly entails that if the ga's evaluation is empty or ill
 		formed, the result will always be wrong.
 		
-		If update is set to false, the rebelief also affects god's current
-		state (i.e. his beliefs are updated to the output of rebelief).
-		Useful for refresh.
+		WARNING: modifies god's belief bank to match the output. Thus, all
+		effects of learningspeed are lost.
 		"""
 		
 		if something in self.logs and self.logs[something]:

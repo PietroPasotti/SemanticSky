@@ -64,7 +64,7 @@ def equate_all_links(god,angels):
 		
 	pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
 
-	print('\t\tParallelising beliefs... (May take a while)')
+	print('\t\tParallelising beliefs of {}, {}... (May take a while)'.format(god,angels))
 		
 	for ga in angels:
 		
@@ -77,7 +77,6 @@ def equate_all_links(god,angels):
 
 			ga.evaluation[truelink] = ev
 			
-			bar(i/totln,title= 'Aliasing [{}]:'.format(ga))
 			i+=1			
 		print()
 		
@@ -490,6 +489,9 @@ def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh on
 										punish_false_negatives = False): 	# if this flag goes true, the knower will give negative feedback also for all the
 																			# links that are NOT in his evaluation. This means TONS of (mostly useless) negative feedback.
 	
+	global punish
+	punish = punish_false_negatives
+	
 	if differentiation_of_learningspeeds > 1:
 		tests.clues.differentiate_learningspeeds = True
 		tests.clues.negative_feedback_learningspeed_reduction_factor = differentiation_of_learningspeeds
@@ -498,7 +500,6 @@ def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh on
 		tests.clues.differentiate_learningspeeds = False
 		tests.clues.negative_feedback_learningspeed_reduction_factor = 1		
 			
-	
 	if learningspeed:
 		tests.clues.learningspeed = learningspeed
 	
@@ -519,6 +520,8 @@ def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh on
 	knower = getknower(god)
 	if not knower.evaluation:
 		knower.evaluate_all(express = False)
+	else:
+		equate_all_links(god,knower)
 	
 	print()
 	print('removing tag-similarity angels...')
@@ -724,6 +727,9 @@ def feedback_only_test(	god = None,
 						differentiation_of_learningspeeds = 50,
 						punish_false_negatives = False):
 	
+	global punish
+	punish = punish_false_negatives 
+	
 	if differentiation_of_learningspeeds > 1:
 		tests.clues.differentiate_learningspeeds = True
 		tests.clues.negative_feedback_learningspeed_reduction_factor = differentiation_of_learningspeeds
@@ -745,6 +751,7 @@ def feedback_only_test(	god = None,
 		
 	god = setup_full_god(god)
 	knower = getknower(god)
+	equate_all_links(god,knower)
 	god.remove_tag_similarity_angels()
 	
 	out = {}
@@ -810,17 +817,28 @@ def set_merging_rule(name):
 	print('\ntwupdate_rules.MERGER default now points to ' + wrap(name,'brightred'))
 
 def printparams(local = False):
+	"""
+	Stores a number of globals useful to reconstruct the experiment.
+	"""
 	
 	totable = [
+	['god_learningspeed', tests.clues.god_learningspeed  ],
 	['learningspeed' , tests.clues.learningspeed],
 	['ls_reduction_factor' , tests.clues.negative_feedback_learningspeed_reduction_factor],
 	['differentiation_of_learningspeeds',tests.clues.differentiate_learningspeeds],
 	['equalization',tests.clues.equalization],
 	['default_equalizer',tests.clues.default_equalizer.__name__],
 	['default_updaterule',tests.clues.default_updaterule.__name__],
-	['belief_inertia (god)',tests.clues.belief_inertia],
-	['merger' , tests.clues.updaterules.MERGER.__name__]
+	['merger' , tests.clues.updaterules.MERGER.__name__],
+	['normalization_of_tws', tests.clues.normalization_of_trustworthinesses],
+	['feedback_production_rule', tests.clues.feedback_production_rule.__name__   ]
 	]
+	
+	try:
+		totable.append(	['punish',punish]	)
+	except NameError:
+		totable.append(['punish',False])
+	
 	if not local:
 		table(totable)
 	else:
@@ -1442,12 +1460,12 @@ class Evaluator(object):
 			
 		return
 
-	def show_lines_TF(self,angels = []):
+	def show_lines_TF(self,angels = [],inino = 0,endno = 1):
 		
 		allbbs = list(self.iter_values())
 		
-		bb_ini = allbbs[0]
-		bb_end = allbbs[len(allbbs) - 1]
+		bb_ini = allbbs[inino]
+		bb_end = allbbs[ len(allbbs) - endno]
 		
 		del allbbs
 		

@@ -104,6 +104,39 @@ class TWUpdateRule(object):
 		ANTIGRAVITY = function
 		
 		return ANTIGRAVITY
+	
+	class builtin_feedback_rules():
+		"""
+		This class groups a few algorithms for computing the value of
+		a feedback to a clue, given all sorts of initial parameters.
+		
+		For instance, one way is to give feedback whose meaning is 'your
+		evaluation was worth *value*'; another is to give feedback the
+		meaning of which is 'your evaluation should have been *value*':
+		which corresponds to the dummy.
+		"""
+		
+		def dummy(clue,feedbacking_agent):
+			"""
+			Returns the value of the clue's about according to feedbacking_agent:
+			that is: what would feedbacking_agent have valued the clue's 
+			about.
+			"""
+			
+			return feedbacking_agent.evaluation.get(clue.about,0)
+			
+		def difference(clue,feedbacking_agent):
+			"""
+			Returns a value the closer to 0 the most the (UNWEIGHTED) evaluation
+			of the feedbacking_agent and the evaluation suggested by the 
+			clue differ.
+			"""
+			
+			diff = lambda x,y: max([x,y]) - min([x,y])
+			
+			adiff = diff(clue.value,feedbacking_agent.evaluation.get(clue.about,0))
+			
+			return adiff
 		
 	class builtin_mergers():
 		

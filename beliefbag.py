@@ -4,8 +4,8 @@ import twupdate_rules
 
 class BeliefBag(dict,object):
 	
-	def __init__(self,owner,iterable,equalizer,weightset = None,antigravity = None,antigrav_updaterate = 5):
-		super().__init__()
+	def __init__(self,iterable,owner,equalizer,weightset = None,antigravity = None,antigrav_updaterate = 5):
+		dict.__init__(self,iterable)
 		
 		self.owner = owner
 		self.equalizer = equalizer
@@ -21,16 +21,28 @@ class BeliefBag(dict,object):
 		
 		if weightset and antigravity:
 			self.update_antigrav()
+	
+	def __str__(self):
+		return "< BeliefBag of {}. >".format(self.owner)
+
+	def __repr__(self):
+		return "< BeliefBag of {}. >".format(self.owner)
 		
 	def raw_items(self):
 		return self.items()
+
+	def weighted_belief_set(self):		
+		return dict(self.iter_weighted_items())
+
+	def equalized_belief_set(self):
+		return dict(self.iter_equalized_items())
 		
-	def iter_weighted_items():
+	def iter_weighted_items(self):
 		
 		for item,value in self.raw_items():
 			yield (item, self.weighted(item))
 		
-	def iter_equalized_items():	
+	def iter_equalized_items(self):	
 		
 		for item,value in self.raw_items():
 			yield (item,self.equalized(item))
