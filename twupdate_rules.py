@@ -105,6 +105,23 @@ class TWUpdateRule(object):
 		
 		return ANTIGRAVITY
 	
+	def set_feedback_rule(function):
+		
+		global FEEDBACKRULE
+		
+		if isinstance(function,str):
+			try:
+				function = getattr(TWUpdateRule.builtin_feedback_rules, function)
+			except AttributeError:
+				raise AttributeError('Bad choice. Builtin feedback rules are: {}.'.format([function.__name__ for function in TWUpdateRule.builtin_feedback_rules.__dict__.values() if hasattr(function,'__call__')]))
+		
+		if not hasattr(function,'__call__'):
+			raise BaseException('The provided function is not callable.')
+		
+		FEEDBACKRULE = function
+		
+		return FEEDBACKRULE
+	
 	class builtin_feedback_rules():
 		"""
 		This class groups a few algorithms for computing the value of
@@ -496,8 +513,9 @@ class TWUpdateRule(object):
 			return newbset
 		
 @Group
-def init_base():	
+def SETUP_DEFAULTS():	
 	TWUpdateRule.set_antigravity('average_of_average_TF')	
 	TWUpdateRule.set_equalizer('exponential')	
 	TWUpdateRule.set_merger('classical_merger')
+	TWUpdateRule.set_feedback_rule('difference')
 	

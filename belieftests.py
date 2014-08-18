@@ -485,7 +485,7 @@ def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh on
 										updaterule = False, # default is step_by_step_ls: newvalue = (previousvalue + newvalue) / 2
 										learningspeed = False, # default is 0.2 (or as defined at clues.learningspeed). Useful only if mergingrule takes learning speed into account!
 										mergingrule = False, # default points to learningrate classical merging of previous/new value
-										differentiation_of_learningspeeds = 50, # if this flag goes false (or 1), differentiation is off.
+										differentiation_of_learningspeeds = 0, # if this flag is false (or 1), differentiation is off.
 										punish_false_negatives = False): 	# if this flag goes true, the knower will give negative feedback also for all the
 																			# links that are NOT in his evaluation. This means TONS of (mostly useless) negative feedback.
 	

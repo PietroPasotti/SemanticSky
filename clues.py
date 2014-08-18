@@ -29,10 +29,10 @@ def init_globals():
 	learningspeed = 0.2 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
 	negative_feedback_learningspeed_reduction_factor = 50
 	differentiate_learningspeeds = False
-	equalization = True
+	equalization = False
 	default_equalizer = updaterules.EQUALIZER
 	normalization_of_trustworthinesses = False
-	feedback_production_rule = updaterules.TWUpdateRule.builtin_feedback_rules.dummy
+	feedback_production_rule = updaterules.FEEDBACKRULE # which is the default
 	
 	return
 	
@@ -948,7 +948,7 @@ class Knower(GuardianAngel,object):
 					
 			myrating = feedback_production_rule(clue,self)
 			
-			sign = '+' if eva else '-' # the sign of a feedback is + iff, whatever the confidence of the feedbacked is, his suspect was correct
+			sign = '+' if self.evaluation.get(clue.about) else '-' # the sign of a feedback is + iff, whatever the confidence of the feedbacked is, his suspect was correct
 			# insofar as the link is actually there.
 			
 			# self's opinion on the clue's about.
@@ -1134,9 +1134,9 @@ class God(object):
 		previous_value = self.believes(clue.about)
 		new_value = avg(clue.weightedvalue() for clue in self.logs[clue.about])
 	
-		new_learned_value = updaterules.TWUpdateRule.builtin_mergers.classical_merger(previous_value,new_value,god_learningspeed)
+		new_learned_value = updaterules.MERGER(previous_value,new_value,god_learningspeed)
 		
-		### we use a classical merge!! function of previous value, new value and learningspeed
+		### we use the default merge!! function of previous value, new value and learningspeed
 		
 		self.beliefs[clue.about] = new_learned_value
 	
