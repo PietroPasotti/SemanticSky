@@ -38,8 +38,8 @@ SemanticSky (currently) is a program which, given as input a set of documents, o
 The main steps through which this is achieved follow:
 
 \begin{itemize}
-\item First, each document is transformed into a {\bf Cloud}: an object which theoretically should encapsulate all the information we can extract from the base document. Examples include: names of people mentioned in the document, names of places, statistically frequent word and frequently co-occurring pairs of words.
-\item  Secondly, these clouds are pairwise evaluated by a list of algorithms, called {\bf Guardian Angels} which try to judge their similarity based on different and possibly complementary criteria.
+\item First, each document is transformed into a {\bf Cloud}: an object which theoretically should encapsulate all the information we can extract from the base document. Examples include: names of people mentioned in the document, names of places, statistically frequent word and frequently co-occurring (at a sentence level) pairs of words.
+\item  Secondly, these clouds are pairwise evaluated by a list of algorithms called {\bf Guardian Angels} which try to judge their similarity based on different and possibly complementary criteria.
 \item Finally, the evaluations of the Guardian Angels are merged into a single one, which represents the final state of the system, at this stage.
 \end{itemize}
 
@@ -286,9 +286,7 @@ First I will write down clearly and discuss, where needed, the parameters I used
 
 $\bullet \quad$ Learning rate $= 0.2$.
 
-$\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.
-
-In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links currently not in Starfish and mistakenly captured by the guardians as similar. Maybe in the future it will be interesting to see how the outcome changes setting this flag to true.
+$\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.\footnote{In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links currently not in Starfish and mistakenly captured by the guardians as similar. For further discussion and a test with punish True, see Appendix .}
 
 To state this more clearly: guardians receive feedback only on items in the knower's database = Starfish's database. The valuation they get for some link, namely, is $1 - $ their current rating of the link.
 
@@ -330,7 +328,7 @@ We can see how the values increase and (seem to) stabilize after around 45 itera
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_true_links_median_no_punish_lr02_FULL.pdf}\hspace{-300pt} Figure \themyfigure}%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_true_links_median_no_punish_lr02_FULL.pdf}\hspace{-355pt} Figure \themyfigure: belief in true links}%
   \end{picture}%
 \endgroup%
 
@@ -366,7 +364,7 @@ The convergence is much faster because there are many more false links than true
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_false_links_median_no_punish_lr02_FULL.pdf}\hspace{-300pt} Figure \themyfigure}%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_false_links_median_no_punish_lr02_FULL.pdf}\hspace{-355pt} Figure \themyfigure: belief in false links}%
   \end{picture}%
 \endgroup%
 
@@ -400,11 +398,11 @@ Finally, these are the (non-cumulative) regrets of all angels and God itself.
   \makeatother%
   \begin{picture}(1,0.50366032)%
     \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/guardians_regrets_median_no_punish_lr02_FULL.pdf}
-    \hspace{-300pt} Figure \themyfigure }%
+    \hspace{-360pt} Figure \themyfigure: regrets on true links }%
   \end{picture}%
 \endgroup%
-
-Regret (at stage $n$, for angel $A$) was computed as follows: $sum$($(1 - A.belief\_in(x))$ for $x$ in $all\_truths$ ), where $all\_truths$ is a list of all links actually existing in Starfish (that is: the Knower's database).
+\vspace{5pt}
+Regret (for angel $A$) was computed as follows: $sum$($(1 - A.belief\_in(x))$ for $x$ in $all\_truths$ ), where $all\_truths$ is a list of all links actually existing in Starfish (that is: the Knower's database).
 
 The angels whose regrets don't decrease are the tag-similarity angels (hidden for clarity's sake in the next plots). Currently lacking Starfish any data about how similar two tags are, no link of that type (tag-to-tag) is available in Starfish, and all the feedback will be negative.
 
@@ -412,11 +410,11 @@ This also means that their trustworthiness (relative to the only type of link th
 
 One nice thing to notice is that all the algorithms' regret increment is stably decreasing: there is no faulty learner.
 
-One can also notice that god's line is not the simple average of the other lines, but is a weighted average: it will be influenced (negatively) proportionally to the regrets of the angels: an high-regrets angel will probably have low average weights, and thus influence less god's beliefs (and thus, god's regrets).
+One can also notice that god's line is not the simple average of the other lines, but is a weighted average: it will be influenced (negatively) proportionally to the regrets of the angels: an high-regrets angel will probably have low average weights, and thus influence less god's beliefs (and finally, god's regrets).
 
 \paragraph{A few extra facts}:
 
-The same test, with different parameters (learning rate $= 0.8$, update rule = \emph{average} of all feedback) yields comparable results (though perhaps a bit less nice):
+The same test, with different parameters (learning rate $= 0.2$, update rule = \emph{average} of all feedback) yields comparable results (though perhaps a bit less nice):
 
 \stepcounter{myfigure}
 \def\svgwidth{500pt}
@@ -509,7 +507,7 @@ The same test, with different parameters (learning rate $= 0.8$, update rule = \
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/guardians_regrets_average_no_punish_lr08_FULL.pdf}\hspace{-300pt} Figure \themyfigure : regrets }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/guardians_regrets_average_no_punish_lr08_FULL.pdf}\hspace{-355pt} Figure \themyfigure : regrets on true links }%
 	
   \end{picture}%
 \endgroup%
@@ -517,17 +515,27 @@ The same test, with different parameters (learning rate $= 0.8$, update rule = \
 
 \subsubsection{Conclusions}
 
-\vspace{1cm}
 Summing up, tests of this kind were ran with the following parameters:
 
 \begin{itemize}
-\item Median, learning rates 0.2, 0.4, 0.5, 0.8, 1.
+\item Median, learning rates 0.2, 0.4(2), 0.5, 0.8, 1.
 
-\item Average, learning rates 0.4, 0.8, 1.
+\item Average, learning rates 0.4(2), 0.8, 1.
 
 \item Step by step average, learning rate 0.2.
 
 \item Median and average, learning rate 0.2, punish = True\footnote{This means that feedback was given not on known truths but also on unknown pairs (which, we remind, are assumed to have similarity $0$'). More on this in the appendix.}.
+
+From these tests clearly emerged that regret on true links (figures 3 and 6) stably decreased, but average belief in true links stays as low as 0.05.
+
+Also, since clouds were added in batches of 5 or 6, and regret on true links depends on the amount of true links available given the current cloud set, it's unclear whether the (final) regrets would have been lower, had the weights permanently all been set to 1.
+
+This doubt is easily dispelled, and the answer follows in a graph. 
+
+\# GRAPH
+
+
+
 \end{itemize}
 
 
@@ -540,13 +548,21 @@ Summing up, tests of this kind were ran with the following parameters:
 
 \subsection{Test 2: feedback.}
 
-The second test was altogether different. Instead of emptying the sky and adding back clouds, we first make a full analysis, and then slowly give feedback, monitoring the subsequent evolution of the belief state and the trustworthiness of the angels.
+The second test was altogether different. Instead of emptying the sky and adding back clouds, we first make a full analysis, and then slowly give feedback to all the clues produced during the initial analysis, monitoring the subsequent evolution of the belief state and the trustworthiness of the angels.
+
+This is clearly usable as a measure of how good or bad the system adapts to feedback, thus, of its learning capacity.
+
+
+
+
+
+
 
 
 
 
 \part{Appendices.}
-\section{Appendix 1: punishing.}
+\section{Punishing.}
 
 The decision to only give feedback on known truths (thus not penalising false positives [what I say is, but is not]) can be questioned. Also, no (negative) feedback is given on false negatives, and this is even more questionable.
 
@@ -580,7 +596,7 @@ Clearly if an angel had high confidence on some or many errors, the situation wo
 
 \paragraph{A backing experiment.}
 
-As a partial proof of the usefulness/correctness of this stance, we ran a test in which we set the punish flag to True, thus giving feedback to false positives (to give feedback on false negatives is currently just not possible in the framework, but it will in the future). Graphs of the outcome follows, and are rather self-explanatory.
+As a partial proof of the usefulness/correctness of this stance, we ran a test in which we set the punish flag to True, thus giving feedback to false positives (to give feedback on false negatives is currently just not possible in the framework, but it will in the future). Graphs of the outcome follows, and are rather self-explanatory. Update rule: median, learning speed 0.2. 
 
 \stepcounter{myfigure}
 \def\svgwidth{500pt}
@@ -674,7 +690,7 @@ As a partial proof of the usefulness/correctness of this stance, we ran a test i
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/newtests/regret_of_angels_median_lr05_punish_fulltest.pdf}\hspace{-300pt} Figure \themyfigure : regrets}%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/newtests/regret_of_angels_median_lr05_punish_fulltest.pdf}\hspace{-355pt} Figure \themyfigure : regrets only on true links}%
   \end{picture}%
 \endgroup%
 
@@ -684,7 +700,7 @@ As before, the two following figures represent the outcome of a different test (
 
 As you can see, also by comparing these figures to the previous (`healthy') ones, the regrets in this case touch the top (440) and seem stably hang to the asymptote. In the `all links' version of the regret calculation, on the other hand, we have an incredibly descending curve which stabilises at a very low value (1250 for God's regrets), against the 2000 top in the non-punish case(s).
 
-This is due to the fact that all trustworthiness ratios go down, and thus, being most links false (i.e. not in Starfish) the angel's guesses get statistically more correct as their weighted value approaches 0.
+This is due to the fact that all trustworthiness ratios go down, and thus, being most links false (i.e. not in Starfish) the angel's guesses get statistically more correct as their weighted value approaches 0. (This is also known as sample bias.)
 
 Of course we would like regrets to decrease (especially where God is concerned), but as you can see from the graph displaying the evolution of regrets on true links, this is not happening in an altogether desirable way.
 
@@ -758,6 +774,54 @@ Of course we would like regrets to decrease (especially where God is concerned),
     \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/newtests/evolution_of_regrets_onall_median_punish_ls05_full.pdf}\hspace{-340pt} Figure \themyfigure : evolution of regrets (on all links) }%
   \end{picture}%
 \endgroup%
+
+
+\section{Further testing: differentiating learning rates to counter sample bias and equalization to counter algorithms output bias.}
+
+During the first round of testing, we noticed that there were two important problems with the framework so far:
+\begin{itemize}
+\item a great sample bias (true links were 444, versus more than 21.000 false negatives in some cases).
+\item what I will call \textbf{output bias}: most algorithms' normalization of the output produced an uneven distribution of values pushed towards zero. Thus, the distance between the average of the values which received positive feedback (meaning that the guess was correct) and the average of the values which received a false feedback were quite near. If we want to call `confidence ratios' the raw outputs of the algorithms, we can phrase the problem by saying that the confidence ratios were on average very low (the highest average for all the algorithms being 0.3).
+\end{itemize}
+
+To counter the first, we tried to differentiate the learning rates for the positive and the negative feedback.
+
+To counter the latter, we tried to use what I will call an \textbf{equalizer}: a map from raw output of the algorithm to a more even distribution of values, evaluated online (or updated periodically) and eventually learned by the algorithms themselves, that tries to push apart the average of values that received a positive feedback and the average of these which received a negative one.
+
+The results follow.
+
+\section{Differentiation of learning rates.}
+A whole suite of experiments were run with a differentiation rate of 50: learning speed for negative feedback was set at 50 times lower than learning rate for positive feedback.
+
+\section{Equalization.}
+The first experiments (as discussed in the central sections of this report) showed that between average confidence ratios in true and false items there was a gap, although maybe little. Thus, simple thresholding might have worked in pulling them apart.
+
+We were hoping that through weighting of output / feedback, that gap would increase and be a more accurate division line between true and false links. Nonetheless, what typically occurred was as follows (update rule: median, learning speed 0.5):
+
+\# GRAPH
+
+ 
+
+Whereas, with differentiation of learning rates, this is what we have:
+ (the example is taken from an experiment with parameters update rule: median, learning speed 0.5):
+
+
+\# GRAPH
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

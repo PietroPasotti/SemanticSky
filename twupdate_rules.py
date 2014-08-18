@@ -229,7 +229,8 @@ class TWUpdateRule(object):
 		def dummy(beliefset,angel):
 			"""
 			Dummy.
-			Returns the middle point of the array of values.
+			Returns the middle point of the array of values extracted from 
+			the beliefset (that is: a dictionary from beliefs to [0,1] floats).
 			"""
 			
 			return max(beliefset.values()) / 2
@@ -269,6 +270,45 @@ class TWUpdateRule(object):
 		can then be used to give actual output.
 		"""
 		
+		class curves():
+			"""
+			Collector of (often lambda) functions used to compute equalized
+			points: for easy access in case we don't want to equalize a full
+			belief set and we already have the gravity point.
+			"""
+			
+			def dummy():
+				dummy = lambda x,y,z : x
+				
+			def linear():
+				curve = lambda oldvalue,antigrav,factor: oldvalue + factor if oldvalue > antigrav else oldvalue - factor if oldvalue < antigrav else oldvalue
+				return curve
+				
+			def exponential():
+				curve = lambda x,g : x ** (1 + (g-x) / (1-g)) if x > g else x ** (1 + (g-x) / (g)) if x < g else x
+				return curve
+			
+			def circular():
+				def curve(x,antigrav,maxbonus = False):
+					
+					if antigrav < x:
+						output = x+((1-x)*(((1-antigrav)/2)/(((1-antigrav)/2)-((1-((1-antigrav)/2))-x)))) 
+					elif antigrav > x:
+						output = x-((x)*(((1-antigrav)/2)/(((1-antigrav)/2)-((1-((1-antigrav)/2))-x))))
+					else:
+						output = x
+					
+					if maxbonus:
+						if diff(x,output) > maxbonus:
+							if x < output:
+								return x + maxbonus
+							elif x > output:
+								return x - maxbonus
+					
+					return output
+					
+				return curve
+						
 		def dummy(beliefset,angel = None,antigravity_override = None):
 			"""
 			Dummy.
@@ -326,11 +366,10 @@ class TWUpdateRule(object):
 			whose touchpoints will be the 0 and the 1 of the output spectrum
 			of the belief set.
 			
-			curve = lambda x,antigrav : 
-							(x + 1.3**(x-antigrav) - 1) if antigrav < x else 
-							(x + 1.3**(- (antigrav-x)) - 1) if antigrav > x 
-							else x
-			
+			curve = lambda x,g: x ** (1 + (g-x) / (1-g)) 	if x > g else 
+								x ** (1 + (g-x) / (g)) 		if x < g else
+								x
+
 			Then, all values get scaled accordingly and the resulting beliefset
 			is returned.
 			"""
@@ -339,8 +378,8 @@ class TWUpdateRule(object):
 			else:
 				antigrav = ANTIGRAVITY(beliefset,angel)
 							
-			curve = lambda x,antigrav : x ** (1 + ((antigrav-x)/(1-g)))
-			
+			curve = lambda x,g : x ** (1 + (g-x) / (1-g)) if x > g else x ** (1 + (g-x) / (g)) if x < g else x
+
 			newbset = {}
 			
 			for belief,value in beliefset.items():
@@ -380,8 +419,10 @@ class TWUpdateRule(object):
 					output = x-((x)*(((1-antigrav)/2)/(((1-antigrav)/2)
 						-((1-((1-antigrav)/2))-x))))
 				else:
-					output = x			
-			
+					output = x
+					
+			After all, that's not really a circle but, well, it was inspired
+			by one.
 			"""
 			if antigravity_override:
 				antigrav = antigravity_override(beliefset,angel)
@@ -389,6 +430,7 @@ class TWUpdateRule(object):
 				antigrav = ANTIGRAVITY(beliefset,angel)	
 					
 			def curve(x,antigrav,maxbonus = False):
+				
 				if antigrav < x:
 					output = x+((1-x)*(((1-antigrav)/2)/(((1-antigrav)/2)-((1-((1-antigrav)/2))-x)))) 
 				elif antigrav > x:

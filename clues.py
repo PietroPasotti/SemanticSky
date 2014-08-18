@@ -10,7 +10,7 @@ import twupdate_rules as updaterules
 def init_globals():
 	global pickle, sqrt,crop_at_nonzero,regret,CLUES,AGENTS,GUARDIANANGELS,god,anonymous,codedict,knower
 	global belief_inertia, learningspeed, negative_feedback_learningspeed_reduction_factor, differentiate_learningspeeds
-	global equalization
+	global equalization,default_equalizer
 	
 	pickle = ss.pickle
 	sqrt = algs.sqrt
@@ -30,12 +30,8 @@ def init_globals():
 	negative_feedback_learningspeed_reduction_factor = 50
 	differentiate_learningspeeds = True
 	equalization = True
-	default_equalizer = updaterules.TWUpdateRule.set_equalizer('linear')
-	
-	print('Global default equalization is now set to {}.'.format(updaterules.EQUALIZER))
-	print('Global default differentiate_learningspeeds is now set to {}; thus, for a factor of {}, learningspeeds are now {} for + and {} for -.'
-	 ''.format(differentiate_learningspeeds,negative_feedback_learningspeed_reduction_factor,learningspeed,learningspeed / negative_feedback_learningspeed_reduction_factor))
-	
+	default_equalizer = updaterules.EQUALIZER
+		
 	return
 	
 class Feedback(object):
@@ -712,40 +708,43 @@ class GuardianAngel(Agent,object):
 		print()
 		return True
 
-	def equalize(self,pair,evaluation):
+	def equalize(self,equalizer_override = False, antigravity_override = False,override_kwargs = {}):
 		"""
-		Based on the feedback he received for that ctype, outputs an enhanced or
-		shrinked contextual tw, in order to maximise correct output.
+		Produces, and loads to self.equalized_evaluation an equalized
+		belief set. Overrides can be given to differentiate between angels'
+		equalization or antigravity point getting procedures, in case there 
+		are known different biases. If they are given, all subsequent calls
+		to equalize will use these rules, unless new overrides are provided.
 		"""
 		
-		ctype = ss.utils.ctype(pair)
-		diff = ss.utils.diff
-		avg = ss.avg
+		if equalizer_override:
+			self.equalizer_override = equalizer_override
+			
+		if hasattr(self,'equalizer_override'):
+			equalizer = self.equalizer_override
+		else:
+			equalizer = default_equalizer
 		
-		allfbs = []
+		if antigravity_override:
+			self.antigravity_override = antigravity_override
+			
+		if hasattr(self,'antigravity_override'):
+			antigrav = self.antigravity_override
+		else:
+			antigrav = None
 		
-		for belief,feedbacks in self.received_feedback:
-			if clues.ss.ctype(belief) == ctype:
-				allfbs.extend(feedbacks)
+		#### EQUALIZATION ####
+			
+		self.equalized_evaluation = equalizer(	self.evaluation, # the belief set to be equalized
+												self,antigravity_override = antigrav, # a custom antigravity getter, in case...
+												**override_kwargs)  # possibly, some override arguments such as 'factor', 'top', 'maxbonus', depending
+																	# on the equalization algorithm
+		#### ------------ ####
 		
-		# this is all the feedback you ever received for that ctype
+		return True
+			
 		
-		allfbs = tuple(sorted(allfbs)) # sorted by their value, from low to high.
 		
-		average_belief_in_links_now_known_to_be = lambda truthvalue : avg(self.evaluation[x] for x in
-								[fb.about for fb in allfbs if fb.sign == {True : '+',False: '-'}[truthvalue]])
-		
-		# returns the average belief in links now known (due to feedback) to be true/false.
-		
-		avgtrue = average_belief_in_links_now_known_to_be(True)
-		avgfalse = average_belief_in_links_now_known_to_be(False)
-		
-		if diff(evaluation,avgtrue) > diff(evaluation,avgfalse):
-			# we shoot low:
-			return 0
-		elif diff(evaluation,avgtrue) < diff(evaluation,avgfalse):
-			# we shoot high:
-			return 1
 		
 		
 		
@@ -759,13 +758,6 @@ class GuardianAngel(Agent,object):
 		
 		return self.evaluation.get(pair,0) * contextual_tw
 		
-		# NEW EQUALIZER PART
-		evaluation = self.evaluation.get(pair,0)
-		if evaluation:
-			equalized_tw = self.equalize(pair,evaluation)
-		
-		return 
-	
 	def reltrust(self,ctype):
 		"""
 		Returns the relative trustworthiness about clues of type ctype.
@@ -852,10 +844,15 @@ class GuardianAngel(Agent,object):
 		
 		return True
 	
-	def regrets(self):
+	def regrets(self,only_on_true_links = False):
 		
 		regret = ss.regret
 		diff = ss.diff
+		
+		if only_on_true_links:
+			# returns the regret computed only on the true beliefs (those which are known to be true)
+			return regret(  {b:self.belief_with_feedback(b) for b in self.supervisor.knower.evaluation} ,self.supervisor.knower.evaluation  )
+			
 		# we can't give regret on all the beliefs: otherwise, when loading evaluation from file, we'll give full regret.
 		return regret( {b:self.belief_with_feedback(b) for b in [clue.about for clue in self.clues]} ,self.supervisor.knower.evaluation)
 		
@@ -2074,7 +2071,7 @@ class God(object):
 
 
 	# EVALUATION FUNCTIONS -- for testing
-	def regrets(self,onall = False):
+	def regrets(self,only_on_true_links = False):
 		"""
 		Regret is here understood as being only positive: FALSE POSITIVES
 		are not taken into account (as precision per se is not a priority
@@ -2088,9 +2085,12 @@ class God(object):
 		if not self.knower.evaluation:
 			self.knower.evaluate_all(express = False)
 		
+		if only_on_true_links:
+			return regret( {b : self.believes(b) for b in self.knower.evaluation} ,self.knower.evaluation)
+		
 		return regret(self.beliefs,self.knower.evaluation)
 	
-	def guardians_regrets(self,guardians = None):
+	def guardians_regrets(self,guardians = None,only_on_true_links = False):
 		"""
 		Regrets for the guardians.
 		"""
@@ -2103,7 +2103,7 @@ class God(object):
 		out = {}
 		
 		for guardian in guardians:
-			out[guardian.name] = guardian.regrets()
+			out[guardian.name] = guardian.regrets(only_on_true_links = only_on_true_links)
 		
 		return out
 	
