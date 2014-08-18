@@ -648,8 +648,8 @@ def evaluate_status(god):
 	
 	out = {}
 	
-	beltrue = tuple(god.believes(x) for x in knower.evaluation)
-	belfalse = tuple(god.believes(x) for x in god.beliefs if x not in knower.evaluation)
+	beltrue = tuple(god.believes(x) for x in knower.evaluation if x in god.logs) # omitting the 'if x in god.logs' will screw the average: we want to average only on currently available pairs!
+	belfalse = tuple(god.believes(x) for x in god.beliefs if x not in knower.evaluation if x in god.logs)
 	belall = tuple(god.beliefs.values())
 	
 	out['average_strength_of_god_beliefs'] = {}
@@ -985,16 +985,21 @@ class Evaluator(object):
 			self.gettruths()
 		
 		if hasattr(bbs[0],'parameters'):
-			self.parameters = dict(bbs[0].parameters)
-		
+			try:
+				self.parameters = dict(bbs[0].parameters)
+			except ValueError:
+				self.parameters = bbs[0].parameters
 		return
 	
 	def title(self,title = ''):
 		
 		if hasattr(self,'parameters'):
-			lab.title( str((self.parameters['default_updaterule'], self.parameters['learningspeed'])) + ' :: ' + title)
-		else:
-			lab.title(title)
+			try:
+				return lab.title( str((self.parameters['default_updaterule'], self.parameters['learningspeed'])) + ' :: ' + title)
+			except BaseException:
+				pass
+				
+		return lab.title(title)
 		
 	def gettruths(self):
 		
@@ -1395,19 +1400,19 @@ class Evaluator(object):
 					
 				for clue in cluelist:
 					allbeliefs[clue[0]].append(clue[2]) # name,unweighted,weighted = clue unpack stored values
-				
-				if includegod:
-					if not allbeliefs.get('God'):
-						allbeliefs['God'] = []
-					
-					allbeliefs['God'].append(box.beliefs.get(log,avg(clue[2] for clue in cluelist))) # average of weighted ga's
+			
+			if includegod:
+				if linktype is True:
+					beliefs['God'].append( avg( box.beliefs[item] for item in box.beliefs if item in box.truths )) # currently untrustworthy:  out['average_strength_of_god_beliefs']['in true beliefs'])
+				elif linktype is False:
+					beliefs['God'].append( avg( box.beliefs[item] for item in box.beliefs if item not in box.truths )) # (out['average_strength_of_god_beliefs']['in false beliefs'])
+				else:
+					beliefs['God'].append( avg( box.beliefs.values() ))  # (out['average_strength_of_god_beliefs']['in all beliefs'])
 					
 			# now allbeliefs stores, by name, a list of belief-values about sthg of the desired category
 			
-			for name,believeds in allbeliefs.items():
-				averaged = avg(believeds)
-				
-				beliefs[name].append(averaged)
+			for name,believeds in allbeliefs.items(): # the average of the current logs for the given linktype is added to the progression
+				beliefs[name].append(avg(believeds))
 							
 		bar = tests.clues.ss.ProgressBar(len(beliefs),title = 'Normalizing')
 		toplen = max(len(x) for x in beliefs.values())
@@ -1462,13 +1467,12 @@ class Evaluator(object):
 		for angel in progressions:
 			if angel not in angels:
 				continue
-			lab.plot(progressions[angel]['true'], 'g',label = "{}'s true beliefs")
-			lab.plot(progressions[angel]['false'], 'g',label = "{}'s false beliefs")
+			lab.plot(progressions[angel]['true'], 'g')
+			lab.plot(progressions[angel]['false'], 'r')
 		
-		self.title('Initial to final belief in t/f links')
+		self.title('Initial to final belief in t(green)/f(red) links')
+		self.show()
 		
-		
-
 	def stats_at_stage(self,stage):
 		
 		if not stage in self.raw_data:

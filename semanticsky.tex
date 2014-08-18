@@ -284,7 +284,7 @@ The second test consists in starting with a full sky, but with no feedback. Then
 
 First I will write down clearly and discuss, where needed, the parameters I used for the test; then show the results.
 
-$\bullet \quad$ Learning rate $= 0.2$.
+$\bullet \quad$ Learning rate $= 0.4$.
 
 $\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.\footnote{In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links currently not in Starfish and mistakenly captured by the guardians as similar. For further discussion and a test with punish True, see Appendix .}
 
@@ -299,7 +299,7 @@ $\bullet \quad$ Merging rule. This affects how the new suggested value (as compu
 
 This is, at each loop of the test, the average value of each agent's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are there.
 
-We can see how the values increase and (seem to) stabilize after around 45 iterations. This means that there were $270$ clouds (since the step was 6) in the sky at that point.
+We can see how the values increase and (seem to) stabilize for most angels after around 45 iterations. This means that there were $270$ clouds (since the step was 6) in the sky at that point. The least stable lines represent the angels which have very little nonzero evaluations, and thus receive less feedback.
 
 \stepcounter{myfigure}
 \def\svgwidth{550pt}
@@ -328,14 +328,14 @@ We can see how the values increase and (seem to) stabilize after around 45 itera
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_true_links_median_no_punish_lr02_FULL.pdf}\hspace{-355pt} Figure \themyfigure: belief in true links}%
+    \put(-0.18,0.12){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/median_ls04/belief_in_true_links.pdf}\hspace{-355pt} Figure \themyfigure: belief in true links}%
   \end{picture}%
 \endgroup%
 
 
-Figure 2 shows the progression of average beliefs in false links: that is, links that are currently not in Starfish. As the test proceeds, the values quickly stabilize around (an average of) 0.05.
+Figure 2 shows the progression of average beliefs in false links: that is, links that are currently not in Starfish. As the test proceeds, the values quickly stabilize around (an average of) 0.05, represented quite accurately by God's line.
 
-The convergence is much faster because there are many more false links than true ones.
+The convergence here is much faster because there are many more false links than true ones.
 
 \stepcounter{myfigure}
 \def\svgwidth{550pt}
@@ -364,14 +364,14 @@ The convergence is much faster because there are many more false links than true
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_false_links_median_no_punish_lr02_FULL.pdf}\hspace{-355pt} Figure \themyfigure: belief in false links}%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/median_ls04/belief_in_false_links.pdf}\hspace{-355pt} Figure \themyfigure: belief in false links}%
   \end{picture}%
 \endgroup%
 
 Finally, these are the (non-cumulative) regrets of all angels and God itself.
 
 \stepcounter{myfigure}
-\def\svgwidth{550pt}
+\def\svgwidth{450pt}
 \begingroup%
   \makeatletter%
   \providecommand\color[2][]{%
@@ -397,8 +397,8 @@ Finally, these are the (non-cumulative) regrets of all angels and God itself.
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/guardians_regrets_median_no_punish_lr02_FULL.pdf}
-    \hspace{-360pt} Figure \themyfigure: regrets on true links }%
+    \put(-0.12,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/guardians_regrets_median_no_punish_lr02_FULL.pdf}
+    \hspace{-300pt} Figure \themyfigure: regrets on true links }%
   \end{picture}%
 \endgroup%
 \vspace{5pt}
@@ -414,7 +414,7 @@ One can also notice that god's line is not the simple average of the other lines
 
 \paragraph{A few extra facts}:
 
-The same test, with different parameters (learning rate $= 0.2$, update rule = \emph{average} of all feedback) yields comparable results (though perhaps a bit less nice):
+The same test, with different parameters (learning speed $0.4$, update rule = \emph{average} of all feedback) yields comparable results (though perhaps a bit less nice):
 
 \stepcounter{myfigure}
 \def\svgwidth{500pt}
@@ -443,7 +443,7 @@ The same test, with different parameters (learning rate $= 0.2$, update rule = \
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_true_links_average_no_punish_lr08_FULL.pdf}\hspace{-330pt} Figure \themyfigure : true links beliefs }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/belief_in_true_links.pdf}\hspace{-330pt} Figure \themyfigure : true links beliefs }%
   \end{picture}%
 \endgroup%
 
@@ -475,7 +475,7 @@ The same test, with different parameters (learning rate $= 0.2$, update rule = \
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/oldtests/average_belief_in_false_links_average_no_punish_lr08_FULL.pdf}\hspace{-330pt} Figure \themyfigure : false links beliefs }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/belief_in_false_links.pdf}\hspace{-330pt} Figure \themyfigure : false links beliefs }%
   \end{picture}%
 \endgroup%
 
@@ -533,10 +533,9 @@ Also, since clouds were added in batches of 5 or 6, and regret on true links dep
 
 This doubt is easily dispelled, and the answer follows in a graph. 
 
-\# GRAPH
 
 \stepcounter{myfigure}
-\def\svgwidth{550pt}
+\def\svgwidth{360pt}
 \begingroup%
   \makeatletter%
   \providecommand\color[2][]{%
@@ -562,7 +561,7 @@ This doubt is easily dispelled, and the answer follows in a graph.
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/regrets_for_series_of_weights_ontrue.pdf}\hspace{-375pt} Figure \themyfigure : regrets on true links : absolute }%
+    \put(-0.08,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/regrets_for_series_of_weights_ontrue.pdf}\hspace{-280pt} Figure \themyfigure : regrets on true links : absolute }%
 	
   \end{picture}%
 \endgroup%
@@ -575,7 +574,7 @@ Even though, if we don't just look at true links, regrets are falling:
 
 
 \stepcounter{myfigure}
-\def\svgwidth{550pt}
+\def\svgwidth{360pt}
 \begingroup%
   \makeatletter%
   \providecommand\color[2][]{%
@@ -601,10 +600,14 @@ Even though, if we don't just look at true links, regrets are falling:
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/regrets_for_series_of_weights.pdf}\hspace{-375pt} Figure \themyfigure : regrets on all links : absolute }%
+    \put(-0.08,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/tests_output/same_lss/average_ls04/regrets_for_series_of_weights.pdf}\hspace{-280pt} Figure \themyfigure : regrets on all links : absolute }%
 	
   \end{picture}%
 \endgroup%
+
+
+So, at an absolute level, it seems that the system is learning the golden rule `if the 99\% of the times the right answer is ``no'', then I better just say no every time.' To face this situation, it seemed natural to go for some ways of countering sample bias, which is nonetheless out of the scope of the present report.\footnote{There is more on it in the Appendix, however.}
+
 
 
 
