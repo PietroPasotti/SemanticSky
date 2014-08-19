@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 def clusterize1(data):
 	
 	clusters =  []

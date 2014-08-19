@@ -1,8 +1,7 @@
 #!/usr/bin/python3
 
-from semanticsky_utilityfunctions import ctype,avg,diff,pull_tails
+from semanticsky.skies.utils import ctype,avg,diff,pull_tails,Group
 import math
-from group import Group
 
 class TWUpdateRule(object):
 	"""
@@ -122,6 +121,23 @@ class TWUpdateRule(object):
 		
 		return FEEDBACKRULE
 	
+	def set_update_rule(function):
+		
+		global UPDATERULE
+		
+		if isinstance(function,str):
+			try:
+				function = getattr(TWUpdateRule.builtin_update_rules, function)
+			except AttributeError:
+				raise AttributeError('Bad choice. Builtin update rules are: {}.'.format([function.__name__ for function in TWUpdateRule.builtin_update_rules.__dict__.values() if hasattr(function,'__call__')]))
+		
+		if not hasattr(function,'__call__'):
+			raise BaseException('The provided function is not callable.')
+		
+		UPDATERULE = function
+		
+		return UPDATERULE
+		
 	class builtin_feedback_rules():
 		"""
 		This class groups a few algorithms for computing the value of
@@ -300,7 +316,7 @@ class TWUpdateRule(object):
 			
 			for belief in beliefset:
 				if belief in angel.received_feedback:
-					if all(fb.sign == '+' for fb in angel.received_feedback[belief]): # TOCHECK!
+					if angel.received_feedback[belief][0].sign == '+': # not very neat though...
 						trues.append(beliefset[belief])
 			
 					else:
@@ -327,16 +343,17 @@ class TWUpdateRule(object):
 			belief set and we already have the gravity point.
 			"""
 			
-			def dummy():
-				dummy = lambda x,y,z : x
+			def dummy(x,g):
+				dummy = lambda x,y : x
+				return dummy(x,g)
 				
-			def linear():
+			def linear(x,g,f):
 				curve = lambda oldvalue,antigrav,factor: oldvalue + factor if oldvalue > antigrav else oldvalue - factor if oldvalue < antigrav else oldvalue
-				return curve
+				return curve(x,g,f)
 				
-			def exponential():
+			def exponential(x,g):
 				curve = lambda x,g : x ** (1 + (g-x) / (1-g)) if x > g else x ** (1 + (g-x) / (g)) if x < g else x
-				return curve
+				return curve(x,g)
 			
 			def circular():
 				def curve(x,antigrav,maxbonus = False):
@@ -512,10 +529,4 @@ class TWUpdateRule(object):
 				
 			return newbset
 		
-@Group
-def SETUP_DEFAULTS():	
-	TWUpdateRule.set_antigravity('average_of_average_TF')	
-	TWUpdateRule.set_equalizer('exponential')	
-	TWUpdateRule.set_merger('classical_merger')
-	TWUpdateRule.set_feedback_rule('difference')
-	
+

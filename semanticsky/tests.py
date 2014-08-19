@@ -521,7 +521,7 @@ def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh on
 	if not knower.evaluation:
 		knower.evaluate_all(express = False)
 	else:
-		equate_all_links(god,knower)
+		equate_all_links(god,[knower])
 	
 	print()
 	print('removing tag-similarity angels...')
@@ -542,6 +542,9 @@ def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh on
 	print(center('Parameters for the test'))
 	printparams()
 	print()
+	
+	zeropout = evaluate_status(god)
+	output['0 clues'] = zeropout
 	
 	while cloudlist:
 		
@@ -751,7 +754,8 @@ def feedback_only_test(	god = None,
 		
 	god = setup_full_god(god)
 	knower = getknower(god)
-	equate_all_links(god,knower)
+	equate_all_links(god,[knower])
+	
 	god.remove_tag_similarity_angels()
 	
 	out = {}

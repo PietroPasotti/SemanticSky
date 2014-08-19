@@ -1,10 +1,8 @@
 #!/usr/bin/python3
 
-from group import Group
 from bs4 import BeautifulSoup,SoupStrainer
 from collections import Counter
 import re,nltk,sys
-
 
 WORD_RE = re.compile(r"(?:[^\W\d_]|['])+")
 dutch_stopwords = []
@@ -125,11 +123,10 @@ def isstopword(word,hint = None):
 
 	return False
 	
-@Group
 def compile_dutch_stop_words():
 	
 	dlines = None
-	with open('dutchstops.txt','r') as dstops:
+	with open('/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/dutchstops.txt','r') as dstops:
 		dlines = dstops.readlines()
 
 	for line in dlines:
@@ -549,29 +546,6 @@ class ProgressBar():
 		
 		print('\b ',end = '')
 				
-def bar(progress,barlength=100,title = 'Progress'):
-	barLength = barlength - len(title)
-	status = ""
-	progress = float(progress)
-
-	if progress >= 1:
-		progress = 1
-
-	percentage = str(progress*100) if progress != 1 else "100"
-	
-	if len(percentage) > 3 and percentage != "100":
-		displayedp = percentage[:2]
-	else:
-		displayedp = percentage
-	
-	block = int(round(barLength*progress))
-	
-	text = "\r{}: [{}] {}%".format(title,"."*block + " "*(barLength-block), displayedp)
-	sys.stdout.write(text)
-	sys.stdout.flush()
-	if progress == 1:
-		print()
-
 def ispair(pair):
 	if isinstance(pair,frozenset) and len(pair) == 2 or isinstance(pair,tuple):
 		pair = tuple(pair)
@@ -694,7 +668,11 @@ def pull_tails(iterator,top = 1,bottom = 0):
 			nw.append(x)
 	return nw
 	
+compile_dutch_stop_words() # we want it precompiled	
 	
+class Group():
+	def __init__(self,function,*args,**kwargs):
+		function(*args,**kwargs)
 	
 
 

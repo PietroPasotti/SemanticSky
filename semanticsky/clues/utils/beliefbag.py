@@ -1,7 +1,7 @@
 
-from semanticsky_utilityfunctions import ctype
-from clues import equalization
-import twupdate_rules
+from semanticsky.skies.utils import ctype
+from semanticsky.clues import equalization
+import semanticsky.clues.utils.belief_rules
 
 class BeliefBag(dict,object):
 	

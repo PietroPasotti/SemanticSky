@@ -744,22 +744,3 @@ ALL_ALGS.remove(Algorithm.builtin_algs.someonesuggested)
 NON_GUARDIAN_ALGS = [Algorithm.builtin_algs.someonesuggested]
 
 algsbyname = tuple(alg.__name__ for alg in ALL_ALGS + NON_GUARDIAN_ALGS)
-
-# for backwards compatibility:
-
-def localize():
-	"""
-	Binds locally all builtin algorithms.
-	That is: algorithms.Algorithm.builtin_algs.any
-	will be accessible as algorithms.any
-	
-	For backwards compatibility.
-	"""
-	toexec = ''
-	allalgs = [ var for var in Algorithm.builtin_algs.__dict__.values() if hasattr(var,'__call__')]
-	for alg in allalgs:		
-		name = alg.__name__
-		alg_path = "Algorithm.builtin_algs.{}".format(name)
-		toexec += "global {}\n{} = {}\n".format(name,name,alg_path)
-	#print('executing :: "\n{}"'.format(toexec))
-	exec(toexec)
