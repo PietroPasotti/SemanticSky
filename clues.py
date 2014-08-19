@@ -25,14 +25,14 @@ def init_globals():
 	codedict = None 
 	knower = None
 
-	god_learningspeed = 0.8
-	learningspeed = 0.2 # inertia in receiving feedback: how hard is it for god to come to believe that you're a moron
-	negative_feedback_learningspeed_reduction_factor = 50
+	god_learningspeed = 0.8 # how hard is it for god to come to believe the futile suggestions you produce
+	learningspeed = 0.2 # how hard is it for god to come to believe that you're a moron
+	negative_feedback_learningspeed_reduction_factor = 50 # if differentiate_learningspeeds goes True, this factor divides feedback for negative examples
 	differentiate_learningspeeds = False
 	equalization = False
-	default_equalizer = updaterules.EQUALIZER
 	normalization_of_trustworthinesses = False
-	feedback_production_rule = updaterules.FEEDBACKRULE # which is the default
+	default_equalizer = updaterules.EQUALIZER # defaults to 'exponential'
+	feedback_production_rule = updaterules.FEEDBACKRULE # defaults to 'difference'
 	
 	return
 	
