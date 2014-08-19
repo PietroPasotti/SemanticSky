@@ -1,32 +1,31 @@
 
 from semanticsky_utilityfunctions import ctype
+from clues import equalization
 import twupdate_rules
 
 class BeliefBag(dict,object):
 	
-	def __init__(self,iterable,owner,equalizer,weightset = None,antigravity = None,antigrav_updaterate = 5):
-		dict.__init__(self,iterable)
+	def __init__(self,owner,antigrav_updaterate = 5):
+		dict.__init__(self,owner.evaluation)
 		
 		self.owner = owner
-		self.equalizer = equalizer
-		self.antigravity_getter = antigravity
-		if equalizer:
-			self.equalization_active = True
-		if weightset is None:
-			weightset = {}	
-		self.weightset = weightset
+		self.equalizer = twupdate_rules.EQUALIZER # defaults to there, but each angel could in principle have its own, e.g. if he receives TOO much neg feedback after this.
+		self.antigravity_getter = twupdate_rules.ANTIGRAVITY
+		self.equalization_active = equalization
+		
+		self.weightset = owner.stats['relative_tw']
 		self.antigrav_updaterate = antigrav_updaterate
 		self.antigrav = None # gravity point is not set at start
 		self.factor = 0 # boh
 		
-		if weightset and antigravity:
+		if self.weightset and self.antigravity_getter:
 			self.update_antigrav()
 	
 	def __str__(self):
-		return "< BeliefBag of {}. >".format(self.owner)
+		return "< BeliefBag of {}. >".format(self.owner.shortname())
 
 	def __repr__(self):
-		return "< BeliefBag of {}. >".format(self.owner)
+		return "< BeliefBag of {}. >".format(self.owner.shortname())
 		
 	def raw_items(self):
 		return self.items()
@@ -54,15 +53,32 @@ class BeliefBag(dict,object):
 		
 	def weighted(self,item):
 		
-		return self.weightset(ctype(item)) * self.equalized(item)
+		return self.weightset[ctype(item)] * self.equalized(item) if self.equalization_active else self.weightset[ctype(item)] * self[item]
 
 	def equalized(self,item):
 		
-		if not self.equalization_active:
-			raise BaseException('Equalization is not active.')
+		if not self.equalization_active or self.equalizer is None:
+			raise BaseException('Equalization is not active, or equalizer is missing.')		
+
+		if not hasattr(self,'equalization_curve'):
+			getcurve = True
+		elif self.equalization_curve.__name__ != self.equalizer.__name__:
+			getcurve = True
+		else:
+			getcurve = False
 			
-		equitem = self.transform_equalization(item)
-		return equitem
+		if getcurve:
+			eqcurves = [item for item in twupdate_rules.TWUpdateRule.builtin_equalizers.curves.__dict__ if hasattr(item,'__call__')]
+			
+			for e in eqcurves: # looks up for the curve which matches his equalizer's __name__
+				if e.__name__ == self.equalizer.__name__:
+					self.equalization_curve = e
+					break
+		
+		if self.equalization_curve.__name__ == 'linear':
+			transformed = self.equalization_curve(self[item],self.antigrav,self.factor) # we equalize on unweighted confidence ratings
+		else:
+			transformed = self.equalization_curve(self[item],self.antigrav)	
 		
 	def __setitem__(self,item,value):
 		super().__setitem__(item,value)
@@ -82,40 +98,12 @@ class BeliefBag(dict,object):
 		return
 	
 	def update_antigrav(self,to = None):
-		if not hasattr(self,'antigravity_getter'):
-			self.antigravity_getter = twupdate_rules.ANTIGRAVITY
 			
 		if to:
 			self.antigrav = to
 		else:
 			self.antigrav = self.antigravity_getter(self,self.owner)
 	
-	def transform_equalization(self,item):
-
-		if self.equalizer is None:
-			raise BaseException('Equalization is not active, or equalizer is missing.')		
-
-		if not hasattr(self,'equalization_curve'):
-			getcurve = True
-		elif self.equalization_curve.__name__ != self.equalizer.__name__:
-			getcurve = True
-			
-		if getcurve:
-			eqcurves = [item for item in twupdate_rules.TWUpdateRule.builtin_equalizers.curves.__dict__ if hasattr(item,'__call__')]
-			
-			for e in eqcurves:
-				if e.__name__ == self.equalizer.__name__:
-					mycurve = e
-					break
-					
-			self.equalization_curve = e
-		
-		if self.equalization_curve.__name__ == 'linear':
-			transformed = self.equalization_curve(self.weighted(item),self.antigrav,self.factor)
-		else:
-			transformed = self.equalization_curve(self.weighted(item),self.antigrav)	
-		
-		return transformed
 		
 
 	
