@@ -37,6 +37,8 @@ class Clue(object):
 		Autoconsider: toggles queuing of clues.
 		"""
 		
+		from semanticsky import DEFAULTS
+		
 		self.cluetype = 'link'
 		if not str(about.__class__) == "<class 'semanticsky.skies.Link'>":
 			self.about = ss.Link(about)
@@ -44,8 +46,11 @@ class Clue(object):
 		self.about = about
 		self.value = value
 		self.trace = trace
-		if not supervisor:
-			global god
+		
+		if not supervisor: 
+			if DEFAULTS['verbosity'] > 1:
+				print("Warning: No supervisor was specified for {}. Might become messy with more than one god around.".format(self))
+			from semanticsky import _GOD
 			supervisor = god
 		
 		self.supervisor = supervisor			
@@ -54,16 +59,16 @@ class Clue(object):
 		if hasattr(agent,'clues'):
 			agent.clues.append(self)
 		
-		if autoconsider:
+		if autoconsider and supervisor:
 			self.supervisor.consider(self) # there the clue gets logged
 		else:
-			CLUES.append(self)	
+			from semanticsky import _CLUES
+			_CLUES.append(self)	
 	
 	def __str__(self):
 		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
 	def __repr__(self):
-		
 		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
 	@property
@@ -77,7 +82,7 @@ class Clue(object):
 	@property
 	def contenttype(self):
 		"""
-		Returns the type of the two clouds' items if the about is a link.
+		Returns the content-type of the two clouds' items if the about is a link.
 		"""
 		
 		about = self.about
@@ -94,5 +99,16 @@ class Clue(object):
 	
 	@property
 	def ids(self):
-		return self.about.ids # delegates ids to Link.ids
-					
+		"""
+		Assumes that the about is a Link;
+		if this fails, assumes that the about is a pair of objects each
+		of which has an 'item' attribute such that obj.item.__getattr__('id')
+		returns an unique-to-the-object ID.
+		"""
+		
+		if hasattr(self.about,'ids'):
+			return self.about.ids # delegates ids to Link.ids
+		else:
+			ab = tuple(self.about)
+			return (ab[0].item['id'],ab[1].item['id'])
+		

@@ -40,7 +40,7 @@ def crop_at_nonzero(fl,bot = 4):
 			
 	return fl
 
-def lsum(*lists): # list merging tool
+def lsum(*lists): # list merging tool (only for 1-deep nestings)
 
         out = []
 

@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 from copy import deepcopy
-from .utils import BeliefBag,Feedback,belief_rules
 from ..agents import Agent
 
 class GuardianAngel(Agent,object):
@@ -22,19 +21,12 @@ class GuardianAngel(Agent,object):
 	def __init__(self,algorithm,supervisor,ghost = False,whisperer = False):
 		super().__init__(algorithm.__name__,supervisor)
 		
-		self.supervisor = supervisor
+		self.clear_all() # initializes various properties
 		
-		self.zero = 0
-		self.nonzero = 0
-		self.beliefs = BeliefBag(self)
+		self.supervisor = supervisor
 		self.algorithm = algorithm
 		self.stats['trustworthiness'] = 1 # by default, an algorithm's trustworthiness is always one.
-		self.clues = [] # Clues objects
-		self.consulted = False
-		self.logs = []
-		self.ghost = ghost
 		self.__doc__ = self.algorithm.__doc__
-		
 		GuardianAngel.guardianid += 1 # counts the GA's spawned
 		self.ID = deepcopy(GuardianAngel.guardianid)
 		
@@ -87,6 +79,22 @@ class GuardianAngel(Agent,object):
 			algs.someonesuggested: 'know'}
 			
 		return transdict.get(self.algorithm,self.name[0:5])	
+	
+	def clear_all(self):
+		"""
+		(Re)initializes most records.
+		"""
+		from .utils import BeliefBag
+		from copy import deepcopy
+
+		self.zero = 0									# keeps track of 0-valued evaluations produced
+		self.nonzero = 0								# keeps track of nonzero evaluations
+		self.beliefs = BeliefBag(self)					# will contain all beliefs and handle their weighting, equalizing...
+		self.stats = deepcopy(Agent.base_stats_dict)	# stats such as trustworthiness (absolute and contextual)...
+		self.produced_feedback = set()					# the name says it all
+		self.received_feedback = {}						# idem
+		self.clues = []									# will host all produced clues
+		self.consulted = False							# this flag goes true iff self.evaluate_all is called on god's sky's full cloudlist (preferably through self.consult() or God.consult(self)).
 	
 	# consultation and evaluation functions
 	def consult(self):
@@ -146,7 +154,12 @@ class GuardianAngel(Agent,object):
 			print( """Warning("Warning: clues nonempty!")\nsetting express to False.""")
 			express = False
 			
-		if verbose: 
+		if verbose:
+			from semanticsky import DEFAULTS
+			vb = DEFAULTS['verbosity']
+		else:
+			vb = 0
+		if vb > 0:	
 			from tests import wrap
 			print('\nSummoning {}...'.format( wrap(str(self),'brightred')) )
 		
@@ -158,22 +171,27 @@ class GuardianAngel(Agent,object):
 				
 		li = len(pairlist)
 		
-		print('\n>evaluating its way through a {}-item cloud pairlist.<'.format(li))
+		if vb > 1: print('\n>evaluating its way through a {}-item cloud pairlist.<'.format(li))
 		
-		bar = semanticsky.tests.ProgressBar(li,title = '{} :: Evaluation'.format(self.shortname()) )
+		if vb > 1: bar = semanticsky.tests.ProgressBar(li,title = '{} :: Evaluation'.format(self.shortname()) )
 		for pair in pairlist:
 			
-			if verbose:
+			if vb > 1:
 				bar()
-			
-			silence = False if express else True
-			self.evaluate(pair,silent = silence) # silent: no clue is spawned
+
+			self.evaluate(pair,silent = False if express else True) # silent: no clue is spawned
 	
-	def express(self,number = 0):
+	def express(self,number = 0,verbose = True):
 		"""
 		Transforms into clues all the evaluations the angel has in its 
 		beliefbag.
 		"""
+		
+		from semanticsky import DEFAULTS
+		if verbose:
+			vb = DEFAULTS['verbosity']
+		else:
+			vb = 0
 		
 		allbeliefs = tuple(self.beliefs.keys())
 		
@@ -181,14 +199,16 @@ class GuardianAngel(Agent,object):
 			number = len(allbeliefs)
 		
 		if not len(number) > 0:
-			print('Nothing to express.')
+			if vb > 0:
+				print('Nothing to express.')
 			return False
 		
-		print(repr(self),' is expressing...')
-		bar = ss.ProgressBar(number,title = '{} :: Expressing'.format(self.shortname()))
+		if vb > 0: print(repr(self),' is expressing...')
+		if vb > 1: bar = ss.ProgressBar(number,title = '{} :: Expressing'.format(self.shortname()))
+		
 		for i in range(number):
 			pair = allbeliefs[i]
-			bar()
+			if vb > 1: bar()
 			
 			value = self.beliefs[pair]
 			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
@@ -228,7 +248,6 @@ class GuardianAngel(Agent,object):
 		
 		return self.god.trusts(self,local = False)
 	
-	# comparison functions
 	def agrees(self,other = None):
 		"""
 		Returns a count of the percent of links he agrees about with all

@@ -2,20 +2,43 @@
 	
 ## These defaults influence the behaviour of the whole heavens. Handle with care. Touch here for experiments or testing.
 
-DEFAULTS = {
-"verbosity" :										2, # 0 = all silent. 1 = no progress bars, but a few messages to know how you're doing. 2: even a few insults, sometimes.				
-"god_learningspeed" : 								0.8, # how hard is it for god to come to believe the futile suggestions you produce
-"learningspeed" : 									0.2, # how hard is it for god to come to believe that you're a moron
-"negative_feedback_learningspeed_reduction_factor":	50, # if differentiate_learningspeeds goes True, this factor divides feedback for negative examples
-"differentiate_learningspeeds" : 					False, # toggles the differentiation of learningspeeds for all (and only) angels
-"equalization" : 									False, # toggles equalization for all (and only) angels
-"normalization_of_trustworthinesses" : 				False, # toggles normalization of tws for all agents (see their get_tw method)
-"default_voting_merge" : 							'plain average', # rule that god uses to compute his opinion based on the angels' suggestions
-"default_updaterule" : 								'median_of_all_fbs', # rule for computing new beliefs out of previous belief and feedback received
-"default_equalizer" : 								'exponential', # rule for equalization: angels learning their biases
-"default_antigravity" : 							'average_of_average_TF', # rule for finding gravity point for equalization
-"default_merger" : 									'classical_merger', # rule for computing new belief out of previous belief (after update_rule)
-"default_feedback_rule":							'difference'} # rule for computing which value the feedback should take
+
+
+# this is where we will look for the data to initialize defaults SemanticSky objects on.
+data_path = '/home/pietro/Perceptum/code/starfish/similarity/TweedejaarsProject/data/expert_maybe_false.pickle'
+
+DEFAULTS = {															
+"verbosity" :										2, 						# 0 = all silent. 1 = no progress bars, but a few messages to know how you're doing. 2: even a few insults, sometimes.				
+"god_learningspeed" : 								0.8, 					# how hard is it for god to come to believe the futile suggestions you produce
+"learningspeed" : 									0.2, 					# how hard is it for god to come to believe that you're a moron
+"negative_feedback_learningspeed_reduction_factor":	50, 					# if differentiate_learningspeeds goes True, this factor divides feedback for negative examples
+"differentiate_learningspeeds" : 					False,					# toggles the differentiation of learningspeeds for all (and only) angels
+"equalization" : 									False, 					# toggles equalization for all (and only) angels
+"normalization_of_trustworthinesses" : 				False, 					# toggles normalization of tws for all agents (see their get_tw method)
+"default_voting_merge" : 							'plain average', 		# rule that god uses to compute his opinion based on the angels' suggestions
+"default_updaterule" : 								'median_of_all_fbs', 	# rule for computing new beliefs out of previous belief and feedback received
+"default_equalizer" : 								'exponential', 			# rule for equalization: angels learning their biases
+"default_antigravity" : 							'average_of_average_TF',# rule for finding gravity point for equalization
+"default_merger" : 									'classical_merger', 	# rule for computing new belief out of previous belief (after update_rule)
+"default_feedback_rule":							'difference', 			# rule for computing which value the feedback should take
+"sky_stats" :															# defaults for skies.SemanticSky instances
+			{'number_of_words_in_corpus': 0,								# will count the number of words in the corpus of the sky
+			'number_of_tags': 0,											# will count the number of tags
+			'number_of_sentences': 0,										# idem
+			'language_recognition_threshold' : 0.4,							# threshold for skies.utils.guess_language function
+			'clouds' : 													# defaults for skies.clouds.Cloud instances
+						{'depth':2,											# *max* number of layers per cloud (note: currently just one is used)
+						#'density': None,									# not used
+						#'thickness': None,									# not used
+						'min_coo_threshold': 2, 							# minimum number of co-occurrences for a word pair to be considered "co-occurring"
+						#'min_word_freq_threshold' : 2, 					# not used
+						'max_coo_length': 20,								# max length of the co-occurrence dictionary
+						'max_vocab_length': 30,								# used as crop value for skies.utils.most_freq_words_from_raw_texts
+						#'cloud_hierarchy_inducer_threshold': 2.0/3.0		# not used
+						}
+			}
+		}
+
 
 from semanticsky import agents
 from semanticsky import skies
@@ -76,3 +99,7 @@ set_defaults("default_antigravity", 		agents.utils.belief_rules.TWUpdateRule.set
 set_defaults("default_merger",	 			agents.utils.belief_rules.TWUpdateRule.set_merger( DEFAULTS["default_merger"] ),0)
 set_defaults("default_feedback_rule",	 	agents.utils.belief_rules.TWUpdateRule.set_feedback_rule( DEFAULTS["default_feedback_rule"] ),0)
 set_defaults("default_voting_merge",		skies.utils.avg ,0) # average
+
+_SKY = None # a newly created sky will be stored here
+_GOD = None # same for gods
+_CLUES = None # global queue of clues that can be processed by anyone.

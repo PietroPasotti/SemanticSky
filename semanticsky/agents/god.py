@@ -1,6 +1,6 @@
  #!/usr/bin/python3
 					
-import time
+
 from .angels import GuardianAngel
 					
 class God(GuardianAngel,object):
@@ -8,51 +8,52 @@ class God(GuardianAngel,object):
 	The Allmighty.
 	"""
 	
-	godid = 0
+	godcount = 0
 	
-	
-	def __init__(self,sky = None,merging_strategy_override = False):
+	def __init__(self,sky = None,supervisor = None, overrides = {}):
+		"""
+		We totally override the GuardianAngel's init method, because they 
+		need a supervisor; we don't. But if a supervisor is given, we can
+		then link God to another God which takes decisions on the former's.
+		"""
 		
+		import semanticsky
 		from semanticsky import DEFAULTS
+		from time import gmtime
+		from copy import deepcopy
 		
 		self.sky = sky
-		self.birthdate = time.gmtime()
+		self.birthdate = gmtime() # can be used to distinguish between multiple gods.
 		self.guardianangels = []
 		self.whisperers = []
 		self.cluebuffer = []
 		self.logs = {}
-		self.ccount = 0 # keeps track of number of clues processed
-		self.totcluecount = 0
-		self.ignoreds = []
 		self.name = 'Yahweh'
-		self.beliefs = {}
+		self.stats = {'trustworthiness' : 1, 'expertises': 'all', 'power': 'over 9000'}
+		self.beliefs = BeliefBox(self) # we'll override the believes method, so as not to ask for equalization or weighting.
+		self.godid = deepcopy(God.godcount)
+		God.godcount += 1
+
+		semanticsky._GOD = self		
 		
-		if merging_strategy_override:
-			merging = merging_strategy_override
+		if "merging_strategy" in overrides:
+			merging = overrides["merging_strategy"]
 		else:
 			merging = DEFAULTS['default_voting_merge']
-		self.merging_strategy = merging # this is what god does to merge his angel's opinions into one.
-				
-		God.godid += 1
-		self.godid = God.godid
+		self.voting_merging_strategy = merging # this is what god does to merge his angel's opinions into one.
 		
-		global god
-		god = self
-			
-	def get_sky(self):
-		"""
-		If a semanticsky has already been instantiated, loads it as god's
-		own sky.
-		"""
-		
-		global sky
-		
-		if sky: 
-			self.sky = sky
-			return True
+		if "learningspeed" in overrides:
+			ls = overrides["learningspeed"]
 		else:
-			return False
-	
+			ls = DEFAULTS['god_learningspeed']
+		self.learningspeed = ls
+		
+		if 'default_merger' in overrides:
+			merge = overrides['default_merger']
+		else:
+			merge = DEFAULTS['default_merger']
+		self.learning_merger = merge
+
 	def __str__(self):
 		return "< The Lord {} >".format(self.godid)
 	
@@ -62,40 +63,31 @@ class God(GuardianAngel,object):
 	
 	def receive(self,clue):
 		ag = clue.agent
-		clue.delete()
-		del clue
-		print('God accepts no feedback, mortal. Agent {} will be brutalized for this.'.format(ag))
+		from semanticsky import DEFAULTS
+		if DEFAULTS['verbosity'] > 0:
+			print('God accepts no feedback, mortal. Agent {} will be brutalized for this.'.format(ag))
 		return None
-	
-	@property
-	def cluecount(self):
+			
+	def get_sky(self):
 		"""
-		Keeps track of the number of clues that pass through god. Resets 
-		at every call; stores to ___totcluecount
+		If a semanticsky has already been instantiated, loads it as god's
+		own sky.
 		"""
 		
-		if not hasattr(self,'ccount') or not hasattr(self,'totcluecount'):
-			self.ccount = 0
-			self.totcluecount = 0
+		try:
+			from semanticsky import _SKY # the last loaded sky can always be found there.
+		except ImportError:
+			_SKY = None
+			
+		self.sky = _SKY
 		
-		oldcount = self.cluecount
-		self.cluecount = 0
-		self.totcluecount += oldcount
-		return oldcount
+		if _SKY is not None:
+			return True
+		else:
+			return False
+		
 	
-		
 	# HANDLERS	
-	def handle_link(self,linkclue):
-		"""
-		where linkclue is a clue about the existence of a link, ( or about
-		the similarity of two clouds, if you wish, this function makes god's
-		ineffable beliefs change (a bit) accordingly.
-		
-		God does listen at his Agents' complaints, but they'll have to scream 
-		aloud enough.
-		"""
-		return self.update_beliefs(linkclue)
-		
 	def has_already_guessed(self,clue):
 		"""
 		Looks up for the about in god's beliefs and checks the history:
@@ -112,8 +104,8 @@ class God(GuardianAngel,object):
 		# since a clue logs herself as soon as it's created,
 		# we'll need to return only the second one, if there is one
 		
-		if len(hisclues) == 2:
-			return hisclues[0] # at the second place there will be the next one
+		if len(hisclues) >= 2:
+			return hisclues[0] # at the second place there will be the last clue spawned
 		else:
 			return False
 	
@@ -131,14 +123,13 @@ class God(GuardianAngel,object):
 													# and the value of the belief in about is updated to the average of the values still in the history
 		###### UPDATE ALGORITHM
 		
-		global god_learningspeed
 		from belieftests import avg
+		from semanticsky import DEFAULTS
 		
 		previous_value = self.believes(clue.about)
-		new_value = avg(clue.weightedvalue() for clue in self.logs[clue.about])
-	
-		new_learned_value = updaterules.MERGER(previous_value,new_value,god_learningspeed)
+		new_value = self.voting_merging_strategy(clue.weightedvalue() for clue in self.logs[clue.about]) # we compute the new should-be-value of the belief
 		
+		new_learned_value = self.learning_merger(previous_value,new_value,self.learningspeed)
 		### we use the default merge!! function of previous value, new value and learningspeed
 		
 		self.beliefs[clue.about] = new_learned_value
@@ -174,10 +165,10 @@ class God(GuardianAngel,object):
 		"""
 		Calculates the number of logs stored.
 		"""
+		from semanticsky.skies.utils import lsum
+		return len(lsum(list(self.logs.values())))
 		
-		return len(ss.lsum(list(self.logs.values())))
-		
-	def flowlogs(self):
+	def iter_logged_clues(self):
 		"""
 		Returns a generator for all clues in god's logs.
 		"""
@@ -185,127 +176,40 @@ class God(GuardianAngel,object):
 		for loglist in self.logs.values():
 			for log in loglist:
 				yield log
-	
-	def get_clues(self,about):
-		"""
-		Retrieves all clues that had some impact on god's current
-		belief state about about.
-		"""
-		
-		if not hasattr(self,'logs'):
-			print('Impossible to fetch logs right now. Will need to access the file(?)')
-		
-		return self.logs[about] # a list of clues
-	
-	def get_agents(self,about,flat = False): # deprecated
-		"""
-		Fetches all responsibles for a certain belief: that is, all agents
-		who took part to some extent in the current state, divided along 
-		the criterion: they voted for more or less than the current
-		state
-		
-		If flat is true, returns a simple list of the authors
-		
-		"""
-		
-		uppers = 'uppers'
-		downers = 'downers'
-		
-		
-		out = {uppers : [], downers: []}
-		
-		allc = self.get_clues(about)
-		
-		if flat:
-			return [c.agent for c in allc]
-		else:
-			for c in allc:
-				if c.value >= self.beliefs[about]:
-					out[uppers].append(c.agent)
-				else:
-					out[downers].append(c.agent)
-			
-		return out
 
 	def clear_all(self):
 		"""
-		Clears all logs of himself and all his guardian angels.
+		Clears most records of himself and all of his guardian angels.
 		"""
 		
-		self.beliefs = {}
+		from .utils import BeliefBag
+		
+		self.beliefs = BeliefBag(self)
 		self.logs = {}
+		
 		for guardian in self.guardianangels:
-			guardian.clues = []
-			guardian.stats['trustworthiness'] = 1
+			guardian.clear_all()
 		
-		global AGENTS
-			
-		for agent in AGENTS:
-			agent.stats['trustworthiness'] = 0.6
-			
-		return True
-
-	def store_info(self):
-		"""
-		Useful for pickling god.
-		"""
-		
-		global CLUES,AGENTS,belief_inertia
-		
-		self.CLUES = CLUES
-		self.AGENTS = AGENTS
-		self.inertia = belief_inertia
-		
-		return True
+		return
 	
 	def locate(self,clue):
 		"""
 		Tries to lookup the clue in god's logs.
 		If there is a match, returns the entry and the whole log queue.
 		"""
-		
-		for entry in self.logs:
-			if clue in self.logs[entry]:
-				return {entry:self.logs[entry]}
-		
-		return False		
+		logs = self.getlogs(clue.about)
+		return {clue.about : logs } if logs else False
 
-	def getlogs(self,pair):
+	def getlogs(self,about):
 		"""
 		returns the logs for a given pair
 		"""
-		return self.logs.get(pair,[])
-				
-	def ranklogs(self):
-		"""
-		Returns a dict from len(logs[log]) to log.
-		"""
-		
-		rlogs = {}
-		
-		for log in self.logs:
-			llist = tuple(self.logs[log])
-			if not rlogs.get(len(llist)):
-				rlogs[len(llist)] = []
-			rlogs[len(llist)].append(log)
-		
-		return rlogs
-	
-	def rankcounter(self):
-		"""
-		Returns a counter from number of cluelist per log to number of logs
-		with that length.
-		"""
-	
-		rlogs = self.ranklogs()
-		
-		rlen = {number : len(rlogs[number]) for number in rlogs}
-		
-		return rlen
+		return self.logs.get(about,[])
 	
 	def trusts(self,agents = [],local = True):
 		"""
 		Returns a trustdict, or a single value if agents is a single Agent.
+		If *local* is set to false, prints a table instead.
 		"""
 		
 		trustdict = {}
@@ -362,22 +266,20 @@ class God(GuardianAngel,object):
 		Updates god's whisperers list. That is: all agents or algorithms
 		that have the power to start a backpropagation.
 		"""
-		global AGENTS
+		# from semanticsky import _AGENTS
+		#self.whisperers = [agent for agent in _AGENTS if agent.stats['blocked'] is False]
 		
-		self.whisperers = [agent for agent in AGENTS if agent.stats['blocked'] is False]
-	
+		# will be useful when semanticsky will be up and running.
+		pass
+		
 	def whisperer(self,agent):
 		"""
 		Adds agent to self.whisperers.
 		Now agent can whisper to God.
 		"""
 		
-		if isinstance(agent,Agent) or isinstance(agent,GuardianAngel):
-			self.whisperers.append(agent)
-		else:
-			raise TypeError('Unrecognized input type for God.whisperer: {}'.format(type(agent)))
-		return None
-	
+		self.whisperers.append(agent)
+			
 	def whisperpipe(self,clue):
 		"""
 		Easy-access iswhisperer + whisper combo. 
@@ -416,9 +318,6 @@ class God(GuardianAngel,object):
 		
 		whispering = clue.agent		
 		targets = self.logs.get(clue.about,[]) 	# we check whether the clue's about is logged
-									# suppose for example that god has a strong belief (1) in x, due to A's very confident +1 suggestion. (logged)
-									# then a whisperer rates x 0.4, which is lower than 1.
-									# then, since A is a whisperer, the (x,0.4) clue will be whispered and not just considered 
 
 		whispering.give_feedback(targets,verbose = False) # whispering, in the case of GA's,
 		#	has the effect of asking them to evaluate the whole cluelist... thus, they will spawn feedbacks for each of them		
@@ -431,25 +330,20 @@ class God(GuardianAngel,object):
 		Creates all GuardianAngels
 		"""	
 		
-		from semanticsky.agents.utils.algorithms import ALL_ALGS
-		from semanticsky.agents import GuardianAngel
+		from .utils.algorithms import ALL_ALGS
+		from .agents import GuardianAngel
 				
 		print('Spawning guardians...')
 		
 		self.guardianangels = []
 		
-		algos = ALL_ALGS # plain list of all algorithms defined in algorithms
-		
-		gasbyalg = [ga.algorithm for ga in self.guardianangels]
-		
-		for algorithm in algos:
-			if algorithm not in gasbyalg:
-				GA = GuardianAngel(algorithm,self)
-				self.guardianangels.append(GA)
+		for algorithm in ALL_ALGS:
+			GA = GuardianAngel(algorithm,self)
+			self.guardianangels.append(GA)
 				
 		return True
 	
-	def express_all(self,guardians = None,vb = True):
+	def express_all(self,guardians = None,verbose = True):
 		"""
 		For ga in self.guardianangels (or [guardians], if provided):
 		ga.express()
@@ -458,70 +352,68 @@ class God(GuardianAngel,object):
 			guardians = self.guardianangels
 			
 		for ga in guardians:
-			ga.express()
+			ga.express(verbose = verbose)
 		
-	def consider(self, number = False,verbose = False):
+	def consider(self, cluelist = None,verbose = False):
 		"""
 		God will shot a quick glance to the useless complaints of the mortals.
 		
 		Number can be a positive integer, a list of clues
 		or a single clue.
 		
-		- int+: will consider (up to) number clues from the global queue
-		CLUES
+		- None: will consider all the clues from the global queue 
+		semanticsky._CLUES
 		
-		- clue: will only consider the clue.
+		- clue: will only consider this clue.
 		
 		- list of clues: will consider them all.
 		
+		Considering a clue means that god will 1 ) BUFFERIZE it (mainly for
+		testing purposes, but who knows), 2 ) LOG it, 3 ) UPDATE_BELIEFS with
+		it; that means: taking into account its contents for the purposes
+		of its belief state.
+		
 		"""
 		
-		global CLUES
-
-		if isinstance(number, int) and number is not False and number > 0:
-			restr_clues = CLUES[:number]
-			CLUES = CLUES[number:]	
-			toread = restr_clues
-			if verbose: print('reading {} CLUES...'.format(number))
-			if not CLUES:
-				if verbose: print('No clue!')
-				return None
-		elif isinstance(number,Clue):
-			toread = [number]
-			if verbose: print('reading clue...')
-		elif isinstance(number,list) and isinstance(number[0],Clue):
-			toread = number
-			if verbose: print('reading clues...')
+		if verbose:
+			from semanticsky import DEFAULTS
+			vb = DEFAULTS['verbosity']
 		else:
-			toread = CLUES
-			CLUES = []
-			if verbose: print('reading all CLUES...')
-			if not CLUES:
-				print('No clue!')
-				return None
+			vb = 0
+		
+		from semanticsky.clues import Clue
+		if isinstance(cluelist,Clue):
+			toread = [cluelist]
+			if vb > 0: print('reading clue...')
+		
+		elif isinstance(cluelist,list) and all(isinstance(x,Clue) for x in cluelist):
+			toread = cluelist
+			if verbose: print('reading {} clues...'.format(len(cluelist)))
+		
+		elif cluelist is None:
+			from semanticsky import _CLUES
+			toread = _CLUES
+			
+		else:
+			raise BaseException('Bad input for God.consider: {}.'.format(cluelist))
 						
 		for clue in toread:
 			
-			######### bufferize
+			######### BUFFERIZE
 			if clue not in self.cluebuffer:
 				self.bufferize(clue)
+			######### LOG
+			self.log(clue) 
 			
-			self.ccount += 1
-			if verbose: print(toread)
-			self.log(clue)
-			if clue.cluetype in ['link','feedback']:
-				handler = getattr(self, 'handle_{}'.format(clue.cluetype) )
-				if clue.cluetype != 'feedback':
-					self.whisperpipe(clue) # check whether we have to whisper the clue, and in case does it.
-				
-				if not isinstance(clue.agent,Knower): # if the clue'r is a knower, we won't update the beliefs.
-					handler(clue) # then the handler will handle
-				
-				
-				
-			else:
-				raise BaseException('Unrecognized cluetype: {}.'.format(clue.cluetype))
-					
+			if vb > 0: print('processing ',toread,"...")
+			
+		
+			self.whisperpipe(clue) # check whether we have to whisper the clue, and in case does it.
+			
+			from .knower import Knower
+			if not isinstance(clue.agent,Knower): # if the clue'r is a Knower (that is, ideally: a trainer), we won't update the beliefs. Can be removed if we are sure the knower will never express its clues.
+				self.update_beliefs(clue) # then we update the beliefs
+			
 	def consult(self,angels = False,verbose=True,consider = False,local = False):
 		"""
 		Consults all or some guardian angels asking for their opinion about
@@ -532,18 +424,25 @@ class God(GuardianAngel,object):
 		This function results in God re-virginating his belief states
 		to a GuardianAngel-only informed belief state.
 		
-		Please note: computationally very heavy.
-		
+		Please note: might be computationally heavy, depending on the angels.
 		"""
-		initime = ss.time.clock()
-		opinions = {} 	# will collect pairs-of-clouds to [0,1] judgements for each guardianangel
-						# result is of type {frozenset({Cloud(),Cloud()} : [float()] )}
+		
+		if verbose:
+			from semanticsky import DEFAULTS
+			vb = DEFAULTS['verbosity']
+		else:
+			vb = 0
+		
+		if vb > 0:
+			initime = ss.time.clock()
 		
 		if not hasattr(self,'guardianangels'):
 			self.spawn_servants()
 		
 		if not hasattr(self,'sky'):
-			self.get_sky()
+			if not self.get_sky():
+				from semanticsky.skies import SemanticSky
+				self.sky = SemanticSky() # we initialize a new sky from the currently loaded dataset.
 		
 		if angels is False:							# default: all angels are consulted.
 			angels = self.guardianangels			
@@ -562,8 +461,14 @@ class God(GuardianAngel,object):
 		else:
 			raise TypeError('Unrecognized input type: {}'.format(type(angels)))
 					
-		if verbose: 
-			print('    >>> angels is: ',' '.join([str(angie) for angie in angels]))
+		if verbose:
+			from semanticsky import DEFAULTS
+			vb = DEFAULTS['verbosity']
+		else:
+			vb = 0
+			
+		if vb > 0:
+			print('\t>>> consulting: ',' '.join([str(angie) for angie in angels]))
 				
 		for angel in angels: # the list of opinions thus will be in the same order
 			angel.evaluate_all(verbose = verbose)
@@ -575,25 +480,8 @@ class God(GuardianAngel,object):
 		elapsed = ss.time.clock() - initime
 		
 		angelsno = len(angels)
-		if verbose: 
+		if vb > 1: 
 			print('\n\t\t {} angels consulted. [ {} elapsed ]\n\n'.format(angelsno,elapsed)+ '-'*110) 
-
-	def ask(self,what):
-		"""
-		Opens a new question. A question is a special clue without a
-		'value' attribute.
-		
-		Questions are open for answering by agents.
-		"""
-	
-	def consult_next(self,verbose = True, consider = False,local = False):
-		"""
-		Consults one non-yet-consulted angel
-		"""
-		
-		for angel in self.guardianangels:
-			if isinstance(angel,GuardianAngel) and not angel.consulted:
-				return self.consult(angel,verbose,consider,local)
 		
 	def consult_missing(self,verbose = True, consider = False,local = False):
 		"""
@@ -622,8 +510,8 @@ class God(GuardianAngel,object):
 		
 	def consultations_registry(self):
 		"""
-		Returns a dict from guardianangels to [True,False], depending on whether
-		they already were consulted or not.
+		Returns a dict from guardianangels to [True,False,0], depending on whether
+		they already were consulted or not or just aren't in self.guardianangels.
 		"""
 		
 		registry = {}
@@ -645,16 +533,16 @@ class God(GuardianAngel,object):
 		guardianangels if not present already.
 		"""
 		
-		if not hasattr(algorithm,'__call__') and not getattr(algs,algorithm.__name__): # checks that algorithm is really an algorithm
-			raise TypeError('Bad input type: I need an algorithm from algorithms, got an {} instead'.format(type(algorithm)))
+		if not callable(algorithm): # checks that algorithm is really an algorithm
+			raise TypeError('Bad input type: I need something callable, got an {} instead'.format(type(algorithm)))
 			
-		
 		angel = [ga for ga in self.guardianangels if ga.name == algorithm.__name__]
 		
-		if len(angel) != 1:
-			raise BaseException("Something wrong: angel is {}".format(angel))
+		if len(angel) > 1:
+			raise BaseException("Something wrong: duplicates are around. *angel* is {}".format(angel))
 		
 		if not angel:
+			from .angels import GuardianAngel
 			angel = GuardianAngel(algorithm)
 			self.guardianangels.append(angel)
 		else:
@@ -664,22 +552,28 @@ class God(GuardianAngel,object):
 	
 	def get_angel(self,algorithm):
 		"""
-		Returns the guardianangel with the given algorithm.
+		Returns the guardianangel with the given algorithm (or alg.__name__).
 		If he hasn't it, returns false.
 		"""
-		angel = [ga for ga in self.guardianangels if ga.name == algorithm.__name__]
+		
+		if callable(algorithm):
+			name = algorithm.__name__
+		else:
+			name = algorithm
+			
+		angel = [ga for ga in self.guardianangels if ga.name == name]
 		
 		if len(angel) != 1:
-			raise BaseException("Something wrong: angel is {}".format(angel))
+			raise BaseException("Something wrong: *angel* is {}".format(angel))
 	
 		angel = angel[0]
 			
 		return angel
 		
-	def ignore(self,agent):
+	def block(self,agent):
 		if not isinstance(agent,Agent):
 			raise BaseException('Not an agent.')
-		self.ignoreds.append(agent)
+		agent.stats['blocked'] = True
 	
 	def most_trustworthy(self,ctype,crop = 3):
 		"""
@@ -687,8 +581,8 @@ class God(GuardianAngel,object):
 		about links of contenttype ctype.
 		"""
 		
-		ctype = list(ctype) # we make sure they're in the right order
-		ctype.sort(reverse = True)
+		ctype = list(ctype) 
+		ctype.sort(reverse = True) # we make sure the letters are in the right order
 		ctype == ''.join(ctype)
 		
 		trustranks = {}
@@ -702,77 +596,51 @@ class God(GuardianAngel,object):
 		return ranked[:crop]
 	
 	def remove_tag_similarity_angels(self):
+		"""
+		Just for testing. Useful, for tag_similarity angels screw the results.
+		"""
 		
-		self.guardianangels = [ga for ga in self.guardianangels if ga.name not in ['tag_similarity_naive','tag_similarity_extended']]
+		self.guardianangels = [ga for ga in self.guardianangels if 'tag_similarity' not in ga.name]
 	
 	# BELIEF MANAGEMENT
 	def believes(self,something):
 		"""
 		Returns the extent to which god believes something. If something
 		is not in the belief set, returns zero.
+		Warning: this is the current state of the belief set. If something
+		has changed without a clue being spawned (such as trustworthinesses
+		all around) then the belief state might be not up-to-date.
 		"""
-		return self.beliefs.get(something,0.0)
+		return self.beliefs[something]
 
-	def rebelieves(self,something,weight = True,silent = True):
+	def rebelieves(self,something):
 		"""
-		Bypass for the clues mechanism:
-		directly asks to all of his trustees (GuardianAngels only) how much 
-		they believe or not something.
+		If something is logged and there are clues about it, simply refreshes
+		the belief.
+		Else, asks all guardians to evaluate it. (which will in turn produce
+		clues and eventually update the belief).
 		
-		By default, [weight] takes into account the belief_with_feedback
-		of each angel into (something).
-		
-		This clearly entails that if the ga's evaluation is empty or ill
-		formed, the result will always be wrong.
-		
-		WARNING: modifies god's belief bank to match the output. Thus, all
-		effects of learningspeed are lost.
+		Returns the updated value of the belief.
 		"""
 		
 		if something in self.logs and self.logs[something]:
-			self.beliefs[something] = ss.avg( [log.weightedvalue() for log in self.logs[something]] )
+			
+			tempclues = self.logs[something]
+			del self.logs[something]
+			
+			for clue in tempclues:
+				self.update_beliefs(clue)
 		
 		else:
 			for ga in self.guardianangels:
 				ga.evaluate(something)
+				
+		return self.believes(something)
 		
-	def rebelieves_iter(self,someiter,weight = True,update = False):
+	def expert_believes(self,something,crop = 3,tw = False):
 		"""
-		Bypass for the clues mechanism:
-		directly asks to all of his trustees (GuardianAngels only) how much 
-		they believe or not something.
-		
-		By default, [weight] takes into account the belief_with_feedback
-		of each angel into (something).
-		
-		If update is set to false, the rebelief also affects god's current
-		state (i.e. his beliefs are updated to the output of rebelief).
-		Useful for refresh.
-		
-		wants an iterable.
-		"""
-		
-		if not hasattr(something,"__iter__"):
-			someiter = iter(something)
-			returndecision = False
-		else:
-			someiter = something
-			returndecision = True
-
-		for pair in someiter:
-			
-			decision = self.rebelieves(something,weight,update)
-					
-		if returndecision:
-			try:
-				return decision
-			except UnboundLocalError: # this means that there were no opinions, or no angels
-				pass
-		
-	def expert_rebelieves(self,something,crop = 3,tw = False):
-		"""
-		Returns the rebelief value only for those who are most trustworthy
-		about the contenttype of something.
+		Returns the belief value as if only those who are most trustworthy
+		about the contenttype of something were taken into account.
 		"""
 		
 		ctype = ss.utils.ctype(something)
@@ -947,15 +815,6 @@ class God(GuardianAngel,object):
 					del self.beliefs[belief]
 				if belief in self.logs:
 					del self.logs[val]			
-	
-	def iter_logged_clues(self):
-		"""
-		A generator for all clues in the logs.
-		"""
-		
-		for cluelist in self.logs.values():
-			for clue in cluelist:
-				yield clue
 				
 				
 	# CLEANING

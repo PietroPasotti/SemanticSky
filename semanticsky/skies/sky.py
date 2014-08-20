@@ -4,9 +4,9 @@
 Python3 code. Compatible with 2.7 with minor modifications(mainly encoding)
 """
 
-import nltk,re,sys,time,random,pickle,math
+# this needs some cleanup
+import nltk,re,sys,time,random,math
 from bs4 import BeautifulSoup, SoupStrainer
-#import semanticsky_utilityfunctions as utils
 from .utils import * # all functions such as sentence splitting, language recognition, tokenization...
 from sys import stdout
 from copy import deepcopy
@@ -47,6 +47,7 @@ class Data(object):
 		
 		"""
 		
+		import pickle
 		f = open(self.filepath,'rb')
 		self.oridata = pickle.load(f)
 		f.close()
@@ -311,30 +312,33 @@ class SemanticSky(object):
 	Is essentially a wrapper for a pickled-export of starfish database.
 	Call SemanticSky on a DataWrapper instance to make it work smooth.
 	"""
-
-	default_data = Data('/home/pietro/Perceptum/code/starfish/similarity/TweedejaarsProject/data/expert_maybe_false.pickle')
-
-	default_stats = {	'number_of_words_in_corpus': 0,
-			'number_of_tags': 0,
-			'number_of_sentences': 0,
-			'language_recognition_threshold' : 0.4,
-			'clouds' : {'depth':2,
-					'density': None,
-					'thickness': None,
-					'min_coo_threshold': 2,
-					'min_word_freq_threshold' : 2, # not used
-					'max_coo_length': 20,
-					'max_vocab_length': 30,
-					'cloud_hierarchy_inducer_threshold': 2.0/3.0}}
 	
-	### initializers
-	def __init__(self,data = default_data,stats = default_stats,empty = False,god = None):
+	def __init__(self,data = None,stats = None,empty = False,god = None):
 
 		self.counters = {	'coo':None,
 							'word_freq':None,
 							'tag_coo':None,
 							'idf_db':None}
 		
+		if stats is none:
+			from semanticsky import DEFAULTS
+			stats = DEFAULTS['sky_stats']
+		
+		
+		if data is None:
+			from semanticsky import data_path
+			data = Data(data_path)
+		elif isinstance(data,Data):
+			pass
+		elif isinstance(data,str):
+			try:
+				data = Data(data)
+			except BaseException as e:
+				print("ERROR while loading data to SemanticSky. Probably the path is invalid or the target file is not good.")
+				raise e
+		else:
+			raise BaseException('Unrecognized inputtype for *data* kwarg: {}. Should be a str, Data or None instance instead.'.format(type(data)))
+			
 		self.data = data	
 		self.stats = stats
 		self.sky = []
@@ -342,7 +346,7 @@ class SemanticSky(object):
 		if empty:
 			return
 		
-		if god is not None:
+		if god is not None: # we can give a god to a sky...
 			self.god = god
 			return self.init_from_god()
 		

@@ -1,20 +1,25 @@
 #!/usr/bin/python3
 
-from .utils import BeliefBag,Feedback,belief_rules
-from copy import deepcopy
+
+
 
 class Agent(object):
 	
 	idcounter = 0	
-	def __init__(self,name,supervisor):
-		
-		self.name = name
-		self.supervisor = supervisor
-		self.stats = { 	'trustworthiness': 0.6,
+	base_stats_dict = { 	'trustworthiness': 0.6,
 						'contextual_tw' : {}, # will map cluetypes to trustworthiness on the cluetype
 						'expertises': {},
 						'communities': [],
 						'blocked' : False}
+	
+	def __init__(self,name,supervisor):
+		
+		from .utils import BeliefBag
+		from copy import deepcopy
+		
+		self.name = name
+		self.supervisor = supervisor
+		self.stats = deepcopy(Agent.base_stats_dict)
 		
 		Agent.idcounter += 1
 		self.ID = deepcopy(Agent.idcounter)
@@ -59,11 +64,12 @@ class Agent(object):
 				return True
 		return False
 		
-	def feedback(self,destination,about,value,sign,checkforduplicates = True):
+	def feedback(self,destination,about,value,sign):
 		"""
 		Produces a feedback object and sends it to destination.
 		"""
 		
+		from .utils import Feedback
 		fb = Feedback(self,destination,about,value,sign)
 		
 		if fb in destination.received_feedback.get(about,[]): # this is true also if there is an exactly equivalent feedback there! (though being a different object)
@@ -86,6 +92,8 @@ class Agent(object):
 		"""
 		Formulates a Clue about what, judging it howmuch.
 		"""
+		
+		from semanticsky.clues import Clue
 		
 		if self.stats['blocked']:
 			return None
@@ -142,22 +150,26 @@ class Agent(object):
 			
 		self.received_feedback[about].append(feedback)
 		
-		if ss.ispair(about):
-			ctype = ss.utils.ctype(about)
+		from semanticsky.skies.utils import ctype,ispair
+		from semanticsky import DEFAULTS
+		
+		if ispair(about):
+			c = ctype(about)
 			
-			if not self.stats['contextual_tw'].get(ctype):
-				self.stats['contextual_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
+			if not self.stats['contextual_tw'].get(c):
+				self.set_contextual_tw(c, self.trustworthiness) 	# if no relative trustworthiness is available for that ctype, we initialize it to the overall value
 			
-			if feedback.sign == '-' and differentiate_learningspeeds:
-				LS = learningspeed / negative_feedback_learningspeed_reduction_factor
+			if feedback.sign == '-' and DEFAULTS['differentiate_learningspeeds']:
+				LS = DEFAULTS['learningspeed'] / DEFAULTS['negative_feedback_learningspeed_reduction_factor']
 				# for negative feedback we give less impacting feedback.
 			else:
-				LS = learningspeed
+				LS = DEFAULTS['learningspeed']
 			
-			self.stats['contextual_tw'][ctype] = default_updaterule(self.stats['contextual_tw'][ctype], feedback, LS, self)	
+			self.stats['contextual_tw'][ctype] = DEFAULTS['default_updaterule'](self.get_tw(c), feedback, LS, self)	
 			
 		else:
-			print('feedback ignored: about unhandleable (type :  {})'.format(type(about)))
+			if DEFAULTS['verbosity'] > 1:
+				print('WARNING: feedback ignored because its *about* is of an unhandleable kind ({})'.format(about))
 				
 	def makewhisperer(self):
 		"""
@@ -187,6 +199,12 @@ class Agent(object):
 	# TRUSTWORTHINESS	
 	@property
 	def trustworthiness(self):
+		"""
+		Returns the average of all the contextual trustworthinesses the
+		agent has, if any, else self.stats['trustworthiness'], which
+		is then likely to be (the initial default for virgin angels).
+		"""
+		
 		self.stats['trustworthiness'] = sum(self.stats['contextual_tw'].values()) / len(self.stats['contextual_tw']) if self.stats['contextual_tw'] else self.stats['trustworthiness']
 		return self.stats['trustworthiness']
 
@@ -195,7 +213,7 @@ class Agent(object):
 		Returns the relative trustworthiness about clues of type ctype.
 		If there is no data on that, returns 0.
 		"""
-		return self.stats['contextual_tw'].get(ctype,0):
+		return self.stats['contextual_tw'].get(ctype,0)
 
 	def normalize_tw(self,weight):
 		"""
@@ -205,12 +223,19 @@ class Agent(object):
 		
 		return weight / max(self.stats['contextual_tw'].values()) # returns a value between 0 and 1
 	
+	def set_contextual_tw(self,ctype,value):
+		"""
+		Does what it says and nothing more.
+		"""
+		
+		self.stats['contextual_tw'][ctype] = value
+	
 	def get_tw(self,ctype):
 		"""
 		Returns the relative tw if available; else returns overall trustworthiness
 		"""
 		
-		contextual = self.contextual_trustworthiness(ctype)
+		contextual = self.get_contextual_trustworthiness(ctype)
 		
 		if contextual:
 			from semanticsky import DEFAULTS 
@@ -221,7 +246,7 @@ class Agent(object):
 		else:
 			return self.trustworthiness
 			
-	def contextual_trustworthiness(self,ctype):
+	def get_contextual_trustworthiness(self,ctype):
 		"""
 		Returns self's trustworthiness relative to the clue's contenttype,
 		False if he has none.
