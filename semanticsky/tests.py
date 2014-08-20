@@ -8,6 +8,7 @@ import pickle
 from semanticsky.agents.utils import regret
 from sys import stdout
 
+
 def confirm(msg):
 	if binput('Chosen "{}". Confirm? '.format(msg)) in 'yesYES':
 		return True
@@ -15,33 +16,30 @@ def confirm(msg):
 		return False
 
 def setup_new_god():
+	import semanticsky as ss
 	
-	tests.load_sky()
-	sky = tests.sky
+	sky = load_sky()
+	God = ss.agents.God(sky)
 	
-	God = tests.clues.God(sky)
-	
-	print(God,' has born.')
+	if ss.DEFAULTS['verbosity'] > 0:
+		print(God,' has born.')
 	
 	return God
 
 def getknower(god):
+	import semanticsky as ss
 	
 	if hasattr(god,'knower'):
 		if not god.knower.supervisor is god:
 			god.knower.new_supervisor(god)
 		return god.knower
 		
-	knower = tests.clues.knower if tests.clues.knower else tests.clues.Knower(god)
+	knower = ss._KNOWER if ss._KNOWER else ss.agents.Knower(god)
 	if not knower.supervisor is god:
 		knower.new_supervisor(god)
 		
 	return knower
 	
-def give_feedback(god,knower):
-	
-	knower.express()
-
 def equate_all_links(god,angels):
 	"""
 	When unpickling evaluations, we often have that clouds made out of the same items
@@ -56,17 +54,20 @@ def equate_all_links(god,angels):
 	pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
 
 	print('\t\tParallelising beliefs of {}, {}... (May take a while)'.format(god,angels))
-		
+	
+	if not isinstance(angels,list):
+		angels = [angels]
+	
 	for ga in angels:
 		
 		totln = len(ga.evaluation)
 		i = 0
-		for link,ev in ga.evaluation.items():
-			del ga.evaluation[link]
+		for link,ev in ga.beliefbag.raw_items():
+			del ga.beliefbag[link]
 			itlinks = pid(link)
 			truelink = god.sky.pair_by_id(*itlinks)
 
-			ga.evaluation[truelink] = ev
+			ga.beliefbag[truelink] = ev
 			
 			i+=1			
 		print()
@@ -467,8 +468,9 @@ def interactive(god = None,auto = False):
 	
 	return out
 
-# matplotlib tests
 
+
+# matplotlib tests
 def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh one!
 										test = False, # if test is given (an integer), just up to *test* clouds will be added to god's sky before prematurely halting.
 										step = 1, # how many clouds per loop we add back to gods'sky. Dramatically improves runtime and memory usage
@@ -816,28 +818,12 @@ def printparams(local = False):
 	Stores a number of globals useful to reconstruct the experiment.
 	"""
 	
-	totable = [
-	['god_learningspeed', tests.clues.god_learningspeed  ],
-	['learningspeed' , tests.clues.learningspeed],
-	['ls_reduction_factor' , tests.clues.negative_feedback_learningspeed_reduction_factor],
-	['differentiation_of_learningspeeds',tests.clues.differentiate_learningspeeds],
-	['equalization',tests.clues.equalization],
-	['default_equalizer',tests.clues.default_equalizer.__name__],
-	['default_updaterule',tests.clues.default_updaterule.__name__],
-	['merger' , tests.clues.updaterules.MERGER.__name__],
-	['normalization_of_tws', tests.clues.normalization_of_trustworthinesses],
-	['feedback_production_rule', tests.clues.feedback_production_rule.__name__   ]
-	]
-	
-	try:
-		totable.append(	['punish',punish]	)
-	except NameError:
-		totable.append(['punish',False])
-	
+	from semanticsky import DEFAULTS
+		
 	if not local:
-		table(totable)
+		print(DEFAULTS)
 	else:
-		return totable
+		return DEFAULTS
 
 def get_progressions_from_tests(filepaths = None,include_ontrue = False):
 
@@ -1685,7 +1671,8 @@ class FeedbackEvaluator(object):
 					progressions[angel] = []
 					
 				progressions[angel].append( data['average_precision_of_algorithms'][angel]['regret_onall'] if onall else data['average_precision_of_algorithms'][angel]['distance_from_perfection==regret?'])
-		
+
+	
 # more utils from old tests.py
 class color:
 	
@@ -1739,6 +1726,8 @@ def table(lines,maxwidth = 100,maxheight = None,spacing = 1,index = '>'):
 	
 	"""
 	
+	from sys import stdout
+	
 	# we uniform it:
 	for i in range(len(lines)):
 		while len(lines[i]) < max(len(row) for row in lines):
@@ -1761,10 +1750,10 @@ def table(lines,maxwidth = 100,maxheight = None,spacing = 1,index = '>'):
 				toprint = wrap(index,'red') + str(column) + ' '*spacing
 			else:
 				toprint = ' '*spacing + str(column)
-			clues.ss.stdout.write(toprint)
+			stdout.write(toprint)
 		
-		clues.ss.stdout.write('\n')
-		clues.ss.stdout.flush()
+		stdout.write('\n')
+		stdout.flush()
 		
 def center(string,width = 100,space = ' '):
 	ls = len(string)
@@ -1865,65 +1854,248 @@ class ProgressBar():
 	def tickoff(self):
 		
 		print('\b ',end = '')
-					
-def ispair(pair):
-	if isinstance(pair,frozenset) and len(pair) == 2 or isinstance(pair,tuple):
-		pair = tuple(pair)
-		import semanticsky as ss
-		if isinstance(pair[0],ss.Cloud) and isinstance(pair[1],ss.Cloud):
-			return True
-		elif str(pair[0].__class__) == "<class 'semanticsky.Cloud'>" and str(pair[1].__class__) == "<class 'semanticsky.Cloud'>":
-			return True
 
-	return False
-
-def ctype(pair):
-	
-	if ispair(pair):
-		about = pair
-	else:
-		about = pair.about
-
-	clouda,cloudb = about
-	typea,typeb = clouda.item.get('type','tag'),cloudb.item.get('type','tag') # if it hasn't got an item type, it must be a tag
-	
-	global codedict
-	codedict = {'tag': 				'T',
-				'Information': 		'I',
-				'Glossary':			'G',
-				'Question':			'Q',
-				'Good Practice':	'O',
-				'Project':			'R',
-				'Person':			'P',
-				'Content':			'C',
-				'Topic':			'J',
-				'Pedagogy':			'Y',
-				'Technology':		'H',
-				'Event':			'E'}
-	
-	ta = codedict[typea]
-	tb = codedict[typeb]
-	
-	ctype = [ta,tb]
-	ctype.sort()
-	
-	return ''.join(ctype) # a two-letter string
-	
-def ctype_to_type(ctype):
-	
-	ctypes = list(ctype)
-	global codedict
-	
-	inverted = {codedict[key]:key for key in codedict}
-	
-	outctype = []
-	for c in ctypes:
-		cty = inverted[c]	
-		cty = cty[:4]
-		outctype += [cty]
-	
-	return '-'.join(outctype)
-	
 def diff(iterator):
 	return max(iterator) - min(iterator)
+
+
+# loading and saving matters
+
+def store_god(god = None,nameoffile=None):
+	from time import gmtime
+	time = gmtime()
+	from semanticsky import _GOD,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	if nameoffile is None:
+		nameoffile = './semanticsky/data/gods/god_belief_set_{}.log'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(time.tm_mday,time.tm_mon,time.tm_year,time.tm_hour,time.tm_min,time.tm_sec))
+	
+	with open(nameoffile,'ab+') as storage:
+		
+		if god is None:
+			
+			G = _GOD
+		else:
+			G = god
+		import pickle		
+		pickle.dump(G,storage)
+	
+	if vb > 0:
+		print('God pickled down to {}.'.format(nameoffile))
+	return True
+
+def load_god(nameoffile = 'mostrecent'):
+	import os
+	
+	from semanticsky import _GOD,_SKY,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	if nameoffile == 'mostrecent':
+		
+		max_mtime = 0
+		for dirname,subdirs,files in os.walk("./semanticsky/data/gods/"):
+			for fname in files:
+				if fname[:3] != 'god':
+					continue
+				full_path = os.path.join(dirname, fname)
+				mtime = os.path.getmtime(full_path) # last modified time
+				if mtime > max_mtime:
+					max_mtime = mtime
+					nameoffile = dirname + fname
+					
+	
+	if vb > 0:
+		print('Loading god from {}.'.format(nameoffile))
+
+	with open (nameoffile,'rb') as doc:			
+		
+		import pickle
+		_GOD = pickle.load(doc)
+		_SKY = _GOD.sky
+		
+	return True
+
+def store_sky(sky = None,nameoffile = None):
+	from time import gmtime
+	
+	from semanticsky import _GOD,_SKY,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	time = gmtime()
+
+	if nameoffile is None:
+		nameoffile = './semanticsky/data/skies/sky_{}.sky'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(time.tm_mday,time.tm_mon,time.tm_year,time.tm_hour,time.tm_min,time.tm_sec))
+	
+	with open(nameoffile,'ab+') as storage:
+		
+		if sky is None:
+			from semanticsky import SKIES
+			S = clues.sky
+		else:
+			S = sky
+		import pickle
+		pickle.dump(S,storage)
+	
+	if vb > 0:
+		print('Sky pickled to {}.'.format(nameoffile))
+	return True
+
+def load_sky(nameoffile = None):
+	import os
+	from semanticsky import _GOD,_SKY,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	if nameoffile is None:
+		
+		max_mtime = 0
+		for dirname,subdirs,files in os.walk("./gods/"):
+			for fname in files:
+				if fname[:3] != 'sky':
+					continue
+				full_path = os.path.join(dirname, fname)
+				mtime = os.path.getmtime(full_path) # last modified time
+				if mtime > max_mtime:
+					max_mtime = mtime
+					nameoffile = dirname + fname
+					
+	if vb > 0:
+		print('Loading Sky from {}...'.format(nameoffile))
+	
+	with open(nameoffile,'rb') as doc:
+		import pickle
+		clues.sky = pickle.load(doc)
+	
+		_SKY = clues.sky
+	
+	return True
+
+def makeglobal(deity):
+	from semanticsky import _GOD,_SKY,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	if vb > 0:print('Now semanticsky._GOD points to {}'.format(deity))
+	if vb > 0:print(' Now semanticsky._SKY points to {}'.format(deity.sky))
+	
+	_GOD = deity
+	_SKY = deity.sky
+	
+def load_evaluations_to_gas(gaslist,filepath ='./semanticsky/data/guardianangels/evaluations/'):
+	
+	print()
+	
+	if not filepath[len(filepath)-1] == '/':
+		if vb > 0:print('ERROR: Needs be a folder.')
+		return False
+	
+	if gaslist == []:
+		raise BaseException('ERROR: No angels there.')
+		return False
+	
+	excps = []
+	
+	from semanticsky import DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	for ga in gaslist:
+		if vb > 0:
+			print('Loading evaluation for {}.'.format(repr(ga)), end = '')
+		if ga.consulted and ga.evaluation:
+			if vb >0 :
+				print(' [AlreadyLoadedError]\n ')
+			continue
+			
+		try:
+			with open(filepath + ga.name + '.eval','rb') as f:
+				evaluation = pickle.load(f)
+				
+				pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
+				
+				for link,ev in evaluation.items():
+					ga.evaluation[ga.supervisor.sky.pair_by_id(pid(link))] = ev
+				
+				ga.consulted = True
+				if vb >0 :
+					print(' [Done]')
+		except BaseException as e:
+			excps.append(e)
+			if vb >0 :
+				print(' [Failed]')
+		
+	print()
+	
+	return excps if excps else True
+	
+def store_weights(gaslist,filepath = './semanticsky/data/guardianangels/weights/'):
+	import pickle
+	from semanticsky import _GOD,_SKY,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	for ga in gaslist:
+		with open(filepath + ga.name + '.weight','wb+') as f:
+			
+			weights = {}
+			weights['trustworthiness'] = ga.stats['trustworthiness']
+			weights['relative_tw'] 	= ga.stats['relative_tw']
+			
+			pickle.dump(weights,f)
+			
+			if vb > 0:print("Stored weightset of {}.".format(ga))
+			
+	return True
+
+def load_weights_to_gas(gaslist,filepath = './semanticsky/data/guardianangels/weights/'):
+	from semanticsky import _GOD,_SKY,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	exes = [] 
+	
+	import pickle
+	
+	if vb > 0:print("loading weights...")
+	
+	stats = pickle.load(open(filepath,'rb'))
+	
+	for angel in gaslist:
+		if vb > 0:print('Loading weights for {}.'.format(angel),end = '')
+		try:
+			angel.stats = stats[angel.name]
+			if vb > 0:print( '  [Done]  ')
+		except BaseException:
+			if vb > 0:print(	'  [Failed]  ')
+	
+def equate_all_links(deity = None):
+	"""
+	When unpickling evaluations, we often have that clouds made out of the same items
+	are no longer properly indexed in dictionaries: they appear as different
+	pairs altogether.
+
+	This function only acts on evaluations of guardianangels of the given deity
+	or of the default god, setting their evaluations to a common vocabulary
+	of cloud pairs.
+	"""
+	from semanticsky import _GOD,_SKY,DEFAULTS
+	vb = DEFAULTS['verbosity']
+	if not _SKY:
+		print('ERROR: no sky found at semanticsky._SKY')
+		return None
+	
+	if not deity:
+		god = _GOD
+	else:
+		god = deity
+		
+	pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
+
+	if vb > 0:print('\t\tParallelising beliefs...')
+		
+	for ga in god.guardianangels:
+		for link,ev in ga.evaluation.items():
+			del ga.evaluation[link]
+			itlinks = pid(link)
+			
+			truelink = sky.pair_by_id(*itlinks)
+
+			ga.evaluation[truelink] = ev
+	
+	return True
+	
 

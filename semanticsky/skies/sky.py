@@ -5,13 +5,12 @@ Python3 code. Compatible with 2.7 with minor modifications(mainly encoding)
 """
 
 # this needs some cleanup
-import nltk,re,sys,time,random,math
+import nltk,re,sys,math
 from bs4 import BeautifulSoup, SoupStrainer
 from .utils import * # all functions such as sentence splitting, language recognition, tokenization...
 from sys import stdout
 from copy import deepcopy
 from collections import Counter
-from .cluster import clusterize1
 from .clouds import Cloud
 
 class Data(object):
@@ -174,6 +173,7 @@ class Data(object):
 		"""
 		
 		alltags = self.oridata['tags']
+		from .cluster import clusterize1
 		self.tag_aliases_classes = clusterize1(alltags)
 		newbase = deepcopy(self.oridata)
 		
@@ -314,17 +314,17 @@ class SemanticSky(object):
 	"""
 	
 	def __init__(self,data = None,stats = None,empty = False,god = None):
-
+		
+		from semanticsky import DEFAULTS,_SKY
+		from time import clock
+		
 		self.counters = {	'coo':None,
 							'word_freq':None,
 							'tag_coo':None,
 							'idf_db':None}
 		
-		if stats is none:
-			from semanticsky import DEFAULTS
+		if stats is None:
 			stats = DEFAULTS['sky_stats']
-		
-		
 		if data is None:
 			from semanticsky import data_path
 			data = Data(data_path)
@@ -345,26 +345,24 @@ class SemanticSky(object):
 		
 		if empty:
 			return
-		
 		if god is not None: # we can give a god to a sky...
 			self.god = god
 			return self.init_from_god()
 		
-		starttime = time.clock()
+		
+		starttime = clock()
 		#if not test: # we populate all counters, then the sky.
+		self.vb = DEFAULTS['verbosity']
 		self.populate_counters()
-			
-		stdout.write('Populating sky... \n')
-		print()
-		stdout.flush()
+		_SKY = self # we set the global _SKY to self
+		
+		if self.vb > 0: 
+			print('Populating sky... \n')
 		self.populate_sky()
-		stdout.flush()
-		print()
-		stdout.write('\t*Initialization successful* :: [ {} seconds elapsed]\n'.format( (time.clock() - starttime) ))
-		print()
-		print( ' -'*60)
-		print()	
-	
+		if self.vb > 0:
+			print('\t*Initialization successful* :: [ {} seconds elapsed]\n'.format( (clock() - starttime) ))
+			print( ' -'*60)
+		
 	def __repr__(self):
 		return '< SemanticSky :: {} clouds. >'.format(len(self.sky))
 	
@@ -407,33 +405,32 @@ class SemanticSky(object):
 		"""
 		Populates the internal counters.
 		"""
-		print()
-		print( ' -'*60)
-		stdout.write('Populating sky-level counters: \n\t token co-occurrences... ')
-		stdout.flush()
-
+		if self.vb > 0:
+			print()
+			print( ' -'*60)
+			print('Populating sky-level counters: \n\t token co-occurrences... ',end = '')
 		self.populate_coo_counter()
-		stdout.write('\t [ Done. ]\n')
-		stdout.flush()
-		stdout.write("\t word frequency... ")
-		stdout.flush()
+		if self.vb > 0:
+			print('\t [ Done. ]\n')
+		
+			print("\t word frequency... ",end = '')
 		self.populate_word_freq_counter()
-		stdout.write('\t\t [ Done. ]\n')
-		stdout.flush()
-		stdout.write("\t tag co-occurrences... ")
-		stdout.flush()
-		self.populate_tag_coo_counter()
-		stdout.write('\t\t [ Done. ]\n')
-		stdout.flush()
-		stdout.write("\t idf database... ")
-		stdout.flush()
-		self.populate_idf_database()
-		stdout.write('\t\t [ Done. ]\n')
-		stdout.flush()		
-		del self.__tokens_temp # frees the memory
-		print( ' -'*60)
-		print()	
+		if self.vb > 0:
+			print('\t\t [ Done. ]\n')
 			
+			print("\t tag co-occurrences... ",end = '')
+		self.populate_tag_coo_counter()
+		if self.vb > 0:	
+			print('\t\t [ Done. ]\n')
+			
+			print("\t idf database... ",end = '')
+		self.populate_idf_database()
+		if self.vb > 0:
+			print('\t\t [ Done. ]\n')
+			print( ' -'*60)
+			print()			
+		del self.__tokens_temp # frees some memory
+		
 	def populate_sky(self):
 		"""
 		This function instantiates a cloud per each item in the database,
@@ -445,31 +442,33 @@ class SemanticSky(object):
 		
 	# ITEM CLOUDS
 		noitems = len(self.data.oridata['items'])
-		stdout.write('\tItem clouds... 	\t')
-		
-		bar = ProgressBar(noitems)
+		if self.vb > 1:
+			bar = ProgressBar(noitems,title = "Item clouds ")
 		for itemID in self.data.items():
 			item = self.getitem(itemID)
 			item['id'] = itemID # is a long()
 			cloud = Cloud(self,item)
 			
-			bar()
+			if self.vb > 1: bar()
 		lself = len(self.sky)
-		stdout.write('\n\t [ {} Clouds. ]\n'.format(lself))
+		if self.vb > 0:
+			print('\n\t [ {} Clouds. ]\n'.format(lself))
 		
 	# TAG CLOUDS
 		notags = len(self.data.oridata['tags'])
-		stdout.write('\tTag clouds... \t\t')
-		
-		bar = ProgressBar(notags)
+		if self.vb > 1:
+			bar = ProgressBar(notags,title =  'Tag clouds ')
 		for tagID in self.data.tags():
 			tag = self.data.tag(tagID)
 			tag['id'] = tagID # is the name of the tag == a str()
 			cloud = Cloud(self,tag)
 			
-			bar()
-		stdout.write('\n\t [ {} Clouds. ]\n'.format(len(self.sky) - lself) )
-		print('\n\t Total: [ {} Clouds ] \t : quite a rainy day.\n'.format(len(self.sky)))
+			if self.vb > 1: bar()
+			
+		if self.vb > 0:
+			print('\n\t [ {} Clouds. ]\n'.format(len(self.sky) - lself) )
+		if self.vb > 0:
+			print('\n\t Total: [ {} Clouds ] \t : quite a rainy day.\n'.format(len(self.sky)))
 		return None
 	
 	### iterators
@@ -514,10 +513,10 @@ class SemanticSky(object):
 		for clouda in source:
 			for cloudb in source[i:]:
 				if clouda != cloudb:
-					yield Link(clouda,cloudb) # now yields LINKS.
+					from .clouds.core import pair
+					yield pair(clouda,cloudb) # now yields LINKS.
 			
 			i += 1
-
 
 	### data gathering functions
 	def getitem(self,ID):
@@ -562,8 +561,8 @@ class SemanticSky(object):
 		
 		clouda = self.get_cloud(ID1)
 		cloudb = self.get_cloud(ID2)
-		
-		return Link(clouda,cloudb)
+		from .clouds.core import pair
+		return pair(clouda,cloudb)
 
 	
 	### counters population functionsself.oridata['tags']
@@ -666,16 +665,6 @@ class SemanticSky(object):
 		
 		return None
 	
-	### networking functions
-	def base_network(self):
-		
-		net = {}
-		
-		for cloud in self.clouds():
-			net[cloud] = cloud.links(False) # will return a list of clouds
-		
-		return net
-	
 	### tagclouds handling
 	def remove_tag_clouds(self):
 		"""
@@ -697,11 +686,12 @@ class Link(tuple):
 		return tuple.__new__(typ, ordr)
 
 	def ctype(self):
+		"""
+		We asume it's a cloud link...
+		"""
+		from .clouds.core import ctype
 		return ctype(self)
 		
-	def longctype(self):
-		return ctype_to_type(self.ctype())
-	
 	@property
 	def ids(self):
 		

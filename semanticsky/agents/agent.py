@@ -1,8 +1,5 @@
 #!/usr/bin/python3
 
-
-
-
 class Agent(object):
 	
 	idcounter = 0	
@@ -31,13 +28,13 @@ class Agent(object):
 		self.produced_feedback = set()	
 		self.received_feedback = {} 	# will store the feedbacks received.
 		
-		self.beliefs = BeliefBag(self)
+		self.beliefbag = BeliefBag(self)
 	
 	def __str__(self):
 		return "< Agent {}. >".format(self.name)
 	
 	def __repr__(self):
-		from tests import wrap
+		from semanticsky.tests import wrap
 		return wrap("< Agent {}. >".format(self.name),'red')
 	
 	def __hash__(self):
@@ -101,7 +98,7 @@ class Agent(object):
 		if not 0 < howmuch <= 1:
 			raise BaseException('Evaluation confidence should be in [0,1].')
 		
-		self.beliefs[what] = howmuch # records the evaluation
+		self.beliefbag[what] = howmuch # records the evaluation
 		clue = Clue(what,float(howmuch),self,autoconsider = consider, trace = 'Agent.evaluate',supervisor = self.supervisor)
 		return clue
 		
@@ -109,10 +106,13 @@ class Agent(object):
 		"""
 		Looks up for the about in the spawned clues, and returns
 		value and weightedvalue for it.
+		
+		Full belief pipeline for agent is:
+		[raw belief, weighted belief] 
 		"""
 		
-		if not self.beliefs[belief] > 0:
-			return self.beliefs[belief] # if it's zero, it won't change by weighting or equalizing. Right?
+		if not self.beliefbag[belief] > 0:
+			return self.beliefbag[belief] # if it's zero, it won't change by weighting or equalizing. Right?
 		
 		# agents never equalize. Right?
 		
@@ -125,7 +125,7 @@ class Agent(object):
 		if value: # can be provided in case we want to weight an equalized value
 			pass
 		else:
-			value = self.beliefs[belief] # fetch the raw_value
+			value = self.beliefbag[belief] # fetch the raw_value
 		
 		
 		from semanticsky.tests import ctype

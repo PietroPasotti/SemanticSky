@@ -1,6 +1,10 @@
 #!/usr/bin/python3
 
-#from ...skies.utils import ctype,avg,diff,pull_tails,Group
+from semanticsky.skies.utils import avg,diff,pull_tails,Group
+from semanticsky.skies.clouds.core import ctype
+
+__all__ = ['TWUpdateRule']
+
 import math
 
 class TWUpdateRule(object):
@@ -323,6 +327,7 @@ class TWUpdateRule(object):
 						falses.append(beliefset[belief])
 				# if no feedback was ever received, this means that it's not a confirmed truth or falsity, so we do nothing about it
 			
+			from semanticsky.skies.utils import avg
 			centerf = avg(falses)
 			centert = avg(trues)
 			

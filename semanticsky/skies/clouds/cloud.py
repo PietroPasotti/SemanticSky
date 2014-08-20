@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-from ..utils import update_coo_dict_with_raw_text, most_freq_words_from_raw_texts, guess_language,to_tokens_text,preprocess,re,Counter,Group
 				
 class Cloud(object):
 	"""
@@ -93,6 +92,8 @@ class Cloud(object):
 			'names' : [],
 			'web_links': set()}
 		
+		from ..utils import re,Group,preprocess
+		
 		re_names_array = [	re.compile(r"[A-Z][a-z]+\s[A-Z][a-z]+\b"), 				# captures "Arianna Betti"
 							re.compile(r"[A-Z][.].*?\s[A-Z][a-z]+\b"),				# captures "J.R. Tolkien", "N. Brouwer" and "A.Cozza".
 							re.compile(r"[A-Z][a-z]+\s[A-Za-z]+\s[A-Z][a-z]+"),		# captures "University of Amsterdam" and "Rosa de Hoog", as well as "Tiziano Caio Mario".		
@@ -105,7 +106,7 @@ class Cloud(object):
 		#					re.compile(r"[A-Z][a-z]+\s[A-Za-z]+\s[A-Z][a-z]+"),	
 		#					re.compile(r"[A-Z][a-z]+,(?:\s?[A-Z]\.)*?")	]
 			
-		clean1 = []	
+		clean1 = []
 		@Group
 		def handle_links_and_preprocessing():
 			for string in listofstr:
@@ -216,7 +217,9 @@ class Cloud(object):
 		Builds up a zero layer from the item's direct information we have
 		from starfish's database.
 		"""
-
+		
+		from ..utils import Counter, most_freq_words_from_raw_texts,  update_coo_dict_with_raw_text, guess_language
+		
 		zero_layer = {	'core' : [],
 						'words_tfidf': {},
 						'words_tf' : {},
@@ -338,6 +341,7 @@ class Cloud(object):
 		Produces a plain list of words that are (very likely to be)
 		keywords for this cloud.
 		"""
+		from ..utils import to_tokens_text
 		
 		candidates = []
 		

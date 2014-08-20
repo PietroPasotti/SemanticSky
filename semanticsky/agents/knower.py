@@ -2,10 +2,12 @@
 
 # need ss, DEFAULTS, and 
 from ..agents import GuardianAngel
+__all__ = ['Knower'] # __all__ is a list of all and only the names we want accessible to the toplevel module's view
 
 class Knower(GuardianAngel,object):
 	"""
-	A class designed to train SemanticSky.
+	A class designed to train SemanticSky, together with the algorithm
+	.utils.algorithms.Algorithm.builtin_algs.someonesuggested.
 	"""
 	
 	def __init__(self,supervisor,algorithm = False,silence = False):

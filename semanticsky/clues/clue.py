@@ -38,10 +38,11 @@ class Clue(object):
 		"""
 		
 		from semanticsky import DEFAULTS
+		from semanticsky.skies import Link
 		
 		self.cluetype = 'link'
 		if not str(about.__class__) == "<class 'semanticsky.skies.Link'>":
-			self.about = ss.Link(about)
+			self.about = Link(about)
 
 		self.about = about
 		self.value = value
@@ -87,7 +88,8 @@ class Clue(object):
 		
 		about = self.about
 		try:
-			return ss.utils.ctype(about)
+			from semanticsky.skies.utils import ctype
+			return ctype(about)
 		except BaseException as e:
 			print ('Unknown about type: {} (of type {}).'.format(about,type(about)))
 			raise e

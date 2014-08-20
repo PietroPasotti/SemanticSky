@@ -1,7 +1,7 @@
  #!/usr/bin/python3
 					
-
-from .angels import GuardianAngel
+from .angel import GuardianAngel
+__all__ = ['God']
 					
 class God(GuardianAngel,object):
 	"""
@@ -19,6 +19,8 @@ class God(GuardianAngel,object):
 		
 		import semanticsky
 		from semanticsky import DEFAULTS
+		from .agent import Agent
+		from .utils import BeliefBag
 		from time import gmtime
 		from copy import deepcopy
 		
@@ -29,8 +31,9 @@ class God(GuardianAngel,object):
 		self.cluebuffer = []
 		self.logs = {}
 		self.name = 'Yahweh'
-		self.stats = {'trustworthiness' : 1, 'expertises': 'all', 'power': 'over 9000'}
-		self.beliefs = BeliefBox(self) # we'll override the believes method, so as not to ask for equalization or weighting.
+		self.stats = deepcopy(Agent.base_stats_dict)
+		self.stats.update({'trustworthiness' : 1, 'expertises': 'all', 'power': 'over 9000'})
+		self.beliefbag = BeliefBag(self) # we'll override the believes method, so as not to ask for equalization or weighting.
 		self.godid = deepcopy(God.godcount)
 		God.godcount += 1
 
@@ -114,8 +117,9 @@ class God(GuardianAngel,object):
 		Where clue is a clue about anything believable by god.
 		"""
 		
-		if not self.beliefs.get(clue.about,False):
-			self.beliefs[clue.about] = 0 # the initial belief is zero: if asked 'does God believe x?' default answer is 'no'
+		#if not self.beliefbag.get(clue.about,False):
+		#	self.beliefbag[clue.about] = 0 # the initial belief is zero: if asked 'does God believe x?' default answer is 'no'
+		# but beliefbag's __getattr__ already returns 0 instead of raising KeyError
 		
 		preclue = self.has_already_guessed(clue)
 		if preclue: # if the agent has already clue'd about that link or object, we assume he has changed his mind:
@@ -123,7 +127,7 @@ class God(GuardianAngel,object):
 													# and the value of the belief in about is updated to the average of the values still in the history
 		###### UPDATE ALGORITHM
 		
-		from belieftests import avg
+		from semanticsky.tests import avg
 		from semanticsky import DEFAULTS
 		
 		previous_value = self.believes(clue.about)
@@ -132,7 +136,7 @@ class God(GuardianAngel,object):
 		new_learned_value = self.learning_merger(previous_value,new_value,self.learningspeed)
 		### we use the default merge!! function of previous value, new value and learningspeed
 		
-		self.beliefs[clue.about] = new_learned_value
+		self.beliefbag[clue.about] = new_learned_value
 	
 	
 	# LOGGERS
@@ -184,7 +188,7 @@ class God(GuardianAngel,object):
 		
 		from .utils import BeliefBag
 		
-		self.beliefs = BeliefBag(self)
+		self.beliefbag = BeliefBag(self)
 		self.logs = {}
 		
 		for guardian in self.guardianangels:
@@ -331,7 +335,6 @@ class God(GuardianAngel,object):
 		"""	
 		
 		from .utils.algorithms import ALL_ALGS
-		from .agents import GuardianAngel
 				
 		print('Spawning guardians...')
 		
@@ -407,7 +410,6 @@ class God(GuardianAngel,object):
 			
 			if vb > 0: print('processing ',toread,"...")
 			
-		
 			self.whisperpipe(clue) # check whether we have to whisper the clue, and in case does it.
 			
 			from .knower import Knower
@@ -610,8 +612,37 @@ class God(GuardianAngel,object):
 		Warning: this is the current state of the belief set. If something
 		has changed without a clue being spawned (such as trustworthinesses
 		all around) then the belief state might be not up-to-date.
+		
+		Belief pipeline for God is:
+		[raw beliefs]
+		
+		Thus, self.beliefbag.toplevel() will return the raw beliefset.
 		"""
-		return self.beliefs[something]
+		return self.beliefbag[something]
+
+	def refresh(self,verbose = True):
+		"""
+		for belief in self.beliefbag:
+		self.rebelieves(belief)
+		"""
+		
+		if verbose:
+			from semanticsky import DEFAULTS
+			vb = DEFAULTS['verbosity']
+		else:
+			vb = 0
+		
+		topno = len(self.beliefbag)
+		if topno and vb > 1:
+			from semanticsky.tests import ProgressBar
+			bar = ProgressBar(topno,title = 'Refreshing')
+		
+		for belief in self.beliefbag:
+			if verbose and topno:
+
+				if vb > 1: bar()
+						
+			self.rebelieves(belief) # will update beliefs
 
 	def rebelieves(self,something):
 		"""
@@ -662,25 +693,30 @@ class God(GuardianAngel,object):
 		
 		experts = {}
 		
-		out = {}
+		from .utils import BeliefBag
+		out = BeliefBag(self)
 		
-		tlen = len(self.beliefs)
+		tlen = len(self.beliefbag)
 		from semanticsky.tests import ProgressBar
-		bar = ProgressBar(tlen)
-		
-		for belief in self.beliefs:
+		from semanticsky import DEFAULTS
+		vb = DEFAULTS['verbosity']
+		if vb > 1:
+			bar = ProgressBar(tlen)
+
+		for belief in self.beliefbag:
 			ctype = ss.utils.ctype(belief)
 			if not experts.get(ctype,False):
 				experts[ctype] = self.most_trustworthy(ctype,crop)
 			cexperts = experts[ctype]
 			
-			bar() # status bar
+			if vb > 1: bar()
 				
 			rebelief = self.expert_rebelieves(belief,crop,cexperts) # retrieves a weighted sum of what these experts believe about belief
 			
 			out[belief] = rebelief
 		
-		print('Expert judgement compiled; crop = {}, saved to self.expert_belief_assessm'.format(crop))	
+		if vb > 0: 
+			print('Expert judgement compiled; crop = {}, saved to self.expert_belief_assessm'.format(crop))	
 		self.expert_belief_assessm = out
 		
 		if local:
@@ -690,12 +726,12 @@ class God(GuardianAngel,object):
 		
 	def clean_trivial_beliefs(self):
 		"""
-		Removes from the beliefs zero's: the default IS zero already.
+		Removes from the beliefs zero's: the default is zero already.
 		"""
 		
-		for belief in list(self.beliefs):
-			if not self.beliefs[belief] > 0:
-				del self.beliefs[belief]
+		for belief in list(self.beliefbag):
+			if not self.beliefbag[belief] > 0:
+				del self.beliefbag[belief]
 
 	def believes_link_by_id(self,anid,anotherid):
 		if not hasattr(self,'sky'):
@@ -704,7 +740,8 @@ class God(GuardianAngel,object):
 		cloud1 = self.sky.get_cloud(anid)
 		cloud2 = self.sky.get_cloud(anotherid)
 		
-		pair = ss.pair(cloud1,cloud2)
+		from semanticsky.skies.sky import Link
+		pair = (cloud1,cloud2)
 		
 		return self.believes(pair)
 	
@@ -715,14 +752,14 @@ class God(GuardianAngel,object):
 		"""	
 		
 		allc = []
-		import semanticsky as ss
+		import semanticsky.skies as ss
 		if isinstance(cloud_or_id,ss.Cloud):
 			for cloud in self.sky.clouds():
 				if self.believes(pair(cloud_or_id,cloud)):
 					allc.append(cloud)
 					
-		if isinstance(cloud_or_id,str) or isinstance(cloud_or_id,int):
-			for pair in self.beliefs:
+		if isinstance(cloud_or_id,(str,int)):
+			for pair in self.beliefbag:
 				if cloud_or_id in [c.item['id'] for c in pair]:
 					
 					otherl = [cloud for cloud in pair if cloud.item['id'] != cloud_or_id ]
@@ -731,105 +768,61 @@ class God(GuardianAngel,object):
 					allc.append(other)
 		
 		return allc
-	
-	def refresh(self,verbose = True):
-		"""
-		for belief in self.beliefs:
-		self.rebelieves(belief)
-		"""
-		
-		topno = len(self.beliefs)
-		if topno:
-			from semanticsky.tests import ProgressBar
-			bar = ProgressBar(topno,title = 'Refreshing')
-		
-		for belief in self.beliefs:
-			if verbose and topno:
 
-				bar()
-						
-			self.rebelieves(belief,silent = False) # will update beliefs
-	
 	def reassess(self,listofitems = None):
 		"""
-		Forces god to re-assess his belief state. If for example we removed
-		a key clue from a well-grounded belief, then we may ask him to reassess
-		the belief in order to check the new value of the belief.
+		Forces god to re-assess (parts of) his belief state. If for example 
+		we removed a key clue from a well-grounded belief, then we may ask
+		him to reassess the belief in order to check the new value of the 
+		belief.
 		
-		listofitems, if given, must be a list of links or believable items
-		or a clue.
+		*listofitems*, if given, must be a list of links or believable items
+		or a clue (or list of clues).
 		"""
+		
 		from semanticsky.tests import ispair,avg
 		from semanticsky.clues import Clue
 		
-		if ss.ispair(listofitems):
+		if sispair(listofitems):
 			listofitems = [listofitems]
 		elif isinstance(listofitems,Clue):
 			listofitems = [listofitems.about]
+		elif isinstance(listofitems,list) and all(isinstance(x,Clue) for x in listofitems):
+			listofitems = [clue.about for clue in listofitems]
 		elif isinstance(listofitems,list): # a list of links
-			oldbeliefs = listofitems
+			listofitems = listofitems
 		elif listofitems is None:
-			oldbeliefs = self.beliefs
+			listofitems = self.beliefbag
 		else:
 			raise BaseException('Bad input: type {}'.format(type(listofitems)))
 		
-		for belief in oldbeliefs: # list of belief-keys to reassess
+		for belief in listofitems: # list of belief-keys to reassess
 			
-			bclues = self.logs[belief] # all the clues which led to the current belief's value
-			agented = [clue for clue in bclues if clue.agent not in self.guardianangels]
+			clues = self.logs[belief] # all the clues which led to the current belief's value
+			self.beliefbag[belief] = 0 # we reset the belief state regarding that item
 			
-			opinions =  []
-			for clue in agented:
-				opinions.append(clue.weightedvalue())
-			
-			for angel in self.guardianangels:
-				opinions.append(angel.belief_with_feedback(belief))
+			for clue in clues:
+				self.update_beliefs(clue) # this will automatically fill update back the belief state
 				
-			self.beliefs[belief] = avg(opinions) # denom always != 0 in any case...
-		
 		return None
 	
-	def prune_below_unweighted(self,number):
-		"""
-		Tells God to eliminate from beliefs and logs the beliefs whose unweighted
-		confidence is below number.
-		"""
-		
-		for belief in self.beliefs:
-			val = self.rebelieves(belief)
-			if val <= number:
-				if belief in self.beliefs:
-					del self.beliefs[belief]
-				if belief in self.logs:
-					del self.logs[val]
-				
-	def prune_below_weighted(self,number):
-		"""
-		Tells God to eliminate from beliefs and logs the beliefs whose weighted
-		confidence is below number.
-		"""
-		for belief in self.beliefs:
-			val = self.rebelieves(belief,weight = False)
-			if val <= number:
-				if belief in self.beliefs:
-					del self.beliefs[belief]
-				if belief in self.logs:
-					del self.logs[val]			
-				
-				
 	# CLEANING
-	def remove_tag_clouds(self):
+	def remove_tag_clouds(self): # to check...
 		"""
 		For all guardianangels, and from its own beliefs and logs, eliminates
 		all traces of clues whose about contains a tag cloud or a tag id.
 		"""
 
-		beliefsets = tuple( tuple(tuple(pair for pair in self.beliefs)) + tuple(tuple(pair for pair in ga.beliefs) for ga in self.guardianangels) )
+		beliefsets = tuple( tuple(tuple(pair for pair in self.beliefbag)) + tuple(tuple(pair for pair in ga.beliefbag) for ga in self.guardianangels) )
 		# type should be ((frozenset({cloud(),cloud()}),),)
 		
-		toclean = [self.beliefs,self.logs]
+		toclean = [self.beliefbag,self.logs,self.sky]
 		for ga in self.guardianangels:
-			toclean.append(ga.evaluation)
+			if hasattr(ga,'remove_tag_clouds'): # in case there's a god there...
+				ga.remove_tag_clouds()
+				continue
+				
+			toclean.append(ga.beliefbag) # toclean is a list of belief sets from which we want to remove tag clouds
 		
 		istagcloud = lambda x: True if x.cloudtype == 'tags' else False
 		istagpair = lambda x: True if istagcloud(tuple(x)[0]) or istagcloud(tuple(x)[1]) else False
@@ -873,6 +866,8 @@ class God(GuardianAngel,object):
 		
 		for ga in self.guardianangels:
 			ga.clean_feedback()
+			
+		#self.clean_feedback() uncomment this if you are refitting god to act as a guardianangel
 		
 		return True
 
@@ -885,7 +880,7 @@ class God(GuardianAngel,object):
 		
 	def getbuffer(self):
 		"""
-		Empties the buffer and returns it previous content.
+		Empties the buffer and returns its previous content.
 		"""
 		
 		bffr = self.cluebuffer
@@ -896,7 +891,7 @@ class God(GuardianAngel,object):
 		
 	def cleanbuffer(self):
 		"""
-		empties the cluebuffer.
+		Just empties the cluebuffer.
 		"""
 		
 		self.cluebuffer = []
@@ -915,7 +910,7 @@ class God(GuardianAngel,object):
 		if not self.knower.evaluation:
 			self.knower.evaluate_all(express = False)
 		
-		return regret( self.beliefs ,self.knower.evaluation, only_on_true_links = only_on_true_links)
+		return regret( self.beliefbag ,self.knower.evaluation, only_on_true_links = only_on_true_links)
 		
 	def guardians_regrets(self,guardians = None,only_on_true_links = False):
 		"""

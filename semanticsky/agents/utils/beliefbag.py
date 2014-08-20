@@ -1,32 +1,34 @@
 
-from semanticsky.skies.utils import ctype
-from semanticsky import DEFAULTS
-
-from ..utils import belief_rules
-
 class BeliefBag(dict,object):
 	
-	def __init__(self,owner,antigrav_updaterate = 5):
+	def __init__(self,owner,antigrav_updaterate = None):
 		dict.__init__(self) # a beliefbag is always initialized empty.
+		
+		from semanticsky import DEFAULTS
 		
 		self.owner = owner
 		self.equalizer = DEFAULTS['default_equalizer'] # defaults to there, but each angel could in principle have its own, e.g. if he receives TOO much neg feedback after this.
 		self.antigravity_getter = DEFAULTS['default_antigravity']
 		self.equalization_active = DEFAULTS['equalization']
+		self.antigrav_updaterate = DEFAULTS['antigrav_updaterate']
 		
-		self.weightset = owner.stats['relative_tw']
-		self.antigrav_updaterate = antigrav_updaterate
+		self.touchcounter = 0 # when it hits *antigrav_updaterate*, triggers self.update_antigrav() and then it resets
 		self.antigrav = None # gravity point is not set at start
 		self.factor = 0 # boh
 		
 		if self.weightset:
 			self.update_antigrav()
 	
+	@property
+	def weightset(self):
+		return self.owner.stats['contextual_tw']
+	
 	def __str__(self):
-		return "< BeliefBag of {}. >".format(self.owner.shortname())
+		return "< BeliefBag of {}. >".format(self.owner.name)
 
 	def __repr__(self):
-		return "< BeliefBag of {}. >".format(self.owner.shortname())
+		from semanticsky.tests import wrap
+		return wrap("< BeliefBag of {}. >".format(self.owner.name),'brightmagenta')
 		
 	def raw_items(self):
 		return self.items()
@@ -53,7 +55,7 @@ class BeliefBag(dict,object):
 		self.touch()
 		
 	def weighted(self,item):
-		
+		from semanticsky.skies.utils import ctype
 		return self.weightset[ctype(item)] * self.equalized(item) if self.equalization_active else self.weightset[ctype(item)] * self[item]
 
 	def equalized(self,item):
@@ -69,6 +71,7 @@ class BeliefBag(dict,object):
 			getcurve = False
 			
 		if getcurve:
+			from ..utils import belief_rules
 			eqcurves = [item for item in belief_rules.TWUpdateRule.builtin_equalizers.curves.__dict__ if hasattr(item,'__call__')]
 			
 			for e in eqcurves: # looks up for the curve which matches his equalizer's __name__

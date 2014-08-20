@@ -18,7 +18,9 @@ dutch_recognition_re_s = [ 	('het',	re.compile(r'\bhet\b')),
 destemdb = {}
 # word --> stem dictionary
 revert_destemdb = {}
-# stem --> word dictionary (it's a mapping)
+# stem --> word mapping
+
+# LANGUAGE ANALYSIS UTILS
 
 def crop_at_nonzero(fl,bot = 4):
 	sfl = str(fl)
@@ -475,6 +477,11 @@ def overlap_of_coo_counters(countera,counterb,thresholds = default_thresholds, c
 	
 	return out0,out1
 
+
+## RANDOM UTILS
+
+
+
 class ProgressBar():
 	
 	def __init__(self,topnumber,barlength=100,title = 'Progress',updaterate = 1,monitor = False,displaynumbers = False):
@@ -545,95 +552,26 @@ class ProgressBar():
 	def tickoff(self):
 		
 		print('\b ',end = '')
-				
+
 def ispair(pair):
 	if isinstance(pair,frozenset) and len(pair) == 2 or isinstance(pair,tuple):
 		pair = tuple(pair)
-		import semanticsky as ss
-		if isinstance(pair[0],ss.Cloud) and isinstance(pair[1],ss.Cloud):
+		import semanticsky.skies as ss
+		if all (isinstance(x,ss.Cloud) for x in pair):
 			return True
 		elif str(pair[0].__class__) == "<class 'semanticsky.Cloud'>" and str(pair[1].__class__) == "<class 'semanticsky.Cloud'>":
 			return True
 
 	return False
 
-def pair(cloud,cloudb):
-	""" Simply wraps two objects in a frozenset. """
-	
-	if cloud is cloudb:
-		raise BaseException('Same cloud == No good.')
-		
-	return frozenset((cloud,cloudb))
 
-def ctype(pair):
-	
-	if ispair(pair):
-		about = pair
-	else:
-		about = pair.about
-
-	clouda,cloudb = about
-	typea,typeb = clouda.item.get('type','tag'),cloudb.item.get('type','tag') # if it hasn't got an item type, it must be a tag
-	
-	global codedict
-	codedict = {'tag': 				'T',
-				'Information': 		'I',
-				'Glossary':			'G',
-				'Question':			'Q',
-				'Good Practice':	'O',
-				'Project':			'R',
-				'Person':			'P',
-				'Content':			'C',
-				'Topic':			'J',
-				'Pedagogy':			'Y',
-				'Technology':		'H',
-				'Event':			'E'}
-	
-	ta = codedict[typea]
-	tb = codedict[typeb]
-	
-	ctype = [ta,tb]
-	ctype.sort()
-	
-	return ''.join(ctype) # a two-letter string
-	
-def ctype_to_type(ctype):
-	
-	ctypes = list(ctype)
-	global codedict
-	
-	inverted = {codedict[key]:key for key in codedict}
-	
-	outctype = []
-	for c in ctypes:
-		cty = inverted[c]	
-		cty = cty[:4]
-		outctype += [cty]
-	
-	return '-'.join(outctype)
 	
 def avg(itr):
 	return sum(itr) / len(itr) if itr else 0
 
 def diff(iterator):
 	return max(iterator) - min(iterator)
-
-def regret(beliefs,truths):
-
-	regret = 0
 	
-	for belief in beliefs:
-		if belief in truths:
-			regret += 1 - beliefs[belief]
-		else:
-			regret += beliefs[belief]
-	
-	for belief in truths:
-		if belief not in beliefs:
-			regret += 1
-	
-	return regret
-
 def normalize(iterator,topvalue = 1):
 	# shrinks down all values in iterator between 0 and topvalue
 
