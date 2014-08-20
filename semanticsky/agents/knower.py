@@ -8,21 +8,20 @@ class Knower(GuardianAngel,object):
 	A class designed to train SemanticSky.
 	"""
 	
-	def __init__(self,supervisor,silence = False):
-		
-		global knower
-		
-		if knower:
-			raise BaseException('The Knower is already out there!')
+	def __init__(self,supervisor,algorithm = False,silence = False):
+		if algorithm is False:
+			from .utils.algorithms.Algorithm.builtin_algs import someonesuggested
+			algorithm = someonesuggested
 			
+		super().__init__(algorithm, supervisor,whisperer = True)
 		
-		super().__init__(algs.Algorithm.builtin_algs.someonesuggested,supervisor,whisperer = True)
 		knower = self
 		supervisor.knower = self
 		
 		if not silence:
-			self.evaluate_all(express = False)
-		
+			self.evaluate_all(express = False) # the knower should never express,
+			# so as to not influence directly god's belief state!
+
 	def __str__(self):
 		return "< The Knower >"
 		
@@ -30,19 +29,21 @@ class Knower(GuardianAngel,object):
 		from tests import wrap
 		return wrap("< The Knower >",'brightgreen')
 	
+	def express(self,*args,**kwargs):
+		raise BaseException("The Knower shouldn't express!")
+	
 	def new_supervisor(self,deity,clear = True):
 		"""
 		Assigns a new supervisor to the knower and clears all preceding logs,
-		if [clear].
+		if *clear*.
 		"""
 		
 		self.supervisor = deity
 		self.makewhisperer()
-		deity.knower = self
+		deity.knower = self # todo: a god should support more than one knower / trainer
 
 		if clear:
 			# we assume the previous evaluation was good: we keep it.
-			
 			# we try to restore the state as if he never expressed.
 			for clue in self.clues:
 				clue.delete()
@@ -58,7 +59,7 @@ class Knower(GuardianAngel,object):
 		Overrides whisperpipe.
 		"""
 		
-		if str(cluelist.__class__) in ["<class 'clues.GuardianAngel'>","<class 'clues.Agent'>"]:
+		if str(cluelist.__class__) in ["<class 'semanticsky.agents.angel.GuardianAngel'>","<class 'semanticsky.agents.agent.Agent'>"]:
 			cluestovalue = cluelist.clues
 		elif isinstance(cluelist,list) or hasattr(cluelist,'__iter__'):
 			cluestovalue = tuple(cluelist)

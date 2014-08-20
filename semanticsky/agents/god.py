@@ -1,13 +1,13 @@
  #!/usr/bin/python3
 					
-import time	
+import time
+from .angels import GuardianAngel
 					
-class God(object):
+class God(GuardianAngel,object):
 	"""
 	The Allmighty.
 	"""
 	
-	beliefs = {} # a belief is a facts --> [0,1] confidences mapping
 	godid = 0
 	
 	

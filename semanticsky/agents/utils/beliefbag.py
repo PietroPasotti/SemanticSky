@@ -7,7 +7,7 @@ from ..utils import belief_rules
 class BeliefBag(dict,object):
 	
 	def __init__(self,owner,antigrav_updaterate = 5):
-		dict.__init__(self,owner.evaluation)
+		dict.__init__(self) # a beliefbag is always initialized empty.
 		
 		self.owner = owner
 		self.equalizer = DEFAULTS['default_equalizer'] # defaults to there, but each angel could in principle have its own, e.g. if he receives TOO much neg feedback after this.
@@ -81,9 +81,23 @@ class BeliefBag(dict,object):
 		else:
 			transformed = self.equalization_curve(self[item],self.antigrav)	
 		
+		return transformed
+		
 	def __setitem__(self,item,value):
 		super().__setitem__(item,value)
 		self.touch()
+		
+	def __getitem__(self,item):
+		"""
+		If a belief is just not there, we return 0.
+		If something was already evaluated, and was judged 0, the return
+		value is 0.0 (a float). This way we can distinguish between not-yet
+		evaluated items and already-evaluated (but zero) items. 
+		"""
+		try:
+			return super().__getitem__(item)
+		except KeyError:
+			return 0
 		
 	def touch(self):
 		
@@ -105,7 +119,17 @@ class BeliefBag(dict,object):
 		else:
 			self.antigrav = self.antigravity_getter(self,self.owner)
 	
+	def toplevel(self):
+		"""
+		Returns a dictionary which is the outcome of the full pipeline
+		given the current defaults. See Agent.believes for a longer description.
 		
+		What the toplevel beliefbag is depends on the pipeline we're using.
+		This can be modified all in one by toying with agents and angels'
+		believes function.
+		"""
+		
+		return {x : self.owner.believes(x) for x in self}
 
 	
 	

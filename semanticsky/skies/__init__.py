@@ -1,5 +1,5 @@
 
-from .sky import SemanticSky
+from .sky import SemanticSky,Link
 from semanticsky.skies import cluster
 from semanticsky.skies import utils
 

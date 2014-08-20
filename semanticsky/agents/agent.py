@@ -11,7 +11,7 @@ class Agent(object):
 		self.name = name
 		self.supervisor = supervisor
 		self.stats = { 	'trustworthiness': 0.6,
-						'relative_tw' : {}, # will map cluetypes to trustworthiness on the cluetype
+						'contextual_tw' : {}, # will map cluetypes to trustworthiness on the cluetype
 						'expertises': {},
 						'communities': [],
 						'blocked' : False}
@@ -22,10 +22,10 @@ class Agent(object):
 		self.item = None 	# this can be set to the agent's corresponding starfish item (a dict),
 							# 	if the agent's user has a page
 		
-		self.evaluation = {}
-		self.clues = []       # stores the produced clues
-		self.produced_feedback = set()
+		self.clues = []       			# stores the produced clues; quite useless in production code
+		self.produced_feedback = set()	
 		self.received_feedback = {} 	# will store the feedbacks received.
+		
 		self.beliefs = BeliefBag(self)
 	
 	def __str__(self):
@@ -92,7 +92,8 @@ class Agent(object):
 		
 		if not 0 < howmuch <= 1:
 			raise BaseException('Evaluation confidence should be in [0,1].')
-			
+		
+		self.beliefs[what] = howmuch # records the evaluation
 		clue = Clue(what,float(howmuch),self,autoconsider = consider, trace = 'Agent.evaluate',supervisor = self.supervisor)
 		return clue
 		
@@ -102,16 +103,28 @@ class Agent(object):
 		value and weightedvalue for it.
 		"""
 		
-		value = 0
-		weightedvalue = 0
+		if not self.beliefs[belief] > 0:
+			return self.beliefs[belief] # if it's zero, it won't change by weighting or equalizing. Right?
 		
-		for clue in self.clues:
-			if clue.about == about:
-				value += clue.value
-				weightedvalue += clue.weightedvalue()
-				break
-	
-		return [value,weightedvalue]
+		# agents never equalize. Right?
+		
+		return self.weighted(belief) # but they weight.
+
+	def weighted(self,belief,value = None):
+		"""
+		Returns the weighted value for belief.
+		"""
+		if value: # can be provided in case we want to weight an equalized value
+			pass
+		else:
+			value = self.beliefs[belief] # fetch the raw_value
+		
+		
+		from semanticsky.tests import ctype
+		weight = self.get_tw( ctype(belief) ) 	# fetches the contextual tw if available, else the overall trustworthiness.
+												# if DEFAULTS['normalization of tws'] is True, also, this takes care of it at Agent's level.
+		
+		return value * weight 
 		
 	# FEEDBACK and WHISPERING
 	def receive_feedback(self,feedback,verbose = False):
@@ -132,8 +145,8 @@ class Agent(object):
 		if ss.ispair(about):
 			ctype = ss.utils.ctype(about)
 			
-			if not self.stats['relative_tw'].get(ctype):
-				self.stats['relative_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
+			if not self.stats['contextual_tw'].get(ctype):
+				self.stats['contextual_tw'][ctype] = self.stats['trustworthiness'] 	# if no relative trustworthiness is available for that ctype, we initialize
 			
 			if feedback.sign == '-' and differentiate_learningspeeds:
 				LS = learningspeed / negative_feedback_learningspeed_reduction_factor
@@ -141,7 +154,7 @@ class Agent(object):
 			else:
 				LS = learningspeed
 			
-			self.stats['relative_tw'][ctype] = default_updaterule(self.stats['relative_tw'][ctype], feedback, LS, self)	
+			self.stats['contextual_tw'][ctype] = default_updaterule(self.stats['contextual_tw'][ctype], feedback, LS, self)	
 			
 		else:
 			print('feedback ignored: about unhandleable (type :  {})'.format(type(about)))
@@ -165,7 +178,8 @@ class Agent(object):
 		"""
 		
 		self.stats = {	'trustworthiness':1,
-						'relative_tw': {} }
+						'contextual_tw': {} }
+						
 		self.received_feedback = {}
 		
 		return True
@@ -173,39 +187,46 @@ class Agent(object):
 	# TRUSTWORTHINESS	
 	@property
 	def trustworthiness(self):
-		self.stats['trustworthiness'] = sum(self.stats['relative_tw'].values()) / len(self.stats['relative_tw']) if self.stats['relative_tw'] else self.stats['trustworthiness']
+		self.stats['trustworthiness'] = sum(self.stats['contextual_tw'].values()) / len(self.stats['contextual_tw']) if self.stats['contextual_tw'] else self.stats['trustworthiness']
 		return self.stats['trustworthiness']
-	
+
+	def reltrust(self,ctype):
+		"""
+		Returns the relative trustworthiness about clues of type ctype.
+		If there is no data on that, returns 0.
+		"""
+		return self.stats['contextual_tw'].get(ctype,0):
+
 	def normalize_tw(self,weight):
 		"""
 		Transforms a weight into a weight relative to the agent's maximum
 		relative trustworthiness, so that some tw is always one.
 		"""
 		
-		return weight / max(self.stats['relative_tw'].values()) # returns a value between 0 and 1
+		return weight / max(self.stats['contextual_tw'].values()) # returns a value between 0 and 1
 	
-	def get_tw(self,clue):
+	def get_tw(self,ctype):
 		"""
 		Returns the relative tw if available; else returns overall trustworthiness
 		"""
 		
-		contextual = self.relative_trustworthiness(clue)
+		contextual = self.contextual_trustworthiness(ctype)
 		
 		if contextual:
-			if normalization_of_trustworthinesses:
+			from semanticsky import DEFAULTS 
+			if DEFAULTS['normalization_of_trustworthinesses']: # defaults to false
 				return self.normalize_tw(contextual)
 			else:
 				return contextual
 		else:
 			return self.trustworthiness
 			
-	def relative_trustworthiness(self,clue):
+	def contextual_trustworthiness(self,ctype):
 		"""
 		Returns self's trustworthiness relative to the clue's contenttype,
-		False otherwise.
+		False if he has none.
 		"""
-		ctype = clue.contenttype
 		
-		reltw = self.stats['relative_tw'].get(ctype,False)
+		reltw = self.stats['contextual_tw'].get(ctype,False)
 		
 		return reltw

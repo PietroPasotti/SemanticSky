@@ -38,7 +38,7 @@ class Clue(object):
 		"""
 		
 		self.cluetype = 'link'
-		if not str(about.__class__) == "<class 'semanticsky.Link'>":
+		if not str(about.__class__) == "<class 'semanticsky.skies.Link'>":
 			self.about = ss.Link(about)
 
 		self.about = about
@@ -51,7 +51,6 @@ class Clue(object):
 		self.supervisor = supervisor			
 		self.agent = agent
 		
-	
 		if hasattr(agent,'clues'):
 			agent.clues.append(self)
 		
@@ -73,7 +72,7 @@ class Clue(object):
 		The trustworthiness of a clue is the one of he who formulated it.
 		"""
 		
-		return self.agent.get_tw(self) # returns the relative-to-self's contenttype trustworthiness OR the agent's overall tw if the former is unavailable
+		return self.agent.get_tw(self.contenttype) # returns the relative-to-self's contenttype trustworthiness OR the agent's overall tw if the former is unavailable
 	
 	@property
 	def contenttype(self):
@@ -82,15 +81,12 @@ class Clue(object):
 		"""
 		
 		about = self.about
-		if isinstance(about,Agent):
-			return 'AA' # that is: feedback
-		else:
-			try:
-				return ss.utils.ctype(about)
-			except BaseException as e:
-				print ('Unknown about type: {} (of type {}).'.format(about,type(about)))
-				raise e
-	
+		try:
+			return ss.utils.ctype(about)
+		except BaseException as e:
+			print ('Unknown about type: {} (of type {}).'.format(about,type(about)))
+			raise e
+
 	@property
 	def weightedvalue(self):
 		
@@ -100,7 +96,3 @@ class Clue(object):
 	def ids(self):
 		return self.about.ids # delegates ids to Link.ids
 					
-
-	
-	
-

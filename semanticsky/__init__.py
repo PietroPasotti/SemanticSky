@@ -1,11 +1,15 @@
+#!/usr/bin/python3
+	
+## These defaults influence the behaviour of the whole heavens. Handle with care. Touch here for experiments or testing.
 
 DEFAULTS = {
+"verbosity" :										2, # 0 = all silent. 1 = no progress bars, but a few messages to know how you're doing. 2: even a few insults, sometimes.				
 "god_learningspeed" : 								0.8, # how hard is it for god to come to believe the futile suggestions you produce
 "learningspeed" : 									0.2, # how hard is it for god to come to believe that you're a moron
 "negative_feedback_learningspeed_reduction_factor":	50, # if differentiate_learningspeeds goes True, this factor divides feedback for negative examples
-"differentiate_learningspeeds" : 					False,
-"equalization" : 									False,
-"normalization_of_trustworthinesses" : 				False,
+"differentiate_learningspeeds" : 					False, # toggles the differentiation of learningspeeds for all (and only) angels
+"equalization" : 									False, # toggles equalization for all (and only) angels
+"normalization_of_trustworthinesses" : 				False, # toggles normalization of tws for all agents (see their get_tw method)
 "default_voting_merge" : 							'plain average', # rule that god uses to compute his opinion based on the angels' suggestions
 "default_updaterule" : 								'median_of_all_fbs', # rule for computing new beliefs out of previous belief and feedback received
 "default_equalizer" : 								'exponential', # rule for equalization: angels learning their biases
@@ -17,10 +21,58 @@ from semanticsky import agents
 from semanticsky import skies
 from semanticsky import clues
 
-# INIT DEFAULTS
-DEFAULTS['default_updaterule'] = 		agents.utils.belief_rules.TWUpdateRule.set_update_rule( DEFAULTS['default_updaterule'] )
-DEFAULTS["default_equalizer"] =	 		agents.utils.belief_rules.TWUpdateRule.set_equalizer( DEFAULTS["default_equalizer"] ) 
-DEFAULTS["default_antigravity"] = 		agents.utils.belief_rules.TWUpdateRule.set_antigravity( DEFAULTS["default_antigravity"] )
-DEFAULTS["default_merger"] = 			agents.utils.belief_rules.TWUpdateRule.set_merger( DEFAULTS["default_merger"] )
-DEFAULTS["default_feedback_rule"] = 	agents.utils.belief_rules.TWUpdateRule.set_feedback_rule( DEFAULTS["default_feedback_rule"] )
-DEFAULTS["default_voting_merge"] = 		skies.utils.avg # average
+def set_default(name,value,vb_override = False):
+	"""
+	Makes sure that you're not doing any bullshit while modifying the defaults.
+	Also all internal modifications should use this function.
+	"""
+	
+	DEFAULTS[name] = value
+	
+	# entries that are assumed throughout the code to have a __call__ method
+	callable_entries = ("default_feedback_rule", "default_merger" ,"default_antigravity","default_equalizer","default_updaterule" ,"default_voting_merge")
+	
+	# entries that are assumed to be either True or False.
+	boolean_entries = ("differentiate_learningspeeds","equalization","normalization_of_trustworthinesses")
+	isbool = lambda x: True if x is True or x is False else False
+	
+	# assumed to be floats between 0 and 1
+	floats01 = ("god_learningspeed","learningspeed")
+	
+	# assumed to be numbers, of virtually any kind
+	numbers = ("verbosity","negative_feedback_learningspeed_reduction_factor")
+	
+	if not all(callable(DEFAULTS[x]) for x in callable_entries):
+		error = 'some value in {} is not a float: {}'.format(callable_entries,[DEFAULTS[x] for x in callable_entries])
+	elif not all(isbool(DEFAULTS[x]) for x in boolean_entries):
+		error = 'some value in {} is not a float: {}'.format(boolean_entries,[DEFAULTS[x] for x in boolean_entries])
+	elif not all(isinstance(DEFAULTS[x],float) and 0<=x<=1 for x in floats01):
+		error = 'some value in {} is not a float: {}'.format(floats01,[DEFAULTS[x] for x in floats01])
+	elif not all(isinstance(DEFAULTS[x],(float,int)) for x in numbers):
+		error = 'some value in {} is not a numerical entity: {}'.format(floats01,[DEFAULTS[x] for x in floats01])
+	else:
+		error = False
+		
+	if error:
+		raise BaseException(error)
+
+	if vb_override is not False:
+		vb = vb_override
+	else:
+		vb = DEFAULTS['verbosity']
+		
+	if vb > 0:
+		print('DEFAULTS modified.')
+		if vb > 1:
+			from .tests import table
+			table([[name,DEFAULTS[name]] for name in DEFAULTS])
+	
+	return True
+	
+# INIT DEFAULTS (silently)
+set_defaults("default_updaterule" , 		agents.utils.belief_rules.TWUpdateRule.set_update_rule( DEFAULTS['default_updaterule'] ),0) 
+set_defaults("default_equalizer",	 		agents.utils.belief_rules.TWUpdateRule.set_equalizer( DEFAULTS["default_equalizer"] ),0) 
+set_defaults("default_antigravity", 		agents.utils.belief_rules.TWUpdateRule.set_antigravity( DEFAULTS["default_antigravity"] ),0)
+set_defaults("default_merger",	 			agents.utils.belief_rules.TWUpdateRule.set_merger( DEFAULTS["default_merger"] ),0)
+set_defaults("default_feedback_rule",	 	agents.utils.belief_rules.TWUpdateRule.set_feedback_rule( DEFAULTS["default_feedback_rule"] ),0)
+set_defaults("default_voting_merge",		skies.utils.avg ,0) # average
