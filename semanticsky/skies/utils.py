@@ -126,7 +126,7 @@ def isstopword(word,hint = None):
 def compile_dutch_stop_words():
 	
 	dlines = None
-	with open('/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/dutchstops.txt','r') as dstops:
+	with open('/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/semanticsky/data/dutchstops.txt','r') as dstops:
 		dlines = dstops.readlines()
 
 	for line in dlines:

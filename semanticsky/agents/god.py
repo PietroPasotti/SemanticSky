@@ -1,5 +1,7 @@
  #!/usr/bin/python3
 					
+import time	
+					
 class God(object):
 	"""
 	The Allmighty.
@@ -7,12 +9,14 @@ class God(object):
 	
 	beliefs = {} # a belief is a facts --> [0,1] confidences mapping
 	godid = 0
-	default_merge = lambda x : sum(x) / len(x)
 	
-	def __init__(self,sky = None,merging_strategy = default_merge):
+	
+	def __init__(self,sky = None,merging_strategy_override = False):
+		
+		from semanticsky import DEFAULTS
 		
 		self.sky = sky
-		self.birthdate = ss.time.gmtime()
+		self.birthdate = time.gmtime()
 		self.guardianangels = []
 		self.whisperers = []
 		self.cluebuffer = []
@@ -23,7 +27,11 @@ class God(object):
 		self.name = 'Yahweh'
 		self.beliefs = {}
 		
-		self.merging_strategy = merging_strategy # this is what god does to merge his angel's opinions into one.
+		if merging_strategy_override:
+			merging = merging_strategy_override
+		else:
+			merging = DEFAULTS['default_voting_merge']
+		self.merging_strategy = merging # this is what god does to merge his angel's opinions into one.
 				
 		God.godid += 1
 		self.godid = God.godid
@@ -49,7 +57,7 @@ class God(object):
 		return "< The Lord {} >".format(self.godid)
 	
 	def __repr__(self):
-		from tests import wrap
+		from semanticsky.tests import wrap
 		return wrap("< The Lord :: {} >".format(self.godid),'brightblue')
 	
 	def receive(self,clue):
@@ -76,17 +84,7 @@ class God(object):
 		return oldcount
 	
 		
-	# HANDLERS
-	def handle_metaclue(self,metaclue):
-		"""
-		This is a handler for clues about clues1: someone is complaining 
-		that a clue1 was useless, or that it was very good.
-		Propagate the clue to the agent of clue1.
-		"""
-		
-		target_clue = metaclue.about # the clue which is rated by the metaclue
-		return target_clue.receive(metaclue) # the metaclue's value will in the end average up or down the target_clue's author's trustworthiness
-		
+	# HANDLERS	
 	def handle_link(self,linkclue):
 		"""
 		where linkclue is a clue about the existence of a link, ( or about
@@ -98,21 +96,6 @@ class God(object):
 		"""
 		return self.update_beliefs(linkclue)
 		
-	def handle_feedback(self,clue):
-		"""
-		Handles clues about algorithms and agents.
-		"""
-		about = clue.about
-		
-		if isinstance(about, Agent):
-			return	about.receive(clue)
-			
-		elif isinstance(about,str):
-			algname = about
-			alg = [alg for alg in self.guardianangels if alg.name == algname]
-			alg = alg[0]
-			return alg.receive(clue)
-	
 	def has_already_guessed(self,clue):
 		"""
 		Looks up for the about in god's beliefs and checks the history:
@@ -448,13 +431,14 @@ class God(object):
 		Creates all GuardianAngels
 		"""	
 		
+		from semanticsky.agents.utils.algorithms import ALL_ALGS
+		from semanticsky.agents import GuardianAngel
+				
 		print('Spawning guardians...')
 		
-		global GUARDIANANGELS
-		if overwrite: GUARDIANANGELS = []
-		if overwrite: self.guardianangels = []
+		self.guardianangels = []
 		
-		algos = algs.ALL_ALGS # plain list of all algorithms defined in algorithms
+		algos = ALL_ALGS # plain list of all algorithms defined in algorithms
 		
 		gasbyalg = [ga.algorithm for ga in self.guardianangels]
 		
@@ -462,6 +446,7 @@ class God(object):
 			if algorithm not in gasbyalg:
 				GA = GuardianAngel(algorithm,self)
 				self.guardianangels.append(GA)
+				
 		return True
 	
 	def express_all(self,guardians = None,vb = True):
@@ -812,8 +797,9 @@ class God(object):
 		out = {}
 		
 		tlen = len(self.beliefs)
-		bar = ss.ProgressBar(tlen)
-		i = 0
+		from semanticsky.tests import ProgressBar
+		bar = ProgressBar(tlen)
+		
 		for belief in self.beliefs:
 			ctype = ss.utils.ctype(belief)
 			if not experts.get(ctype,False):
@@ -825,8 +811,7 @@ class God(object):
 			rebelief = self.expert_rebelieves(belief,crop,cexperts) # retrieves a weighted sum of what these experts believe about belief
 			
 			out[belief] = rebelief
-			
-			i += 1
+		
 		print('Expert judgement compiled; crop = {}, saved to self.expert_belief_assessm'.format(crop))	
 		self.expert_belief_assessm = out
 		
@@ -862,6 +847,7 @@ class God(object):
 		"""	
 		
 		allc = []
+		import semanticsky as ss
 		if isinstance(cloud_or_id,ss.Cloud):
 			for cloud in self.sky.clouds():
 				if self.believes(pair(cloud_or_id,cloud)):
@@ -884,18 +870,16 @@ class God(object):
 		self.rebelieves(belief)
 		"""
 		
-		so = ss.stdout
 		topno = len(self.beliefs)
 		if topno:
-			bar = ss.ProgressBar(topno,title = 'Refreshing')
+			from semanticsky.tests import ProgressBar
+			bar = ProgressBar(topno,title = 'Refreshing')
 		
-		i = 1
 		for belief in self.beliefs:
 			if verbose and topno:
-				i += 1			
+
 				bar()
-			
-			
+						
 			self.rebelieves(belief,silent = False) # will update beliefs
 	
 	def reassess(self,listofitems = None):
@@ -907,6 +891,8 @@ class God(object):
 		listofitems, if given, must be a list of links or believable items
 		or a clue.
 		"""
+		from semanticsky.tests import ispair,avg
+		from semanticsky.clues import Clue
 		
 		if ss.ispair(listofitems):
 			listofitems = [listofitems]
@@ -931,7 +917,7 @@ class God(object):
 			for angel in self.guardianangels:
 				opinions.append(angel.belief_with_feedback(belief))
 				
-			self.beliefs[belief] = sum(opinions) / len(opinions) #denom always != 0
+			self.beliefs[belief] = avg(opinions) # denom always != 0 in any case...
 		
 		return None
 	
@@ -1003,8 +989,7 @@ class God(object):
 					if belief in target:
 						target.remove(belief)
 						
-		global CLUES
-		toclean = [CLUES]				
+		toclean = []				
 		for ga in self.guardianangels:
 			toclean.append(ga.clues)
 		
@@ -1015,7 +1000,6 @@ class God(object):
 					if not istagpair(tuple(belief)):
 						continue
 				except BaseException:
-					print('skipping ',belief)
 					continue
 				
 				for target in toclean:
@@ -1062,23 +1046,18 @@ class God(object):
 	# EVALUATION FUNCTIONS -- for testing
 	def regrets(self,only_on_true_links = False):
 		"""
-		Regret is here understood as being only positive: FALSE POSITIVES
-		are not taken into account (as precision per se is not a priority
-		of SemanticSky)
+	
 		"""
 		
 		if not hasattr(self,'knower'):
-			from belieftests import getknower
+			from semanticsky.tests import getknower
 			self.knower = getknower(self)
 			
 		if not self.knower.evaluation:
 			self.knower.evaluate_all(express = False)
 		
-		if only_on_true_links:
-			return regret( {b : self.believes(b) for b in self.knower.evaluation} ,self.knower.evaluation)
+		return regret( self.beliefs ,self.knower.evaluation, only_on_true_links = only_on_true_links)
 		
-		return regret(self.beliefs,self.knower.evaluation)
-	
 	def guardians_regrets(self,guardians = None,only_on_true_links = False):
 		"""
 		Regrets for the guardians.
@@ -1104,7 +1083,7 @@ class God(object):
 		for ga in self.guardianangels:
 			totable.append([str(ga),ga.regrets()])
 			
-		from tests import table
+		from semanticsky.tests import table
 		table(totable)
 		
 		return

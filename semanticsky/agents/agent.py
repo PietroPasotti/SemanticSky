@@ -1,10 +1,7 @@
 #!/usr/bin/python3
 
-from semanticsky.clues.utils import BeliefBag,Feedback,belief_rules as BeliefBag,Feedback,updaterules
-
+from .utils import BeliefBag,Feedback,belief_rules
 from copy import deepcopy
-from semanticsky.clues import default_updaterule, learningspeed, negative_feedback_learningspeed_reduction_factor
-from semanticsky.clues import equalization, normalization_of_trustworthinesses, default_equalizer
 
 class Agent(object):
 	
@@ -29,7 +26,7 @@ class Agent(object):
 		self.clues = []       # stores the produced clues
 		self.produced_feedback = set()
 		self.received_feedback = {} 	# will store the feedbacks received.
-		self.beliefs = beliefbag.BeliefBag(self)
+		self.beliefs = BeliefBag(self)
 	
 	def __str__(self):
 		return "< Agent {}. >".format(self.name)

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
-from .angel import ss,deepcopy,Feedback,Agent,GuardianAngel,default_updaterule,learningspeed, negative_feedback_learningspeed_reduction_factor
-from .angel import equalization, normalization_of_trustworthinesses, default_equalizer,default_updaterule
+# need ss, DEFAULTS, and 
+from ..agents import GuardianAngel
 
 class Knower(GuardianAngel,object):
 	"""

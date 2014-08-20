@@ -1,7 +1,8 @@
 
 from semanticsky.skies.utils import ctype
-from semanticsky.clues import equalization
-import semanticsky.clues.utils.belief_rules
+from semanticsky import DEFAULTS
+
+from ..utils import belief_rules
 
 class BeliefBag(dict,object):
 	
@@ -9,16 +10,16 @@ class BeliefBag(dict,object):
 		dict.__init__(self,owner.evaluation)
 		
 		self.owner = owner
-		self.equalizer = twupdate_rules.EQUALIZER # defaults to there, but each angel could in principle have its own, e.g. if he receives TOO much neg feedback after this.
-		self.antigravity_getter = twupdate_rules.ANTIGRAVITY
-		self.equalization_active = equalization
+		self.equalizer = DEFAULTS['default_equalizer'] # defaults to there, but each angel could in principle have its own, e.g. if he receives TOO much neg feedback after this.
+		self.antigravity_getter = DEFAULTS['default_antigravity']
+		self.equalization_active = DEFAULTS['equalization']
 		
 		self.weightset = owner.stats['relative_tw']
 		self.antigrav_updaterate = antigrav_updaterate
 		self.antigrav = None # gravity point is not set at start
 		self.factor = 0 # boh
 		
-		if self.weightset and self.antigravity_getter:
+		if self.weightset:
 			self.update_antigrav()
 	
 	def __str__(self):
@@ -68,7 +69,7 @@ class BeliefBag(dict,object):
 			getcurve = False
 			
 		if getcurve:
-			eqcurves = [item for item in twupdate_rules.TWUpdateRule.builtin_equalizers.curves.__dict__ if hasattr(item,'__call__')]
+			eqcurves = [item for item in belief_rules.TWUpdateRule.builtin_equalizers.curves.__dict__ if hasattr(item,'__call__')]
 			
 			for e in eqcurves: # looks up for the curve which matches his equalizer's __name__
 				if e.__name__ == self.equalizer.__name__:

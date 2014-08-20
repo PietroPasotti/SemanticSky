@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from semanticsky.skies.utils import ctype,avg,diff,pull_tails,Group
+#from ...skies.utils import ctype,avg,diff,pull_tails,Group
 import math
 
 class TWUpdateRule(object):

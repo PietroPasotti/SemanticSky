@@ -1,16 +1,12 @@
 #!/usr/bin/python3
 
-import tests
 import numpy as np
 import matplotlib as plt
 import pylab as lab
 from copy import deepcopy
-from tests import pickle,center,wrap,table,bmag,crop_at_nonzero
-from semanticsky import stdout,regret
-
-def binput(msg):
-	a = input(bmag('\t>> {}'.format(msg)))
-	return a
+import pickle
+from semanticsky.agents.utils import regret
+from sys import stdout
 
 def confirm(msg):
 	if binput('Chosen "{}". Confirm? '.format(msg)) in 'yesYES':
@@ -28,11 +24,6 @@ def setup_new_god():
 	print(God,' has born.')
 	
 	return God
-
-def express_all(god):
-	
-	for ga in god.guardianangels:
-		ga.express()
 
 def getknower(god):
 	
@@ -1695,11 +1686,244 @@ class FeedbackEvaluator(object):
 					
 				progressions[angel].append( data['average_precision_of_algorithms'][angel]['regret_onall'] if onall else data['average_precision_of_algorithms'][angel]['distance_from_perfection==regret?'])
 		
+# more utils from old tests.py
+class color:
+	
+	brightblue = 	"\033[1;34;40m"
+	white = 		"\033[1;37;40m"
+	black_bg   = 	"\033[0;30;47m"      
+	black   = 		"\033[0;30;40m"      
+	darkgray = 		"\033[1;30;40m"
+	red_bg =  		"\033[0;31;47m"
+	red = 	 		"\033[0;31;40m"
+	brightred = 	"\033[1;31;40m" 
+	green_bg = 		"\033[0;32;47m" 
+	green = 		"\033[0;32;40m" 
+	brightgreen = 	"\033[1;32;40m" 
+	brown_bg = 		"\033[0;33;47m"
+	brown = 		"\033[0;33;40m"
+	yellow = 		"\033[1;33;40m"
+	blue_bg = 		"\033[0;34;47m"
+	blue = 			"\033[0;34;40m"
+	magenta_bg = 	"\033[0;35;47m"
+	magenta = 		"\033[0;35;40m"
+	brightmagenta = "\033[1;35;40m"
+	cyan_bg = 		"\033[0;36;47m"
+	cyan = 			"\033[0;36;40m"
+	brightcyan = 	"\033[1;36;40m"
+	lightgrey_bg = 	"\033[0;37;40m" 
+	lightgrey = 	"\033[0;37;40m" 
+	white = 		"\033[1;37;40m"
+	underline_bg = 	"\033[0;4;37;40m"
+	underline = 	"\033[0;4;30;40m"
+	end =  			"\033[0m"
+	
+def wrap(string,col):
+	if hasattr(color,col):
+		try:
+			colorcode = getattr(color,col)
+			return colorcode + string + color.end
+		except BaseException:
+			print('ERROR:',col)
+			return ''
 		
+def table(lines,maxwidth = 100,maxheight = None,spacing = 1,index = '>'):
+	"""
+	Given an input of type list(list(str())), tries to organize it into a
+	nice row/column way.
+	
+	e.g. [[1,21,3],[30,4,444]] becomes 
+	
+	1,  21, 3
+	30, 4,  444
+	
+	"""
+	
+	# we uniform it:
+	for i in range(len(lines)):
+		while len(lines[i]) < max(len(row) for row in lines):
+			lines[i].append('')
+	
+	cwidth = lambda x: max(len(str(column)) for column in [lines[u][x] for u in range( len(lines) ) ]  )
+	# returns the width of the column such that all squares fit into it
+	
+	for i in range(len(lines)):
+		for u in range(len(lines[i])):
+			content = str(lines[i][u]) # the content of the box
+			content += ' '*(cwidth(u) - len(content))
+			lines[i][u] = content
+	
+	for i in range(len(lines)):
 		
+		for column in lines[i]:
+			
+			if column.strip(): # if not all's whitespace
+				toprint = wrap(index,'red') + str(column) + ' '*spacing
+			else:
+				toprint = ' '*spacing + str(column)
+			clues.ss.stdout.write(toprint)
 		
+		clues.ss.stdout.write('\n')
+		clues.ss.stdout.flush()
 		
+def center(string,width = 100,space = ' '):
+	ls = len(string)
+	sp = (width - ls) // 2
+	return sp * space + string + sp * space
+
+def cropfloat(fl,no = 4):
+	return float(str(fl)[:no])
+
+def crop_at_nonzero(fl,bot = 4):
+	sfl = str(fl)
+	
+	out = ''
+	nonzero = 0
+	
+	for digit in sfl:
+		if digit.isdigit() and int(digit) > 0:
+			nonzero += 1
 		
+		out += digit
 		
+		if nonzero != 0 and nonzero != bot:
+			nonzero += 1	# we want no-1 digits after the first nonzero, not results like 0.0200000000000005, if we want 2 nonzero digits
+							# so in that case, for 4 nonzero, would return 0.02000.
 		
+		if nonzero == bot:
+			return float(out)
+			
+	return fl
+	
+class ProgressBar():
+	
+	def __init__(self,topnumber,barlength=100,title = 'Progress',updaterate = 1,monitor = False,displaynumbers = False):
 		
+		self.barlength = barlength
+		self.title = title
+		self.updaterate = updaterate
+		if not topnumber > 0:
+			raise BaseException('Topnumber <= 0!')
+		self.topnumber = topnumber
+		self._preperc = 0
+		self.monitor = monitor
+		self.displaynumbers = displaynumbers
+
+	def __call__(self,title = False,index='auto'):
+		
+		if title:
+			self.title = title
+		
+		if index == 'auto':
+			if not hasattr(self,'index'):
+				self.index = 0
+			else:
+				self.index += 1
+				
+			index = self.index
+			
+		progress = float(index / self.topnumber)
+		
+		# updaterate, if set to 1, forces to update only when there is a 1% difference.
+	
+		barLength = self.barlength - len(self.title)
+		status = ""
+	
+		if progress >= 1:
+			progress = 1
+			percentage = 100
+		else:
+			percentage = progress * 100
+
+		preperc = self._preperc
+		diffperc = percentage - preperc
+		
+		if diffperc > self.updaterate: # only prints if the progress has advanced by (self.updaterate)% points
+			self._preperc = percentage
+			pass
+		elif index == 0: # OR if the index is 0
+			pass
+		elif self.topnumber -1 == index: # OR if the index is at 100%
+			pass
+		else:
+			return None 
+	
+		displayedp = round(percentage) if index != self.topnumber -1 else 100
+		block = int(round(barLength*progress))
+		
+		if not self.displaynumbers:
+			text = "\r{}: [{}] {}% ".format(self.title,"."*block + " "*(barLength-block), displayedp)
+		else:
+			text = "\r{}: [{}] [{}/{}] ".format(self.title,"."*(block) + " "*(barLength-block), index + 1,self.topnumber)
+		
+		print(text,end = '' if progress != 1 else '\n')
+	
+	def tickon(self):
+		
+		print('+',end = '')
+		
+	def tickoff(self):
+		
+		print('\b ',end = '')
+					
+def ispair(pair):
+	if isinstance(pair,frozenset) and len(pair) == 2 or isinstance(pair,tuple):
+		pair = tuple(pair)
+		import semanticsky as ss
+		if isinstance(pair[0],ss.Cloud) and isinstance(pair[1],ss.Cloud):
+			return True
+		elif str(pair[0].__class__) == "<class 'semanticsky.Cloud'>" and str(pair[1].__class__) == "<class 'semanticsky.Cloud'>":
+			return True
+
+	return False
+
+def ctype(pair):
+	
+	if ispair(pair):
+		about = pair
+	else:
+		about = pair.about
+
+	clouda,cloudb = about
+	typea,typeb = clouda.item.get('type','tag'),cloudb.item.get('type','tag') # if it hasn't got an item type, it must be a tag
+	
+	global codedict
+	codedict = {'tag': 				'T',
+				'Information': 		'I',
+				'Glossary':			'G',
+				'Question':			'Q',
+				'Good Practice':	'O',
+				'Project':			'R',
+				'Person':			'P',
+				'Content':			'C',
+				'Topic':			'J',
+				'Pedagogy':			'Y',
+				'Technology':		'H',
+				'Event':			'E'}
+	
+	ta = codedict[typea]
+	tb = codedict[typeb]
+	
+	ctype = [ta,tb]
+	ctype.sort()
+	
+	return ''.join(ctype) # a two-letter string
+	
+def ctype_to_type(ctype):
+	
+	ctypes = list(ctype)
+	global codedict
+	
+	inverted = {codedict[key]:key for key in codedict}
+	
+	outctype = []
+	for c in ctypes:
+		cty = inverted[c]	
+		cty = cty[:4]
+		outctype += [cty]
+	
+	return '-'.join(outctype)
+	
+def diff(iterator):
+	return max(iterator) - min(iterator)
+

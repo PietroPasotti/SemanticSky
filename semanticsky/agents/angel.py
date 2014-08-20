@@ -1,13 +1,9 @@
 #!/usr/bin/python3
 
-from ...utils import belief_rules
-import semanticsky as ss
-
-from .agents.agent import Agent
+from .utils import belief_rules
 from copy import deepcopy
-from semanticsky.clues.utils import Feedback
-from semanticsky.clues import default_updaterule, learningspeed, negative_feedback_learningspeed_reduction_factor
-from semanticsky.clues import equalization, normalization_of_trustworthinesses, default_equalizer,default_updaterule
+from .utils import Feedback
+from ..agents import Agent
 
 class GuardianAngel(Agent,object):
 	"""
@@ -42,14 +38,6 @@ class GuardianAngel(Agent,object):
 		GuardianAngel.guardianid += 1 # counts the GA's spawned
 		self.ID = deepcopy(GuardianAngel.guardianid)
 		
-		GUARDIANANGELS.append(self)
-		
-		if ghost: # we tell god to ignore self.
-			if not hasattr(god,'ignoreds'):
-				god.ignoreds = [] # for backwards compatibility
-			god.ignore(self)
-			self.ghost = True
-			
 		if whisperer:
 			self.makewhisperer()
 			
@@ -57,7 +45,7 @@ class GuardianAngel(Agent,object):
 		return "< GuardianAngel {} of {}>".format(self.name,self.supervisor)
 		
 	def __repr__(self):
-		from tests import wrap
+		from semanticsky.tests import wrap
 		return wrap("< GuardianAngel {} >".format(self.name),'brightcyan')
 	
 	def __eq__(self,other):
@@ -81,6 +69,7 @@ class GuardianAngel(Agent,object):
 		"""
 		Returns a max 4-characters name.
 		"""
+		import semanticsky.agents.utils.algorithms as algs
 		
 		transdict = {algs.tf_weighting : 'tf',
 			algs.tf_idf_weighting: 'idf',
@@ -134,12 +123,10 @@ class GuardianAngel(Agent,object):
 		
 		if silent:
 			return evaluation
-				
-		if not self.ghost:
-			myclue = Clue(what,evaluation,self,autoconsider = consider,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
-			return myclue
-		else:
-			return None
+		
+		from semanticsky.clues import Clue
+		return Clue(what,evaluation,self,autoconsider = consider,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
+		
 	
 	def evaluate_all(self,iterpairs = None,express = True,verbose = True):
 		"""
@@ -172,7 +159,7 @@ class GuardianAngel(Agent,object):
 		print('\n>evaluating its way through a {}-item cloud pairlist.<'.format(li))
 		
 		i = 0
-		bar = ss.ProgressBar(li,title = '{} :: Evaluation'.format(self.shortname()) )
+		bar = semanticsky.tests.ProgressBar(li,title = '{} :: Evaluation'.format(self.shortname()) )
 		for pair in pairlist:
 			
 			if verbose:
