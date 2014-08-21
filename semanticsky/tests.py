@@ -1887,7 +1887,7 @@ def store_god(god = None,nameoffile=None):
 def load_god(nameoffile = 'mostrecent'):
 	import os
 	
-	from semanticsky import _GOD,_SKY,DEFAULTS
+	from semanticsky import DEFAULTS
 	vb = DEFAULTS['verbosity']
 	
 	if nameoffile == 'mostrecent':
@@ -1908,16 +1908,16 @@ def load_god(nameoffile = 'mostrecent'):
 		print('Loading god from {}.'.format(nameoffile))
 
 	with open (nameoffile,'rb') as doc:			
-		
+		import semanticsky
 		import pickle
-		_GOD = pickle.load(doc)
-		_SKY = _GOD.sky
+		semanticsky._GOD = pickle.load(doc)
+		semanticsky._SKY = _GOD.sky
 		
-	return True
+	return _GOD
 
 def store_sky(sky = None,nameoffile = None):
-	from time import gmtime
 	
+	from time import gmtime
 	from semanticsky import _GOD,_SKY,DEFAULTS
 	vb = DEFAULTS['verbosity']
 	
@@ -1948,7 +1948,7 @@ def load_sky(nameoffile = None):
 	if nameoffile is None:
 		
 		max_mtime = 0
-		for dirname,subdirs,files in os.walk("./gods/"):
+		for dirname,subdirs,files in os.walk("./semanticsky/data/skies/"):
 			for fname in files:
 				if fname[:3] != 'sky':
 					continue
@@ -1963,11 +1963,10 @@ def load_sky(nameoffile = None):
 	
 	with open(nameoffile,'rb') as doc:
 		import pickle
-		clues.sky = pickle.load(doc)
-	
-		_SKY = clues.sky
-	
-	return True
+		import semanticsky
+		semanticsky._SKY = pickle.load(doc)
+		
+	return _SKY
 
 def makeglobal(deity):
 	from semanticsky import _GOD,_SKY,DEFAULTS
@@ -1978,8 +1977,68 @@ def makeglobal(deity):
 	
 	_GOD = deity
 	_SKY = deity.sky
+
+def store_beliefbag(agentslist,dirpath = "./semanticsky/data/agents/beliefbags/"):
 	
-def load_evaluations_to_gas(gaslist,filepath ='./semanticsky/data/guardianangels/evaluations/'):
+	import pickle
+	if not hasattr(agentslist,'__iter__'):
+		agentslist = [agentslist]
+		
+	for agent in agentslist:
+		
+		bag = agent.beliefbag
+		
+		for key,value in bag.__dict__.items(): # can't pickle functions!
+			if callable(value):
+				exec('bag.{} = "<!func>" + value.__name__'.format(key)) # we save the function average as 'average'; when loading, we'll put it back.
+		
+		with open(filepath + agent.name + '.bag','wb+') as f:
+			pickle.dump(bag,f)
+			
+	return True
+	
+def load_beliefbag(agentslist,dirpath = "./semanticsky/data/agents/beliefbags/"):
+	
+	import pickle
+	if not hasattr(agentslist,'__iter__'):
+		agentslist = [agentslist]
+	
+	for agent in agentslist:
+		
+		with open(dirpath + agent.name + '.bag','wb+') as f:
+			bag = pickle.load(f)	
+		
+		for key,value in bag.__dict__.items(): # can't pickle functions!
+			if "<!func>" in value:
+				value = value[7:]
+				
+				function = lookup_function(value)
+				if not function:
+					print("Lookup failed for function {} of {}'s {}.".format(value,agent,key))
+				
+				bag.__dict__[key] = function
+				
+		agent.beliefbag = bag
+		
+	return True
+				
+def lookup_function(string):
+	
+	import semanticsky
+	places_to_look = [semanticsky.skies.utils,
+						semanticsky.agents.utils.algorithms.Algorithm.builtin_algs]
+	places_to_look.extend( [ value for key,value in semanticsky.agents.utils.belief_rules.__dict__.items() if 'builtin' in key] )
+	
+	for place in places_to_look:
+		function = getattr(place,string,False)
+		
+		if function:
+			return function
+			
+	return None
+	
+
+def load_evaluations_to_gas(gaslist,filepath ='./semanticsky/data/agents/beliefbags/'):
 	
 	print()
 	

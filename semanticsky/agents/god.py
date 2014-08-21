@@ -15,6 +15,11 @@ class God(GuardianAngel,object):
 		We totally override the GuardianAngel's init method, because they 
 		need a supervisor; we don't. But if a supervisor is given, we can
 		then link God to another God which takes decisions on the former's.
+		
+		overrides, if given, should be a dict from some keywords such as
+		"merging_strategy", 'default_merger' or "learningspeed" to some 
+		function capable of reacting appropriately to the typical inputs.
+		Look at agents.utils.belief_rules for inspiration.
 		"""
 		
 		import semanticsky
@@ -25,14 +30,15 @@ class God(GuardianAngel,object):
 		from copy import deepcopy
 		
 		self.sky = sky
-		self.birthdate = gmtime() # can be used to distinguish between multiple gods.
+		self.birthdate = gmtime											# can be used to distinguish between multiple gods.
 		self.guardianangels = []
-		self.whisperers = []
-		self.cluebuffer = []
-		self.logs = {}
+		self.whisperers = []											# will hold a list of agents that trigger feedback whenever they clue on something.	
+		self.cluebuffer = []											# holds the clues that are processed by god. Mainly for testing.
+		self.logs = {}													# holds all processed clues per belief.
 		self.name = 'Yahweh'
-		self.stats = deepcopy(Agent.base_stats_dict)
-		self.stats.update({'trustworthiness' : 1, 'expertises': 'all', 'power': 'over 9000'})
+		self.stats = deepcopy(DEFAULTS['agent_base_stats'])
+		self.stats.update(DEFAULTS['angel_base_stats'])
+		self.stats.update(DEFAULTS['god_base_stats'])   				# override all previous stages
 		self.beliefbag = BeliefBag(self) # we'll override the believes method, so as not to ask for equalization or weighting.
 		self.godid = deepcopy(God.godcount)
 		God.godcount += 1

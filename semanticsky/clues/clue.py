@@ -88,7 +88,7 @@ class Clue(object):
 		
 		about = self.about
 		try:
-			from semanticsky.skies.utils import ctype
+			from semanticsky.skies.clouds.core import ctype
 			return ctype(about)
 		except BaseException as e:
 			print ('Unknown about type: {} (of type {}).'.format(about,type(about)))

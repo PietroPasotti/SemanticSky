@@ -283,6 +283,8 @@ class Data(object):
 		words that often appear together, such as 'free download', 'university
 		amsterdam', 'fuck off'.
 		"""
+		
+		
 		fullcorpus = ' '.join([  grab_text(item) for item in self.items_by_dict()  ])
 		totokens = to_tokens_text(fullcorpus,stem = False, stopwords = True) # we want true words, but no useless ones.
 		
@@ -309,8 +311,9 @@ class SemanticSky(object):
 	higher-level computations and oversees cloud formation and evolution.
 	It, so to say, where weather forecasts get interesting.
 
-	Is essentially a wrapper for a pickled-export of starfish database.
-	Call SemanticSky on a DataWrapper instance to make it work smooth.
+	Is essentially a wrapper for a pickled export of (starfish) database.
+	Call SemanticSky on a DataWrapper instance (or on a path to a file) 
+	to make it work smooth.
 	"""
 	
 	def __init__(self,data = None,stats = None,empty = False,god = None):
@@ -326,8 +329,8 @@ class SemanticSky(object):
 		if stats is None:
 			stats = DEFAULTS['sky_stats']
 		if data is None:
-			from semanticsky import data_path
-			data = Data(data_path)
+			from semanticsky import default_data_path
+			data = Data(default_data_path)
 		elif isinstance(data,Data):
 			pass
 		elif isinstance(data,str):

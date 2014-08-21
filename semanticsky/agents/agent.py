@@ -3,20 +3,16 @@
 class Agent(object):
 	
 	idcounter = 0	
-	base_stats_dict = { 	'trustworthiness': 0.6,
-						'contextual_tw' : {}, # will map cluetypes to trustworthiness on the cluetype
-						'expertises': {},
-						'communities': [],
-						'blocked' : False}
 	
 	def __init__(self,name,supervisor):
 		
 		from .utils import BeliefBag
 		from copy import deepcopy
+		from semanticsky import DEFAULTS
 		
 		self.name = name
 		self.supervisor = supervisor
-		self.stats = deepcopy(Agent.base_stats_dict)
+		self.stats = deepcopy(DEFAULTS['agent_base_stats'])
 		
 		Agent.idcounter += 1
 		self.ID = deepcopy(Agent.idcounter)

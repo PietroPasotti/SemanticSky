@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from copy import deepcopy
+
 from ..agents import Agent
 
 __all__ = ['GuardianAngel']
@@ -23,11 +23,12 @@ class GuardianAngel(Agent,object):
 	def __init__(self,algorithm,supervisor,ghost = False,whisperer = False):
 		super().__init__(algorithm.__name__,supervisor)
 		
+		from semanticsky import DEFAULTS
+		from copy import deepcopy
 		self.clear_all() # initializes various properties
 		
 		self.supervisor = supervisor
 		self.algorithm = algorithm
-		self.stats['trustworthiness'] = 1 # by default, an algorithm's trustworthiness is always one.
 		self.__doc__ = self.algorithm.__doc__
 		GuardianAngel.guardianid += 1 # counts the GA's spawned
 		self.ID = deepcopy(GuardianAngel.guardianid)
@@ -88,11 +89,13 @@ class GuardianAngel(Agent,object):
 		"""
 		from .utils import BeliefBag
 		from copy import deepcopy
-
+		from semanticsky import DEFAULTS
+		
 		self.zero = 0									# keeps track of 0-valued evaluations produced
 		self.nonzero = 0								# keeps track of nonzero evaluations
 		self.beliefbag = BeliefBag(self)					# will contain all beliefs and handle their weighting, equalizing...
-		self.stats = deepcopy(Agent.base_stats_dict)	# stats such as trustworthiness (absolute and contextual)...
+		self.stats = deepcopy(DEFAULTS['agent_base_stats'])	# stats such as trustworthiness (absolute and contextual)...
+		self.stats.update(DEFAULTS['angel_base_stats']) # we override the agent-level stats with the defaults provided
 		self.produced_feedback = set()					# the name says it all
 		self.received_feedback = {}						# idem
 		self.clues = []									# will host all produced clues
@@ -113,7 +116,7 @@ class GuardianAngel(Agent,object):
 		before taking it into account.
 		"""
 		
-		if what in self.evaluation:
+		if what in self.beliefbag:
 			evaluation = self.beliefbag[what]
 		
 		else:
@@ -155,15 +158,14 @@ class GuardianAngel(Agent,object):
 		if self.clues and express == True:
 			print( """Warning("Warning: clues nonempty!")\nsetting express to False.""")
 			express = False
-			
+		import semanticsky
 		if verbose:
-			from semanticsky import DEFAULTS
-			vb = DEFAULTS['verbosity']
+			
+			vb = semanticsky.DEFAULTS['verbosity']
 		else:
 			vb = 0
-		if vb > 0:	
-			from tests import wrap
-			print('\nSummoning {}...'.format( wrap(str(self),'brightred')) )
+		if vb > 0:
+			print('\nSummoning {}...'.format( semanticsky.tests.wrap(str(self),'brightred')) )
 		
 		if iterpairs is None:
 			pairlist = tuple(self.supervisor.sky.iter_pairs())

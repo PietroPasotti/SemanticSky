@@ -5,7 +5,7 @@
 
 
 # this is where we will look for the data to initialize defaults SemanticSky objects on.
-data_path = './semanticsky/data/export_maybe_false.pickle'
+default_data_path = './semanticsky/data/export_maybe_false.pickle'
 
 DEFAULTS = {															
 "verbosity" :										2, 						# 0 = all silent. 1 = no progress bars, but a few messages to know how you're doing. 2: even a few insults, sometimes.				
@@ -23,12 +23,12 @@ DEFAULTS = {
 "default_antigravity" : 							'average_of_average_TF',# rule for finding gravity point for equalization
 "default_merger" : 									'classical_merger', 	# rule for computing new belief out of previous belief (after update_rule)
 "default_feedback_rule":							'difference', 			# rule for computing which value the feedback should take
-"sky_stats" :															# defaults for skies.SemanticSky instances
+"sky_stats" :														# defaults for skies.SemanticSky instances
 			{'number_of_words_in_corpus': 0,								# will count the number of words in the corpus of the sky
 			'number_of_tags': 0,											# will count the number of tags
 			'number_of_sentences': 0,										# idem
 			'language_recognition_threshold' : 0.4,							# threshold for skies.utils.guess_language function
-			'clouds' : 													# defaults for skies.clouds.Cloud instances
+			'clouds' : 												# defaults for skies.clouds.Cloud instances
 						{'depth':2,											# *max* number of layers per cloud (note: currently just one is used)
 						#'density': None,									# not used
 						#'thickness': None,									# not used
@@ -38,7 +38,17 @@ DEFAULTS = {
 						'max_vocab_length': 30,								# used as crop value for skies.utils.most_freq_words_from_raw_texts
 						#'cloud_hierarchy_inducer_threshold': 2.0/3.0		# not used
 						}
-			}
+			},
+"agent_base_stats" :  												# defaults for agents.Agent instances
+				{ 'trustworthiness': 0.6,									# initial trustworthiness
+				'contextual_tw' : {}, 										# will map cluetypes to trustworthiness on the cluetype
+				'expertises': {},											# will collect areas of expertise (where contextual trustworthiness is higher)
+				#'communities': [],											# not used
+				'blocked' : False											# not very much used, but will be
+				},
+"angel_base_stats" : {"trustworthiness" : 1},						# overrides agents' agent_base_stats in GuardianAngel instances
+"god_base_stats" : 													# overrides angels' angel_base_stats in God(s) instances
+	{'power': 'over 9000'} 													# at the moment not used, but if we want to have gods as angels of other gods...
 		}
 
 from semanticsky import skies
@@ -95,13 +105,19 @@ def set_default(name,value,vb_override = False,check_override = False):
 		print(wrap('DEFAULTS accessed.','red'))
 	if vb > 1:
 		from .tests import center
-		print(center(' DEFAULTS ',space = '-'))
+		print(center(wrap(' DEFAULTS ','blue'),space = '-'))
 		from .tests import table
-		table([[name,DEFAULTS[name]] for name in DEFAULTS if name != 'sky_stats'])
-		print(center('DEFAULTS > sky_stats'))
+		table([[name,DEFAULTS[name]] for name in DEFAULTS if 'stats' not in name ])
+		print(center(wrap('DEFAULTS > sky_stats','blue')))
 		table([  [name,DEFAULTS['sky_stats'][name]] for name in DEFAULTS['sky_stats'] if name != 'clouds'])
-		print(center('DEFAULTS > sky_stats > clouds'))
+		print(center(wrap('DEFAULTS > sky_stats > clouds','blue')))
 		table([[name,DEFAULTS['sky_stats']['clouds'][name]] for name in DEFAULTS['sky_stats']['clouds']])
+		print(center(wrap('DEFAULTS > agent_base_stats','blue')))
+		table([[name,DEFAULTS['agent_base_stats'][name]] for name in DEFAULTS['agent_base_stats']])
+		print(center(wrap('DEFAULTS > angel_base_stats','blue')))
+		table([[name,DEFAULTS['angel_base_stats'][name]] for name in DEFAULTS['angel_base_stats']])
+		print(center(wrap('DEFAULTS > god_base_stats','blue')))
+		table([[name,DEFAULTS['god_base_stats'][name]] for name in DEFAULTS['god_base_stats']])
 		print('-' * 100)
 			
 	return True
