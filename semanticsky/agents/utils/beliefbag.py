@@ -45,7 +45,11 @@ class BeliefBag(dict,object):
 		If a belief is just not there, we return 0.
 		If something was already evaluated, and was judged 0, the return
 		value is 0.0 (a float). This way we can distinguish between not-yet
-		evaluated items and already-evaluated (but zero) items. 
+		evaluated items and already-evaluated (but zero) items, provided
+		we have set the DEFAULT store_zero_evaluations to True.
+		Otherwise, it's all 0.
+		
+		WARNING: returns raw evaluations.
 		"""
 		try:
 			return super().__getitem__(item)

@@ -9,25 +9,69 @@ from semanticsky.agents.utils import regret
 from sys import stdout
 
 
-def confirm(msg):
-	if binput('Chosen "{}". Confirm? '.format(msg)) in 'yesYES':
-		return True
-	else:
-		return False
+#### functions to help you getting started with semanticsky.
 
-def tprint(msg):
-	print(wrap(msg,'blue'))
+def init_bare_semanticsky():
+	"""
+	Returns a god with a fully evaluated semanticsky.
+	
+	Creates all guardians and attempts a evaluate_all() for each of them.
+	If successful, stores the evaluation for later use.
+	"""
+	
+	out = {}
+	
+	god = setup_new_god()
+	god.spawn_servants()
+	for angel in god.guardianangels:
+		try:
+			angel.evaluate_all()
+			store_beliefbags(angel) # records the evaluation in a angel.name + '.eval' file at ./semanticsky/data/agents/beliefbags
+			out[angel] = True
+		except BaseException as e:
+			out[angel] = e
+			
+	return out
 
 def setup_new_god():
+	"""
+	Returns a new god (with no angels or anything).
+	"""
+	
 	import semanticsky as ss
 	
 	sky = load_sky()
 	God = ss.agents.God(sky)
 	
 	if ss.DEFAULTS['verbosity'] > 0:
-		print(God,' has born.')
+		print(repr(God),' has born.')
 	
 	return God
+
+def setup_full_god(God = None):
+	"""
+	Sets up a god and has its angels load an assumed to be pre-existing evaluation.
+	Then, he has them express their evaluations.
+	
+	The final outcome is a god whose belief state matches the full outcome of its
+	angels' voting. The system is not feedbacked yet though. To do so, you'll
+	need to 
+	knower = getknower(god)
+	knower.feedback_all()
+	
+	or to chose in a more refined way where and who to give feedback to.
+	"""
+	from semanticsky import DEFAULTS
+	vb = DEFAULTS['verbosity']
+	
+	if vb > 0: print('Setting up a God...')
+	
+	god = setup_new_god() if not God else God
+	god.spawn_servants()
+	load_evaluations_to_gas(god.guardianangels)
+	god.express_all()
+	
+	return god
 
 def getknower(god):
 	import semanticsky as ss
@@ -42,41 +86,22 @@ def getknower(god):
 		knower.new_supervisor(god)
 		
 	return knower
-	
-def equate_all_links(god,angels):
-	"""
-	When unpickling evaluations, we often have that clouds made out of the same items
-	are no longer properly indexed in dictionaries: they appear as different
-	pairs altogether.
 
-	This function only acts on evaluations of guardianangels of the given deity
-	or of the default god, setting their evaluations to a common vocabulary
-	of cloud pairs.
-	"""
-		
-	pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
+# interactive utilities
+def binput(msg):
+	return input(wrap(msg,'brightmagenta'))
 
-	print('\t\tParallelising beliefs of {}, {}... (May take a while)'.format(god,angels))
-	
-	if not isinstance(angels,list):
-		angels = [angels]
-	
-	for ga in angels:
-		
-		totln = len(ga.evaluation)
-		i = 0
-		for link,ev in ga.beliefbag.raw_items():
-			del ga.beliefbag[link]
-			itlinks = pid(link)
-			truelink = god.sky.pair_by_id(*itlinks)
+def confirm(msg):
+	if binput('Chosen "{}". Confirm? '.format(msg)) in 'yesYes':
+		return True
+	else:
+		return False
 
-			ga.beliefbag[truelink] = ev
-			
-			i+=1			
-		print()
-		
-	return True
-	
+def tprint(msg):
+	print(wrap(msg,'blue'))
+
+
+# a couple of interactive functions to interact with a semanticsky and have some information about its contents
 def interactive_setup(god,auto = False):
 	"""
 	Allows for semi-interactive picking of guardianangels for a given god.
@@ -471,58 +496,42 @@ def interactive(god = None,auto = False):
 	
 	return out
 
-def init_bare_semanticsky():
-	"""
-	Returns a god with a fully evaluated semanticsky.
-	
-	Creates all guardians and attempts a evaluate_all() for each of them.
-	If successful, stores the evaluation for later use.
-	"""
-	
-	out = {}
-	
-	god = setup_new_god()
-	god.spawn_servants()
-	for angel in god.guardianangels:
-		try:
-			angel.evaluate_all()
-			store_beliefbags(angel) # records the evaluation in a angel.name + '.eval' file at ./semanticsky/data/agents/beliefbags
-			out[angel] = True
-		except BaseException as e:
-			out[angel] = e
-			
-	return out
 
 # matplotlib tests
-def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online_evaluation_output'): 
+def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online_evaluation_output',step = 6,test = False): 
 	
 	import semanticsky
 	
 	for doverride,value in defaults_overrides.items():
 		semanticsky.set_default(doverride,value) # in case we want to give some special parameters...
 	
-	semanticsky.printout_defaults()
+	semanticsky.display_defaults()
 	
-	tprint('removing tag-similarity angels...')
-	god.remove_tag_similarity_angels()
+	god = setup_new_god()
+	god.spawn_servants()
+	#tprint('removing tag-similarity angels...')
+	#god.remove_tag_similarity_angels() # now that tag_similarity angels have been moved to Algorithm.experimental_algs, they shouldn't be loaded anymore.
 	
 	knower = getknower(god)
-	tprint('equating links...')
-	equate_all_links(god,[knower])
+	#tprint('equating links...')
+	#equate_all_links(god,[knower]) # knower evaluates_all on the spot, so there should be no need for this.
 	
 	tprint('loading evaluations to guardians...')		
-	load_evaluations_to_gas(god.guardianangels)
+	load_beliefbags(god.guardianangels)
 	
-	god.sky.sky = [] # we empty the sky. We are then going to add back the clouds one by one.
-	god.cleanbuffer() # EMPTY THE BUFFER
+
+	god.cleanbuffer() # EMPTY THE BUFFER (even though it should be rather empty already).
 	
 	loops = 0
 	output = {}
-	import time,pickle
+	import time,pickle,random
 	
 	zeropout = evaluate_status(god)
 	output[0] = zeropout
 	
+	cloudlist = god.sky.sky # we take god's sky's sky.
+	god.sky.sky = [] # we empty the sky. We are then going to add back the clouds one by one.
+	random.shuffle(cloudlist) # we randomize the cloudlist.
 	while cloudlist:
 		
 		initime = time.clock()
@@ -589,8 +598,8 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 		bar()
 		
 		for cloud in listofclouds:
-			if cloud in pair and pair not in god.beliefs:
-				god.rebelieves(pair,weight = True,silent = False) 	# if nonzero, this will be stored in god.beliefs
+			if cloud in pair and pair not in god.logs:
+				god.rebelieves(pair) 			# if nonzero, this will be stored in god.beliefs
 																					# and a clue will be spawned and logged				
 				break 
 								# this part makes sure that god's rebelief is called just on pairs such that at least one of its clouds is part of listofclouds;
@@ -607,7 +616,7 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 
 	god.clean_trivial_beliefs() # there shouldn't be, but anyway...
 	
-	print('\nGod has [{}] beliefs.'.format(len(god.beliefs)))
+	print('\nGod has [{}] beliefs.'.format(len(god.beliefbag)))
 	
 	knower = getknower(god)
 	newclues = god.getbuffer() # all the clues that have been spawned since the previous loop's end
@@ -630,7 +639,7 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 
 OUTPUT = {}
 
-def evaluate_status(god):
+def evaluate_status(god): # returns a bunch of useful information about a gods' semanticsky, including a BlackBox of the god itself.
 	
 	knower = getknower(god)
 	
@@ -688,17 +697,6 @@ def evaluate_status(god):
 	out["BlackBox"] = BlackBox(god)
 
 	return out
-	
-def setup_full_god(God = None):
-	
-	print('Setting up a God...')
-	
-	god = setup_new_god() if not God else God
-	god.spawn_servants()
-	load_evaluations_to_gas(god.guardianangels)
-	god.express_all()
-	
-	return god
 
 def avg(itr):
 	itr = tuple(itr)
@@ -1475,7 +1473,7 @@ class Evaluator(object):
 
 		return self.raw_data[stage].stats
 
-class MonoEvaluator(Evaluator,object):
+class MonoEvaluator(Evaluator,object): # a bit obsolete
 	
 	def __init__(self,god):
 		
@@ -1595,7 +1593,7 @@ class RegretsPlotter(object):
 		lab.legend()
 		lab.show()
 			
-class FeedbackEvaluator(object):
+class FeedbackEvaluator(object): # a bit obsolete, as well.
 	
 	def __init__(self,filename):
 
@@ -2011,7 +2009,7 @@ def load_beliefbags(gaslist,filepath ='./semanticsky/data/agents/beliefbags/'):
 	
 	for ga in gaslist:
 		if vb > 0:
-			print('Loading evaluation for {}.'.format(repr(ga)), end = '')
+			print('Loading beliefbag of {}.'.format(repr(ga)), end = '')
 		if ga.consulted and ga.beliefbag:
 			if vb >0 :
 				print(' [AlreadyLoadedError]')
@@ -2075,7 +2073,7 @@ def load_weights_to_gas(gaslist,filepath = './semanticsky/data/guardianangels/we
 		except BaseException:
 			if vb > 0:print(	'  [Failed]  ')
 	
-def equate_all_links(deity = None):
+def equate_all_links(deity = None,agentslist = []):
 	"""
 	When unpickling evaluations, we often have that clouds made out of the same items
 	are no longer properly indexed in dictionaries: they appear as different
@@ -2099,8 +2097,10 @@ def equate_all_links(deity = None):
 	pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
 
 	if vb > 0:print('\t\tParallelising beliefs...')
-		
-	for ga in god.guardianangels:
+	
+	aglist = agentslist if agentslist else god.guardianangels
+	
+	for ga in aglist:
 		for link,ev in ga.evaluation.items():
 			del ga.evaluation[link]
 			itlinks = pid(link)
@@ -2111,4 +2111,3 @@ def equate_all_links(deity = None):
 	
 	return True
 	
-

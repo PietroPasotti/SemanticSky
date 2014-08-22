@@ -19,6 +19,8 @@ class Knower(GuardianAngel,object):
 		
 		knower = self
 		supervisor.knower = self
+		self.name = 'Knower'
+		self.shortname = lambda : 'know'
 		
 		import semanticsky
 		semanticsky._KNOWER = self
@@ -26,6 +28,7 @@ class Knower(GuardianAngel,object):
 		if not silence:
 			self.evaluate_all(express = False) # the knower should never express,
 			# so as to not influence directly god's belief state!
+		return
 
 	def __str__(self):
 		return "< The Knower >"
@@ -86,7 +89,7 @@ class Knower(GuardianAngel,object):
 			verbose = False			
 
 		from semanticsky.tests import ProgressBar	
-		bar = ProgressBar(ln,title = 'Knower :: Feedback')
+		bar = ProgressBar(ln,title = '{} :: Feedback({})'.format(self.name, getattr(cluelist,'shortname','')))
 		for clue in cluestovalue:
 			
 			if verbose:
@@ -96,7 +99,13 @@ class Knower(GuardianAngel,object):
 				continue
 			
 			from semanticsky import DEFAULTS
-			feedback_production_rule = DEFAULTS['default_feedback_rule']		
+			feedback_production_rule = DEFAULTS['default_feedback_rule']	# FEEDBACK RULE
+			punish_false_negatives = DEFAULTS['punish_false_negatives'] 	# PUNISH
+			
+			if not self.believes(clue.about) and not punish_false_negatives:
+				# if the clue's about is not in my evaluation and we're not supposed to punish false negatives, we won't give feedback to this clue.
+				continue # we skip the clue
+			
 			myrating = feedback_production_rule(clue,self)
 			
 			sign = '+' if self.beliefbag[clue.about] else '-' # the sign of a feedback is + iff, whatever the confidence of the feedbacked is, his suspect was correct (that is: also the feedbacker has a nonzero belief in it)
@@ -117,16 +126,15 @@ class Knower(GuardianAngel,object):
 			i = 0
 		
 		ln = len(god.logs)
-		bar = ss.ProgressBar(ln , title = '{} :: feedback_all'.format(self.shortname()))
-		for link in god.logs:
+		from semanticsky.tests import ProgressBar
+		bar = ProgressBar(ln , title = '{} :: feedback_all'.format(self.shortname()))
+		for link,clues in god.logs.items():
 			
 			if verbose:
 				i += 1
 				bar()
 			
-			resps = tuple(clue.agent for clue in god.logs[link])
-			for resp in resps:
-				self.feedback(resp,link,self.evaluation.get(link,0))
+			self.give_feedback(clues,verbose = False) # vb off.
 		
 		if verbose: 
 			print()

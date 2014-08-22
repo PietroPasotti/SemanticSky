@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+"""
+Base class for all Gods, GuardianAngels and Knowers.
+"""
+
 class Agent(object):
 	
 	idcounter = 0	
@@ -124,7 +128,7 @@ class Agent(object):
 			value = self.beliefbag[belief] # fetch the raw_value
 		
 		
-		from semanticsky.tests import ctype
+		from semanticsky.skies.clouds.core import ctype
 		weight = self.get_tw( ctype(belief) ) 	# fetches the contextual tw if available, else the overall trustworthiness.
 												# if DEFAULTS['normalization of tws'] is True, also, this takes care of it at Agent's level.
 		

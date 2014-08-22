@@ -109,15 +109,21 @@ class GuardianAngel(Agent,object):
 			
 	def evaluate(self,what,silent = False,consider = True):
 		"""
-		what must be a pair-of-clouds instance, for the moment.
+		'what' must be a pair-of-clouds instance, for the moment. Best is
+		always to use whatever default is set at 
+		semanticsky.skies.clouds.core.pair. That is what every agent and sky
+		here uses and should use.
 		
-		returns the clue.
+		Returns the clue (whose 'autoconsider' kwarg is set to the kwarg 
+		'consider').
 		
-		In silent mode, only the evaluation is returned. Useful for when
-		god wants to choose between its GuardianAngel the best judgement
-		before taking it into account.
+		In silent mode, only the evaluation is returned, and no clue is 
+		produced.
 		"""
+		
 		from semanticsky import DEFAULTS
+		
+		# step 1: get the evaluation (self.algorithm output) for *what*
 		if what in self.beliefbag:
 			evaluation = self.beliefbag[what]
 		else:
@@ -134,14 +140,20 @@ class GuardianAngel(Agent,object):
 				print('ERROR: what == ',what)
 				raise e
 		
+		# step 2: what to do if evaluation is zero
 		if not evaluation > 0:
 			self.zero += 1
-			return 0 # no clue is produced!
+			if DEFAULTS['log_zero_evaluations']: # check the DEFAULT for storing zero evaluations			
+				return 0 # no clue is produced!
+			else:
+				pass # do nothing and go on: if silent is true, we'll return the evaluation and stop anyway; but if silent is false, we'll spawn a clue whose value is 0
 		else:
 			self.nonzero += 1		
 		
 		if silent:
 			return evaluation
+			
+		# step 3: spawn a clue.
 		
 		from semanticsky.clues import Clue
 		return Clue(what,evaluation,self,autoconsider = consider,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
@@ -191,7 +203,12 @@ class GuardianAngel(Agent,object):
 				bar()
 
 			self.evaluate(pair,silent = False if express else True) # silent: no clue is spawned
-	
+		
+		if vb >0 :
+			print()
+		
+		return
+
 	def express(self,number = 0,verbose = True):
 		"""
 		Transforms into clues all the evaluations the angel has in its 
@@ -243,7 +260,8 @@ class GuardianAngel(Agent,object):
 		
 		0 - raw belief value (algorithm output)
 		1 - equalized value
-		2 - weighted value
+		2 - weighted value 	## thus, angel.beliefbag.toplevel() will return the same as
+							## angel.beliefbag.weighted_belief_set()
 		
 		"""
 		if not self.beliefbag[belief] > 0:
@@ -251,9 +269,9 @@ class GuardianAngel(Agent,object):
 		
 		from semanticsky import DEFAULTS
 		if DEFAULTS['equalization']:
-			value = self.beliefbag.equalized(pair) # fetch the equalized value if available
+			value = self.beliefbag.equalized(belief) # fetch the equalized value if available
 		else:
-			value = self.beliefbag[pair] # returns 0 if item wasn't evaluated, 0.0 if it was but the evaluation was null
+			value = self.beliefbag[belief] # returns 0 if item wasn't evaluated, 0.0 if it was but the evaluation was null
 		
 		return self.weighted(belief,value) # agent level
 	
@@ -345,4 +363,4 @@ class GuardianAngel(Agent,object):
 		from .utils import regret
 		from semanticsky.tests import diff
 		
-		return regret(self.beliefbag.toplevel() ,self.evaluator.knower.beliefs)
+		return regret(self.beliefbag.toplevel() ,self.supervisor.knower.beliefbag)

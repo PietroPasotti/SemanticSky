@@ -365,7 +365,7 @@ class God(GuardianAngel,object):
 		for ga in guardians:
 			ga.express(verbose = verbose)
 		
-	def consider(self, cluelist = None,verbose = False):
+	def consider(self, cluelist = None):
 		"""
 		God will shot a quick glance to the useless complaints of the mortals.
 		
@@ -385,26 +385,16 @@ class God(GuardianAngel,object):
 		of its belief state.
 		
 		"""
-		
-		if verbose:
-			from semanticsky import DEFAULTS
-			vb = DEFAULTS['verbosity']
-		else:
-			vb = 0
-		
+	
 		from semanticsky.clues import Clue
+		
 		if isinstance(cluelist,Clue):
 			toread = [cluelist]
-			if vb > 0: print('reading clue...')
-		
 		elif isinstance(cluelist,list) and all(isinstance(x,Clue) for x in cluelist):
 			toread = cluelist
-			if verbose: print('reading {} clues...'.format(len(cluelist)))
-		
 		elif cluelist is None:
 			from semanticsky import _CLUES
 			toread = _CLUES
-			
 		else:
 			raise BaseException('Bad input for God.consider: {}.'.format(cluelist))
 						
@@ -413,10 +403,9 @@ class God(GuardianAngel,object):
 			######### BUFFERIZE
 			if clue not in self.cluebuffer:
 				self.bufferize(clue)
+
 			######### LOG
-			self.log(clue) 
-			
-			if vb > 0: print('processing ',toread,"...")
+			self.log(clue)
 			
 			self.whisperpipe(clue) # check whether we have to whisper the clue, and in case does it.
 			
@@ -615,6 +604,7 @@ class God(GuardianAngel,object):
 		"""
 		
 		self.guardianangels = [ga for ga in self.guardianangels if 'tag_similarity' not in ga.name]
+
 	
 	# BELIEF MANAGEMENT
 	def believes(self,something):
@@ -672,8 +662,9 @@ class God(GuardianAngel,object):
 			del self.logs[something]
 			
 			for clue in tempclues:
-				self.update_beliefs(clue)
-		
+				self.consider(clue) # we can't just call update_beliefs on it, because update_beliefs looks for all clues in the logs, and we just cleared them.
+									# this way, the clue gets 1) (re-)logged, 2) bufferized, 3) whispered, if necessary, 4) belief_updated.
+									# otherwise, we could just make self.logs[something] = [], self.log(clue), self.update_beliefs(clue)
 		else:
 			for ga in self.guardianangels:
 				ga.evaluate(something)
@@ -912,17 +903,16 @@ class God(GuardianAngel,object):
 	# EVALUATION FUNCTIONS -- for testing
 	def regrets(self,only_on_true_links = False):
 		"""
-	
+		The regrets of god.
 		"""
+		
+		from semanticsky.agents.utils import regret
 		
 		if not hasattr(self,'knower'):
 			from semanticsky.tests import getknower
-			self.knower = getknower(self)
-			
-		if not self.knower.evaluation:
-			self.knower.evaluate_all(express = False)
+			self.knower = getknower(self) # knower is born with evaluation and all the rest
 		
-		return regret( self.beliefbag ,self.knower.evaluation, only_on_true_links = only_on_true_links)
+		return regret( self.beliefbag ,self.knower.beliefbag, only_on_true_links = only_on_true_links)
 		
 	def guardians_regrets(self,guardians = None,only_on_true_links = False):
 		"""

@@ -87,7 +87,7 @@ class TWUpdateRule(object):
 		return function
 
 	def set_equalizer(function,makeglobal = True):
-		set_equalizer.__doc__ = set_merger.__doc__
+		TWUpdateRule.set_equalizer.__doc__ = TWUpdateRule.set_merger.__doc__
 		
 		if isinstance(function,str):
 			try:
@@ -105,7 +105,7 @@ class TWUpdateRule(object):
 		return function
 	
 	def set_antigravity(function,makeglobal = True):
-		set_antigravity.__doc__ = set_merger.__doc__
+		TWUpdateRule.set_antigravity.__doc__ = TWUpdateRule.set_merger.__doc__
 			
 		if isinstance(function,str):
 			try:
@@ -123,7 +123,7 @@ class TWUpdateRule(object):
 		return function
 	
 	def set_feedback_rule(function,makeglobal = True):
-		set_feedback_rule.__doc__ = set_merger.__doc__
+		TWUpdateRule.set_feedback_rule.__doc__ = TWUpdateRule.set_merger.__doc__
 		global FEEDBACKRULE
 		
 		if isinstance(function,str):
@@ -142,7 +142,7 @@ class TWUpdateRule(object):
 		return function
 	
 	def set_update_rule(function,makeglobal = True):
-		set_update_rule.__doc__ = set_merger.__doc__
+		TWUpdateRule.set_update_rule.__doc__ = TWUpdateRule.set_merger.__doc__
 
 		if isinstance(function,str):
 			try:

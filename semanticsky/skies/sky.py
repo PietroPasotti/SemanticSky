@@ -694,7 +694,7 @@ class Link(tuple):
 	@property
 	def ids(self):
 		
-		switch = True if [str(x.__class__) == "<class 'semanticsky.Cloud'>" for x in self] == [True,True] else False
+		switch = all(str(x.__class__) == "<class 'semanticsky.skies.clouds.cloud.Cloud'>" for x in self)
 		
 		if switch:
 			return self[0].item['id'],self[1].item['id']

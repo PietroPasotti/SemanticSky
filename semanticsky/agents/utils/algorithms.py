@@ -14,20 +14,22 @@ algorithm = Algorithm(MyFunction)
 # spawn_servants function (that by default initializes as a GuardianAngel
 # all functions found in algorithms.ALL_ALGS) and thus inited automatically
 # by all gods created after the execution of the above line (mind: the 
-# functions are not stored anywhere.)
+# functions are not stored permanently anywhere.)
 
-guardian = clues.GuardianAngel(algorithm)
+guardian = semanticsky.agent.GuardianAngel(algorithm)
 
 # if you want to create manually an angel, you can also do:
-# guardian = clues.GuardianAngel(MyFunction)
+# guardian = semanticsky.agent.GuardianAngel(MyFunction)
 # and then append it manually to gods' god.guardianangels list or do whatever
 # you want with it.
 ------------
 
 Also implements a generic cosine metric to compute similarity between
-vectors and a localize function which is mainly for compatibility with
-earlier stages of the testing framework (tests.py). Soon to be removed.
+vectors.
 
+The class Algorithms.experimental_algs includes a bunch of algorithms that
+make little sense at the moment, but that might become interesting some day.
+Have a look at them.
 """
 
 from collections import Counter
@@ -577,6 +579,83 @@ class Algorithm():
 			
 			return tot / len(clouda.layers)
 
+		def naive_core_overlap(clouda,cloudb):
+			"""
+			Simple overlap of the two clouds' cores. What matters, apparently,
+			is how we make the cores.
+			"""
+			
+			out = 0
+			for i in range(len(clouda.layers)):
+				acore = set(clouda.layers[i]['core'])
+				bcore = set(cloudb.layers[i]['core'])
+				
+				ovlp = acore.intersection(bcore)
+				union = acore.union(bcore)
+				
+				if union:
+					out += len(ovlp) / len(union)
+				
+			return out / len(clouda.layers)
+			
+		def extended_core_overlap(clouda,cloudb):
+			"""
+			The core's words are used to make a larger bag of probably-related words
+			and then these bags are compared.
+			"""
+			
+			coodict = clouda.sky.counters['coo']
+			
+			neighbours = {}
+			for pair in coodict:
+				wa,wb = pair
+				
+				if not neighbours.get(wa):
+					neighbours[wa] = []
+				if not neighbours.get(wb):
+					neighbours[wb] = []	
+						
+				neighbours[wa].append(wb)
+				neighbours[wb].append(wa)
+			
+			
+			out = 0
+			for i in range(len(clouda.layers)):
+				acore = set(clouda.layers[i]['core'])
+				bcore = set(cloudb.layers[i]['core'])
+				
+				nacore = set()
+				nbcore = set()
+				
+				for word in acore:
+					nacore.update(neighbours.get(word,[]))
+					nacore.add(word)
+				
+				for word in bcore:
+					nbcore.update(neighbours.get(word,[]))
+					nbcore.add(word)
+					
+				ovlp = len(nacore.intersection(nbcore))
+				unio = len(nacore.union(nbcore))
+				
+				if unio:
+					out += ovlp / unio
+				
+			return out / len(clouda.layers)
+	
+	class experimental_algs():
+		"""
+		Algorithms that are not functioning or that, given the current status
+		of either semanticsky or Starfish, don't really make sense.
+		
+		For example, the tag_similarity algorithms have currently little sense
+		in Starfish, for we don't have links between tags and so we have no
+		way to evaluate (and *hem*, even to use) these algorithms.
+		
+		The askmyminions function is more interesting but due to lack of time
+		nobody has ever used it or tested it.
+		"""
+		
 		def tag_similarity_naive(clouda,cloudb,v = False):
 			"""
 			co-occurrence of tags in pages
@@ -664,71 +743,33 @@ class Algorithm():
 						bels[link] = _GOD.believes(link)
 
 			return sum(bels.values()) / len(bels.keys()) if bels else 0 
-
-		def naive_core_overlap(clouda,cloudb):
+		
+		def askmyminions(clouda,cloudb,angel,v = False):
 			"""
-			Simple overlap of the two clouds' cores. What matters, apparently,
-			is how we make the cores.
-			"""
+			This function requires an angel as third argument (he who is
+			calling self.function(*pair) to evaluate.). Thus, multiclassing 
+			GuardianAngel (Archangel seems so natural) is an option.
 			
-			out = 0
-			for i in range(len(clouda.layers)):
-				acore = set(clouda.layers[i]['core'])
-				bcore = set(cloudb.layers[i]['core'])
-				
-				ovlp = acore.intersection(bcore)
-				union = acore.union(bcore)
-				
-				if union:
-					out += len(ovlp) / len(union)
-				
-			return out / len(clouda.layers)
+			This function delegates to all of the sub-angels in the Archangel's
+			archangel.minions list the evaluation of pair(clouda,cloudb)
+			and returns a default_voting_merge (average?) of the various
+			opinions.
 			
-		def extended_core_overlap(clouda,cloudb):
-			"""
-			The core's words are used to make a larger bag of probably-related words
-			and then these bags are compared.
+			So, we can have angels who base their opinions (like God) on
+			other agents' ones.
 			"""
 			
-			coodict = clouda.sky.counters['coo']
+			mevals = []
 			
-			neighbours = {}
-			for pair in coodict:
-				wa,wb = pair
-				
-				if not neighbours.get(wa):
-					neighbours[wa] = []
-				if not neighbours.get(wb):
-					neighbours[wb] = []	
-						
-				neighbours[wa].append(wb)
-				neighbours[wb].append(wa)
+			for minion in angel.minions:
+				meval = minion.evaluate(clouda,cloudb,silent = True) # silent = True will have the angel return the evaluation instead of spawning a clue.
+				#if meval > 0:
+				mevals.append(meval) # in this case, also zero opinions have to be taken into account! Or not? do we want an optimistic angel or a demi-god?
 			
+			from semanticsky import DEFAULTS
 			
-			out = 0
-			for i in range(len(clouda.layers)):
-				acore = set(clouda.layers[i]['core'])
-				bcore = set(cloudb.layers[i]['core'])
-				
-				nacore = set()
-				nbcore = set()
-				
-				for word in acore:
-					nacore.update(neighbours.get(word,[]))
-					nacore.add(word)
-				
-				for word in bcore:
-					nbcore.update(neighbours.get(word,[]))
-					nbcore.add(word)
-					
-				ovlp = len(nacore.intersection(nbcore))
-				unio = len(nacore.union(nbcore))
-				
-				if unio:
-					out += ovlp / unio
-				
-			return out / len(clouda.layers)
-				
+			return DEFAULTS['default_voting_merge'](mevals)
+			
 	def __init__(self,function,guardian = True):
 		
 		if guardian: 
