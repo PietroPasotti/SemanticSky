@@ -65,7 +65,9 @@ class GuardianAngel(Agent,object):
 		Returns a max 4-characters name.
 		"""
 		from.utils.algorithms import Algorithm as alg
+		
 		algs = alg.builtin_algs
+		
 		transdict = {algs.tf_weighting : 'tf',
 			algs.tf_idf_weighting: 'idf',
 			algs.coo_dicts_overlap_v1 : 'coo1',
@@ -115,14 +117,18 @@ class GuardianAngel(Agent,object):
 		god wants to choose between its GuardianAngel the best judgement
 		before taking it into account.
 		"""
-		
+		from semanticsky import DEFAULTS
 		if what in self.beliefbag:
 			evaluation = self.beliefbag[what]
-		
 		else:
 			try:
-				evaluation = self.algorithm(*what)
-				self.beliefbag[what] = evaluation # stores the evaluation
+				evaluation = self.algorithm(*what) # I love this part
+				
+				if DEFAULTS["log_zero_evaluations"]: 	self.beliefbag[what] = evaluation # stores the evaluation # now also if it's zero! 
+				else:								# check whether we have to record 0 evaluations (if True, it's a VERY SPARSE matrix. 
+											# maybe we could use a sparse.CSR to store it efficiently?)
+					if evaluation > 0:
+						self.beliefbag[what] = evaluation
 				
 			except BaseException as e:
 				print('ERROR: what == ',what)
@@ -130,7 +136,7 @@ class GuardianAngel(Agent,object):
 		
 		if not evaluation > 0:
 			self.zero += 1
-			return 0
+			return 0 # no clue is produced!
 		else:
 			self.nonzero += 1		
 		
@@ -158,9 +164,9 @@ class GuardianAngel(Agent,object):
 		if self.clues and express == True:
 			print( """Warning("Warning: clues nonempty!")\nsetting express to False.""")
 			express = False
+		
 		import semanticsky
-		if verbose:
-			
+		if verbose:	
 			vb = semanticsky.DEFAULTS['verbosity']
 		else:
 			vb = 0
@@ -169,7 +175,8 @@ class GuardianAngel(Agent,object):
 		
 		if iterpairs is None:
 			pairlist = tuple(self.supervisor.sky.iter_pairs())
-			self.consulted = True
+			if express:
+				self.consulted = True
 		else:
 			pairlist = iterpairs
 				
@@ -190,6 +197,8 @@ class GuardianAngel(Agent,object):
 		Transforms into clues all the evaluations the angel has in its 
 		beliefbag.
 		"""
+		
+		self.consulted = True
 		
 		from semanticsky import DEFAULTS
 		if verbose:

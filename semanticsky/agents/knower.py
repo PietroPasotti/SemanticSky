@@ -12,13 +12,16 @@ class Knower(GuardianAngel,object):
 	
 	def __init__(self,supervisor,algorithm = False,silence = False):
 		if algorithm is False:
-			from .utils.algorithms.Algorithm.builtin_algs import someonesuggested
-			algorithm = someonesuggested
+			from .utils.algorithms import Algorithm
+			algorithm = Algorithm.builtin_algs.someonesuggested
 			
 		super().__init__(algorithm, supervisor,whisperer = True)
 		
 		knower = self
 		supervisor.knower = self
+		
+		import semanticsky
+		semanticsky._KNOWER = self
 		
 		if not silence:
 			self.evaluate_all(express = False) # the knower should never express,
@@ -28,7 +31,7 @@ class Knower(GuardianAngel,object):
 		return "< The Knower >"
 		
 	def __repr__(self):
-		from tests import wrap
+		from semanticsky.tests import wrap
 		return wrap("< The Knower >",'brightgreen')
 	
 	def express(self,*args,**kwargs):
@@ -124,4 +127,3 @@ class Knower(GuardianAngel,object):
 		
 		if verbose: 
 			print()
-	

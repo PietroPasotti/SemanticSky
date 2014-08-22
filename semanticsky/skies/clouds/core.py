@@ -17,15 +17,16 @@ def ctype(something):
 	
 	from semanticsky.skies import Link,Cloud
 	
-	if isinstance(something,Link): # we delegate to its clouds' ctype methods.
+	if str(type(something)) == "<class 'semanticsky.skies.sky.Link'>": # we delegate to its clouds' ctype methods.
+		# I know this sucks, but unpickled Links aren't recognized as Link instances.
+		
 		ta,tb = something
 		
 		ct = [ta.ctype(),tb.ctype()]
 		ct.sort()
-		return '-'.join(ctype)
+		return '-'.join(ct)
 		
-	elif isinstance(something,Cloud):
-		
+	elif str(type(something)) ==  "<class 'semanticsky.skies.clouds.cloud.Cloud'>":
 		return ta.ctype()
 	
 	else:

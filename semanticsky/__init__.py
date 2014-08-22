@@ -2,8 +2,6 @@
 	
 ## These defaults influence the behaviour of the whole heavens. Handle with care. Touch here for experiments or testing.
 
-
-
 # this is where we will look for the data to initialize defaults SemanticSky objects on.
 default_data_path = './semanticsky/data/export_maybe_false.pickle'
 
@@ -23,6 +21,7 @@ DEFAULTS = {
 "default_antigravity" : 							'average_of_average_TF',# rule for finding gravity point for equalization
 "default_merger" : 									'classical_merger', 	# rule for computing new belief out of previous belief (after update_rule)
 "default_feedback_rule":							'difference', 			# rule for computing which value the feedback should take
+"log_zero_evaluations" : 							False ,					# toggles logging for zero evaluations of angels: see their evaluate() method.
 "sky_stats" :														# defaults for skies.SemanticSky instances
 			{'number_of_words_in_corpus': 0,								# will count the number of words in the corpus of the sky
 			'number_of_tags': 0,											# will count the number of tags
@@ -48,7 +47,8 @@ DEFAULTS = {
 				},
 "angel_base_stats" : {"trustworthiness" : 1},						# overrides agents' agent_base_stats in GuardianAngel instances
 "god_base_stats" : 													# overrides angels' angel_base_stats in God(s) instances
-	{'power': 'over 9000'} 													# at the moment not used, but if we want to have gods as angels of other gods...
+	{'beliefbag_overrides' : {'equalization_active' : False}, 				# god needs no equalization
+	'power': 'over 9000'} 													# well...
 		}
 
 from semanticsky import skies
@@ -67,7 +67,7 @@ def set_default(name,value,vb_override = False,check_override = False):
 	callable_entries = ("default_feedback_rule", "default_merger" ,"default_antigravity","default_equalizer","default_updaterule" ,"default_voting_merge")
 	
 	# entries that are assumed to be either True or False.
-	boolean_entries = ("differentiate_learningspeeds","equalization","normalization_of_trustworthinesses")
+	boolean_entries = ("differentiate_learningspeeds","equalization","normalization_of_trustworthinesses","log_zero_evaluations","punish_false_negatives")
 	isbool = lambda x: True if x is True or x is False else False
 	
 	# assumed to be floats between 0 and 1
@@ -133,3 +133,5 @@ set_default("default_voting_merge",			skies.utils.avg) # average
 _SKY = None 	# a newly created sky will be stored here
 _GOD = None 	# same for gods
 _CLUES = None 	# global queue of clues that can be processed by anyone.
+_KNOWER = None 	# stores the last knower instantiated
+

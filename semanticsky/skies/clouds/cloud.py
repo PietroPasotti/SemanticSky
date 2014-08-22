@@ -23,10 +23,10 @@ class Cloud(object):
 				sky.sky.append(self)
 			
 	def __repr__(self):
-		return "< Cloud [{}] at {} >".format(self.ID,id(self))
+		return "< Cloud [{}] at {}. >".format(self.ID,id(self))
 	
 	def __str__(self):
-		return "< Cloud [{}]. [ {} layers. ] >".format(self.ID, len(self.layers))
+		return "< Cloud [{}]. >".format(self.ID)
 	
 	def __hash__(self):
 		return hash(self.item['id'])

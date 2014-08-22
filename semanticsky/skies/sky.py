@@ -1,9 +1,5 @@
 #!/usr/bin/python3
 
-"""
-Python3 code. Compatible with 2.7 with minor modifications(mainly encoding)
-"""
-
 # this needs some cleanup
 import nltk,re,sys,math
 from bs4 import BeautifulSoup, SoupStrainer
@@ -709,7 +705,7 @@ class Link(tuple):
 	def __str__(self):
 		
 		def gn(i):
-			if str(i.__class__) == "<class 'semanticsky.Cloud'>":
+			if str(i.__class__) == "<class 'semanticsky.skies.clouds.cloud.Cloud'>":
 				return 'c' + str(i.item['id'])
 			else:
 				return str(i)

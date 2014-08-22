@@ -468,7 +468,27 @@ def interactive(god = None,auto = False):
 	
 	return out
 
-
+def init_bare_semanticsky():
+	"""
+	Returns a god with a fully evaluated semanticsky.
+	
+	Creates all guardians and attempts a evaluate_all() for each of them.
+	If successful, stores the evaluation for later use.
+	"""
+	
+	out = {}
+	
+	god = setup_new_god()
+	god.spawn_servants()
+	for angel in god.guardianangels:
+		try:
+			angel.evaluate_all()
+			store_beliefbags(angel) # records the evaluation in a angel.name + '.eval' file at ./semanticsky/data/agents/beliefbags
+			out[angel] = True
+		except BaseException as e:
+			out[angel] = e
+			
+	return out
 
 # matplotlib tests
 def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh one!
@@ -1942,7 +1962,7 @@ def store_sky(sky = None,nameoffile = None):
 
 def load_sky(nameoffile = None):
 	import os
-	from semanticsky import _GOD,_SKY,DEFAULTS
+	from semanticsky import DEFAULTS
 	vb = DEFAULTS['verbosity']
 	
 	if nameoffile is None:
@@ -1960,13 +1980,14 @@ def load_sky(nameoffile = None):
 					
 	if vb > 0:
 		print('Loading Sky from {}...'.format(nameoffile))
+	import pickle
+	import semanticsky	
 	
 	with open(nameoffile,'rb') as doc:
-		import pickle
-		import semanticsky
+
 		semanticsky._SKY = pickle.load(doc)
 		
-	return _SKY
+	return semanticsky._SKY
 
 def makeglobal(deity):
 	from semanticsky import _GOD,_SKY,DEFAULTS
@@ -1978,67 +1999,25 @@ def makeglobal(deity):
 	_GOD = deity
 	_SKY = deity.sky
 
-def store_beliefbag(agentslist,dirpath = "./semanticsky/data/agents/beliefbags/"):
-	
-	import pickle
+def store_beliefbags(agentslist,dirpath = "./semanticsky/data/agents/beliefbags/"):
+	# will only store its raw dict.
+	import pickle,semanticsky
 	if not hasattr(agentslist,'__iter__'):
 		agentslist = [agentslist]
 		
 	for agent in agentslist:
 		
 		bag = agent.beliefbag
-		
-		for key,value in bag.__dict__.items(): # can't pickle functions!
-			if callable(value):
-				exec('bag.{} = "<!func>" + value.__name__'.format(key)) # we save the function average as 'average'; when loading, we'll put it back.
-		
-		with open(filepath + agent.name + '.bag','wb+') as f:
-			pickle.dump(bag,f)
-			
-	return True
-	
-def load_beliefbag(agentslist,dirpath = "./semanticsky/data/agents/beliefbags/"):
-	
-	import pickle
-	if not hasattr(agentslist,'__iter__'):
-		agentslist = [agentslist]
-	
-	for agent in agentslist:
-		
-		with open(dirpath + agent.name + '.bag','wb+') as f:
-			bag = pickle.load(f)	
-		
-		for key,value in bag.__dict__.items(): # can't pickle functions!
-			if "<!func>" in value:
-				value = value[7:]
-				
-				function = lookup_function(value)
-				if not function:
-					print("Lookup failed for function {} of {}'s {}.".format(value,agent,key))
-				
-				bag.__dict__[key] = function
-				
-		agent.beliefbag = bag
-		
-	return True
-				
-def lookup_function(string):
-	
-	import semanticsky
-	places_to_look = [semanticsky.skies.utils,
-						semanticsky.agents.utils.algorithms.Algorithm.builtin_algs]
-	places_to_look.extend( [ value for key,value in semanticsky.agents.utils.belief_rules.__dict__.items() if 'builtin' in key] )
-	
-	for place in places_to_look:
-		function = getattr(place,string,False)
-		
-		if function:
-			return function
-			
-	return None
-	
 
-def load_evaluations_to_gas(gaslist,filepath ='./semanticsky/data/agents/beliefbags/'):
+		with open(dirpath + agent.name + '.eval','wb+') as f:
+			pickle.dump(bag.raw_belief_set(),f)
+			
+	return True
+
+def load_beliefbags(gaslist,filepath ='./semanticsky/data/agents/beliefbags/'):
+	
+	if not hasattr(gaslist,'__iter__'):
+		gaslist = [gaslist]
 	
 	print()
 	
@@ -2058,9 +2037,9 @@ def load_evaluations_to_gas(gaslist,filepath ='./semanticsky/data/agents/beliefb
 	for ga in gaslist:
 		if vb > 0:
 			print('Loading evaluation for {}.'.format(repr(ga)), end = '')
-		if ga.consulted and ga.evaluation:
+		if ga.consulted and ga.beliefbag:
 			if vb >0 :
-				print(' [AlreadyLoadedError]\n ')
+				print(' [AlreadyLoadedError]')
 			continue
 			
 		try:
@@ -2070,7 +2049,7 @@ def load_evaluations_to_gas(gaslist,filepath ='./semanticsky/data/agents/beliefb
 				pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
 				
 				for link,ev in evaluation.items():
-					ga.evaluation[ga.supervisor.sky.pair_by_id(pid(link))] = ev
+					ga.beliefbag[ga.supervisor.sky.pair_by_id(pid(link))] = ev
 				
 				ga.consulted = True
 				if vb >0 :

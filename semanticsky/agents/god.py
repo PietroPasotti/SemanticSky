@@ -39,7 +39,7 @@ class God(GuardianAngel,object):
 		self.stats = deepcopy(DEFAULTS['agent_base_stats'])
 		self.stats.update(DEFAULTS['angel_base_stats'])
 		self.stats.update(DEFAULTS['god_base_stats'])   				# override all previous stages
-		self.beliefbag = BeliefBag(self) # we'll override the believes method, so as not to ask for equalization or weighting.
+		self.beliefbag = BeliefBag(self,overrides = self.stats['beliefbag_overrides']) # we'll override the believes method, so as not to ask for equalization or weighting.
 		self.godid = deepcopy(God.godcount)
 		God.godcount += 1
 
@@ -137,7 +137,7 @@ class God(GuardianAngel,object):
 		from semanticsky import DEFAULTS
 		
 		previous_value = self.believes(clue.about)
-		new_value = self.voting_merging_strategy(clue.weightedvalue() for clue in self.logs[clue.about]) # we compute the new should-be-value of the belief
+		new_value = self.voting_merging_strategy(clue.weightedvalue for clue in self.logs[clue.about]) # we compute the new should-be-value of the belief
 		
 		new_learned_value = self.learning_merger(previous_value,new_value,self.learningspeed)
 		### we use the default merge!! function of previous value, new value and learningspeed
@@ -239,7 +239,7 @@ class God(GuardianAngel,object):
 			
 		for agent in agents:
 			trustdict[agent] = {'overall' : agent.trustworthiness}
-			trustdict[agent].update(agent.stats['relative_tw'])
+			trustdict[agent].update(agent.stats['contextual_tw'])
 		if local:	
 			return trustdict
 		else:
@@ -251,9 +251,9 @@ class God(GuardianAngel,object):
 				entrytable = []
 				entrytable += [[repr(entry)]] # the agent: one row
 				entrytable += [ ['\toverall : \t' + str(entry.trustworthiness) ] ]
-				entrytable += [ ['\trelative_tw'] ]
-				for relkey in entry.stats['relative_tw']:
-					entrytable +=  [ [ '\t\t' + ss.utils.ctype_to_type(relkey) +'\t'+ str(entry.stats['relative_tw'][relkey])  ] ]
+				entrytable += [ ['\tcontextual_tw'] ]
+				for relkey in entry.stats['contextual_tw']:
+					entrytable +=  [ [ '\t\t' + ss.utils.ctype_to_type(relkey) +'\t'+ str(entry.stats['contextual_tw'][relkey])  ] ]
 				trusttable += entrytable
 				
 			table(trusttable)
@@ -337,14 +337,16 @@ class God(GuardianAngel,object):
 	# GUARDIAN ANGELS, CONSULT and CONSIDER			
 	def spawn_servants(self,overwrite = False):
 		"""
-		Creates all GuardianAngels
+		Creates all GuardianAngels available in .utils.algorithms.ALL_ALGS
+		(that by *shouldn't* include training algorithms).
 		"""	
 		
 		from .utils.algorithms import ALL_ALGS
 				
 		print('Spawning guardians...')
 		
-		self.guardianangels = []
+		if overwrite: 
+			self.guardianangels = []
 		
 		for algorithm in ALL_ALGS:
 			GA = GuardianAngel(algorithm,self)
@@ -442,7 +444,8 @@ class God(GuardianAngel,object):
 			vb = 0
 		
 		if vb > 0:
-			initime = ss.time.clock()
+			import time
+			initime = time.clock()
 		
 		if not hasattr(self,'guardianangels'):
 			self.spawn_servants()
@@ -485,7 +488,8 @@ class God(GuardianAngel,object):
 		if consider:
 			self.consider() # though, CLUES should be rather empty
 		
-		elapsed = ss.time.clock() - initime
+		import time
+		elapsed = time.clock() - initime
 		
 		angelsno = len(angels)
 		if vb > 1: 
@@ -529,7 +533,9 @@ class God(GuardianAngel,object):
 		
 		gasbyname = [ga.name for ga in self.guardianangels]
 		
-		for alg in algs.algsbyname:
+		from .utils.algorithms import algsbyname
+		
+		for alg in algsbyname:
 			if alg not in gasbyname:
 				registry[alg] = 0
 		

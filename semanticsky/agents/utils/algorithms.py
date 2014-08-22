@@ -152,9 +152,9 @@ class Algorithm():
 				
 		def tf_idf_weighting(clouda,cloudb,dbg = False):
 			
-			return tf_weighting(clouda,cloudb,'words_tfidf',dbg = dbg)
+			return Algorithm.builtin_algs.tf_weighting(clouda,cloudb,'words_tfidf',dbg = dbg)
 	
-		def coo_dicts_overlap(clouda,cloudb,version = 1,debug = False):
+		def coo_dicts_overlap(clouda,cloudb,version = 3,debug = False):
 			"""
 			version 1 returns a pair-to-pair correspondence check. That correspondence
 			is very valuable, but rare.
@@ -162,8 +162,8 @@ class Algorithm():
 			using single words as term of comparison. Implementation of Grefenstette (1994)
 			algorithm.
 			
-			version 3 attempts a merge between the two: valuable v1-correspondences 
-			go to increment v2 ones.
+			version 3 attempts a merge between the two: we take the version 1 output,
+			if any, else version 2.
 			"""
 			
 			value1 = 0
@@ -206,7 +206,7 @@ class Algorithm():
 					
 				value3_temp = 0
 				if version == 3 or debug:								# VERSION 3
-					value3_temp += max([value1_temp,value2_temp])
+					value3_temp += value2_temp if value2_temp else value1_temp
 				
 				value1 += value1_temp
 				value2 += value2_temp
@@ -225,11 +225,11 @@ class Algorithm():
 
 		def coo_dicts_overlap_v1(clouda,cloudb):
 			"""See coo_dicts_overlap.__doc__"""
-			return coo_dicts_overlap(clouda,cloudb,version = 1)
+			return Algorithm.builtin_algs.coo_dicts_overlap(clouda,cloudb,version = 1)
 
 		def coo_dicts_overlap_v2(clouda,cloudb):
 			"""See coo_dicts_overlap.__doc__"""
-			return coo_dicts_overlap(clouda,cloudb,version = 2)
+			return Algorithm.builtin_algs.coo_dicts_overlap(clouda,cloudb,version = 2)
 
 		def coo_dicts_neighbour(clouda,cloudb):
 			"""
@@ -650,24 +650,25 @@ class Algorithm():
 			cloudstaggeda = [clouda.sky.get_cloud(iid) for iid in itaggeda] # clouds for all items tagged with taga
 			cloudstaggedb = [cloudb.sky.get_cloud(iid) for iid in itaggedb]
 			
-			from semanticsky_utilityfunctions import pair
-			from clues import god
+			from semanticsky.skies.clouds.core import pair
+			from semanticsky import _GOD
+			
+			if not _GOD:
+				return 0
 			
 			bels = {}
 			for a in cloudstaggeda:
 				for b in cloudstaggedb:
 					if a is not b:
 						link = pair(a,b)
-						bels[link] = god.believes(link)
-			
-			denom = len(bels.keys())
-			if not denom: denom = 1
-			avgres = sum(bels.values()) / denom
-			return avgres
+						bels[link] = _GOD.believes(link)
+
+			return sum(bels.values()) / len(bels.keys()) if bels else 0 
 
 		def naive_core_overlap(clouda,cloudb):
 			"""
-			Simple overlap of the two clouds' cores.
+			Simple overlap of the two clouds' cores. What matters, apparently,
+			is how we make the cores.
 			"""
 			
 			out = 0

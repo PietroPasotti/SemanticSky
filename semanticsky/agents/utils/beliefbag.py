@@ -1,8 +1,11 @@
 
 class BeliefBag(dict,object):
 	
-	def __init__(self,owner,antigrav_updaterate = None):
+	def __init__(self,owner,contents = None,**overrides):
 		dict.__init__(self) # a beliefbag is always initialized empty.
+		
+		if contents: # but we can 
+			self.update(contents)
 		
 		from semanticsky import DEFAULTS
 		
@@ -14,10 +17,12 @@ class BeliefBag(dict,object):
 		
 		self.touchcounter = 0 # when it hits *antigrav_updaterate*, triggers self.update_antigrav() and then it resets
 		self.antigrav = None # gravity point is not set at start
-		self.factor = 0 # boh
+		#self.factor = 0 # boh
 		
 		if self.weightset:
 			self.update_antigrav()
+			
+		self.__dict__.update(overrides) # we can overwrite some kwargs to personalise the bag.
 	
 	@property
 	def weightset(self):
@@ -29,9 +34,44 @@ class BeliefBag(dict,object):
 	def __repr__(self):
 		from semanticsky.tests import wrap
 		return wrap("< BeliefBag of {}. >".format(self.owner.name),'brightmagenta')
+
+	def __setitem__(self,item,value):
+		super().__setitem__(item,value)
+		if self.equalization_active:
+			self.touch()
 		
+	def __getitem__(self,item):
+		"""
+		If a belief is just not there, we return 0.
+		If something was already evaluated, and was judged 0, the return
+		value is 0.0 (a float). This way we can distinguish between not-yet
+		evaluated items and already-evaluated (but zero) items. 
+		"""
+		try:
+			return super().__getitem__(item)
+		except KeyError:
+			return 0		
+
+	def items(self,iknowwhatimdoing = False):
+		"""
+		To avoid confusions...
+		"""
+		if not iknowwhatimdoing:
+			raise BaseException("Use raw_items instead.")
+			
+		return super().items()
+	
 	def raw_items(self):
-		return self.items()
+		return self.items(True)
+		
+	def weighted_items(self):
+		return self.raw_belief_set().items()
+	
+	def equalized_items(self):
+		return self.equalized_belief_set().items()
+		
+	def raw_belief_set(self):
+		return dict(self.raw_items())
 
 	def weighted_belief_set(self):		
 		return dict(self.iter_weighted_items())
@@ -86,22 +126,6 @@ class BeliefBag(dict,object):
 		
 		return transformed
 		
-	def __setitem__(self,item,value):
-		super().__setitem__(item,value)
-		self.touch()
-		
-	def __getitem__(self,item):
-		"""
-		If a belief is just not there, we return 0.
-		If something was already evaluated, and was judged 0, the return
-		value is 0.0 (a float). This way we can distinguish between not-yet
-		evaluated items and already-evaluated (but zero) items. 
-		"""
-		try:
-			return super().__getitem__(item)
-		except KeyError:
-			return 0
-		
 	def touch(self):
 		
 		self.touchcounter += 1
@@ -125,7 +149,8 @@ class BeliefBag(dict,object):
 	def toplevel(self):
 		"""
 		Returns a dictionary which is the outcome of the full pipeline
-		given the current defaults. See Agent.believes for a longer description.
+		given the current defaults. See Agent.believes or the subclass
+		method for a longer description.
 		
 		What the toplevel beliefbag is depends on the pipeline we're using.
 		This can be modified all in one by toying with agents and angels'
@@ -133,7 +158,5 @@ class BeliefBag(dict,object):
 		"""
 		
 		return {x : self.owner.believes(x) for x in self}
-
-	
 	
 	

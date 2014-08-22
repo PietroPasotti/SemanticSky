@@ -567,7 +567,10 @@ def ispair(pair):
 
 	
 def avg(itr):
-	return sum(itr) / len(itr) if itr else 0
+	
+	tpl = tuple(itr)
+	
+	return sum(tpl) / len(tpl) if tpl else 0
 
 def diff(iterator):
 	return max(iterator) - min(iterator)
