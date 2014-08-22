@@ -15,6 +15,9 @@ def confirm(msg):
 	else:
 		return False
 
+def tprint(msg):
+	print(wrap(msg,'blue'))
+
 def setup_new_god():
 	import semanticsky as ss
 	
@@ -491,41 +494,34 @@ def init_bare_semanticsky():
 	return out
 
 # matplotlib tests
-def evaluate_online_accuracy_function(): 
+def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online_evaluation_output'): 
 	
 	import semanticsky
+	
+	for doverride,value in defaults_overrides.items():
+		semanticsky.set_default(doverride,value) # in case we want to give some special parameters...
+	
 	semanticsky.printout_defaults()
 	
+	tprint('removing tag-similarity angels...')
 	god.remove_tag_similarity_angels()
 	
 	knower = getknower(god)
-	if not knower.evaluation:
-		knower.evaluate_all(express = False)
-	else:
-		equate_all_links(god,[knower])
+	tprint('equating links...')
+	equate_all_links(god,[knower])
 	
-	print()
-	print('removing tag-similarity angels...')
-	god.guardianangels = [ga for ga in god.guardianangels if ga.name not in ['tag_similarity_naive','tag_similarity_extended']]
-		
-	tests.load_evaluations_to_gas(god.guardianangels)
+	tprint('loading evaluations to guardians...')		
+	load_evaluations_to_gas(god.guardianangels)
 	
 	god.sky.sky = [] # we empty the sky. We are then going to add back the clouds one by one.
 	god.cleanbuffer() # EMPTY THE BUFFER
 	
 	loops = 0
-	
 	output = {}
-	
-	import time
-	
-	print()
-	print(center('Parameters for the test'))
-	printparams()
-	print()
+	import time,pickle
 	
 	zeropout = evaluate_status(god)
-	output['0 clues'] = zeropout
+	output[0] = zeropout
 	
 	while cloudlist:
 		
@@ -545,8 +541,8 @@ def evaluate_online_accuracy_function():
 		print('\nExtracted clouds [{}]. Now the sky contains {} clouds.'.format([acloud.item['id'] for acloud in clouds ],len(god.sky.sky) + len(clouds)))
 		
 		cloudlist = cloudlist[step:]
-		pout = add_to_sky_evaluate_feedback(god,clouds,punish_false_negatives = punish_false_negatives) # partial output, which will go to the total final output
-		output["{} clues".format(len(god.sky.sky))] = pout
+		pout = add_to_sky_evaluate_feedback(god,clouds) # partial output, which will go to the total final output
+		output[len(god.sky.sky)] = pout
 		
 		loops += 1
 		
@@ -554,7 +550,7 @@ def evaluate_online_accuracy_function():
 		
 		totloops = test if test else int(len(cloudlist) / step)
 		elapsed = round(endtime - initime)
-		forecast = elapsed * (totloops - loops)
+		forecast = elapsed ** (totloops - loops)
 		
 		print('\r'+center('--- [loop {} :: {} elapsed :: {} estimated to the end] ---'.format(loops,elapsed,forecast)))
 	
@@ -567,13 +563,15 @@ def dump_to_file(val,filename = "evaluation_output"):
 	
 	filename = path + filename + '.log'
 	
+	import pickle
+	
 	with open(filename,'wb+') as f:
 		pickle.dump(val,f)
 		
 	print("\tDumped to file {}.".format(filename))
 	return True
 		
-def add_to_sky_evaluate_feedback(god,listofclouds,punish_false_negatives):
+def add_to_sky_evaluate_feedback(god,listofclouds):
 	"""
 	- Adds listofclouds to gods' sky;
 	- Retrieves the iter_pairs of the sky and tells the guardianangels to evaluate
@@ -585,7 +583,7 @@ def add_to_sky_evaluate_feedback(god,listofclouds,punish_false_negatives):
 	
 	iterpairs = tuple(god.sky.iter_pairs()) # all 2-permutations of the clouds which are in the system
 	
-	bar = tests.clues.ss.ProgressBar(len(iterpairs),title = 'Parsing [{}] pairs...'.format(len(iterpairs)))
+	bar = ProgressBar(len(iterpairs),title = 'Parsing [{}] pairs...'.format(len(iterpairs)))
 	for pair in iterpairs:
 		
 		bar()
@@ -607,23 +605,26 @@ def add_to_sky_evaluate_feedback(god,listofclouds,punish_false_negatives):
 	# at this point we have a fresh belief set, made out of the feedbacks of the previous iterations
 	# and the clues we already had + the ones we have now
 
-	god.clean_trivial_beliefs()
+	god.clean_trivial_beliefs() # there shouldn't be, but anyway...
 	
 	print('\nGod has [{}] beliefs.'.format(len(god.beliefs)))
 	
 	knower = getknower(god)
-	
-	newclues = god.getbuffer()
+	newclues = god.getbuffer() # all the clues that have been spawned since the previous loop's end
 	
 	# this will prompt the knower to give feedback only on newly created clues
-	if punish_false_negatives:	
-		knower.give_feedback(newclues) # we give feedback to ALL clues even those which knower has no clue upon:
+	#from semanticsky import DEFAULTS
+	#punish = DEFAULTS['punish_false_negatives']
+	#if punish:	
+	#	knower.give_feedback(newclues) # we give feedback to ALL clues even those which knower has no clue upon:
 		# this assumes that knower knows some right answers, but there might be more.
-	else:
-		knower.give_feedback([clue for clue in newclues if knower.evaluation.get(clue.about)])	
+	#else:
+	#	knower.give_feedback([clue for clue in newclues if knower.believes(clue.about)])	
+	
+	knower.give_feedback(newclues) # give_feedback function already retrieves the 'punish_false_negatives' DEFAULT value.
 	
 	god.refresh()
-	# this will ask god for a reevaluation, thus taking into account the feedback, old and new
+	# this will ask god for a reevaluation, thus taking into account the feedback, old and new, updating his belief state.
 
 	return evaluate_status(god)
 
@@ -635,9 +636,9 @@ def evaluate_status(god):
 	
 	out = {}
 	
-	beltrue = tuple(god.believes(x) for x in knower.evaluation if x in god.logs) # omitting the 'if x in god.logs' will screw the average: we want to average only on currently available pairs!
-	belfalse = tuple(god.believes(x) for x in god.beliefs if x not in knower.evaluation if x in god.logs)
-	belall = tuple(god.beliefs.values())
+	beltrue = tuple(god.believes(x) for x in knower.beliefbag if x in god.logs) # omitting the 'if x in god.logs' will screw the average: we want to average only on currently available pairs!
+	belfalse = tuple(god.believes(x) for x in god.beliefbag if (x not in knower.beliefbag and x in god.logs))
+	belall = tuple(god.beliefbag.values())
 	
 	out['average_strength_of_god_beliefs'] = {}
 	out['average_strength_of_god_beliefs']['in true beliefs'] = avg(beltrue)
@@ -648,22 +649,24 @@ def evaluate_status(god):
 	out["average_precision_of_algorithms"] = {}
 	
 	for ga in god.guardianangels:
-		truebels = tuple(set(knower.evaluation).intersection(ga.evaluation)) # if evaluations are loaded, this will screw up the averages
-		trueconfs = tuple(ga.evaluation[x] for x in truebels if x in god.logs) # unweighted confidences in true beliefs
+		truebels = tuple(set(knower.beliefbag).intersection(ga.beliefbag)) # if evaluations are loaded, this will screw up the averages
+		trueconfs = tuple(ga.beliefbag[x] for x in truebels if x in god.logs) # unweighted confidences in true beliefs
 		# if evaluations are loaded, this will screw up the averages. So, we add 'if x in god.logs' to ensure that a clue was produced.
 		
-		falsebels = tuple(set(ga.evaluation).difference(truebels))
-		falseconfs = tuple(ga.evaluation[x] for x in falsebels if x in god.logs) 
+		falsebels = tuple(set(ga.beliefbag).difference(truebels))
+		falseconfs = tuple(ga.beliefbag[x] for x in falsebels if x in god.logs) 
 		
 		out["average_precision_of_algorithms"][ga.name] = {}
 		out["average_precision_of_algorithms"][ga.name]['unweighted'] = {}
 		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in true links'] = avg(trueconfs)
 		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in false links'] = avg(falseconfs)
-		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in all links'] = avg(ga.evaluation.values())
+		out["average_precision_of_algorithms"][ga.name]['unweighted']['average belief in all links'] = avg(ga.beliefbag.values())
 		
-		wevaluation = {belief: ga.belief_with_feedback(belief) for belief in ga.evaluation}
+		wevaluation = ga.beliefbag.toplevel() 	# weighted **and** equalized (if equalization is on) belief set
+												# however we modify the 'angel.believes' pipeline, toplevel() should always return
+												# the most refined beliefset available.
 		
-		wtruebels = tuple(set(knower.evaluation).intersection(wevaluation))
+		wtruebels = tuple(set(knower.beliefbag).intersection(wevaluation))
 		wtrueconfs = tuple(wevaluation[x] for x in wtruebels if x in god.logs)	# weighted confidences in true beliefs
 		
 		wfalsebels = tuple(set(wevaluation).difference(truebels))
@@ -692,7 +695,7 @@ def setup_full_god(God = None):
 	
 	god = setup_new_god() if not God else God
 	god.spawn_servants()
-	tests.load_evaluations_to_gas(god.guardianangels)
+	load_evaluations_to_gas(god.guardianangels)
 	god.express_all()
 	
 	return god
@@ -867,12 +870,12 @@ class BlackBox(object):
 		self.wrap(god)		
 		self.godname = str(god)
 		knower = getknower(god)
-		if not knower.evaluation:
-			knower.evaluate_all(express = False)
-			
-		self.truths = tuple( tests.clues.ss.Link((clouda.item['id'],cloudb.item['id'])) for clouda,cloudb in knower.evaluation)
 		
-		self.parameters = printparams(True)
+		from semanticsky.skies import Link
+		self.truths = tuple( Link(link.ids) for link in knower.beliefbag) # we store the truths, as we'll always do from now on, as tuples of IDs.
+		
+		from semanticsky import DEFAULTS
+		self.parameters = DEFAULTS.copy() # we store a copy of the defaults.
 								
 	def istrue(self,link):
 		
@@ -889,23 +892,26 @@ class BlackBox(object):
 		self.beliefs = {}
 		self.stats = {}
 		self.logs = {}
-		Link = tests.clues.ss.Link
-		for bel,val in god.beliefs.items():
+		
+		from semanticsky.skies import Link
+		
+		for bel,val in god.beliefbag.raw_items():
 			if not val > 0: # we only store > 0 values
 				continue
-			link = Link(bel)
+			link = bel
 			self.beliefs[Link(link.ids)] = val
 		
 		# in self.beliefs, stores a ID,ID -> value
 		
+		from copy import deepcopy
 		for ga in god.guardianangels:
 			self.stats[ga.name] = deepcopy(ga.stats)
 			
 		# in self.stats, stores a ga.name -> ga.stats copy
 
 		for bel,logs in god.logs.items():
-			link = tests.clues.ss.Link(bel)
-			self.logs[Link(link.ids)] = tuple(tuple((log.agent.name,log.value,log.weightedvalue())) for log in logs)
+			link = Link(bel.ids)
+			self.logs[link] = tuple(tuple((log.agent.name,log.value,log.weightedvalue)) for log in logs)
 		
 		# in self.logs, stores an ID,ID -> agent, value, weightedvalue for each clue logged
 		return
@@ -932,6 +938,7 @@ class BlackBox(object):
 			yield i
 	
 	def regrets(self):
+		from semanticsky.agents.utils import regret
 		return regret(self.beliefs,self.truths)
 			
 class Evaluator(object):
