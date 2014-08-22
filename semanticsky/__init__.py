@@ -63,6 +63,26 @@ def set_default(name,value,vb_override = False,check_override = False):
 	
 	DEFAULTS[name] = value
 	
+	if vb_override is not False:
+		vb = vb_override
+	else:
+		vb = DEFAULTS['verbosity']
+		
+	if vb > 0:
+		from .tests import wrap
+		print(wrap('> DEFAULTS accessed. <','red'))
+	
+	if check_override is False:
+		# we control all is fine
+		
+		return check_defaults()
+	
+	return True
+
+def check_defaults()
+	"""
+	Checks all is fine with the defaults.
+	"""
 	# entries that are assumed throughout the code to have a __call__ method
 	callable_entries = ("default_feedback_rule", "default_merger" ,"default_antigravity","default_equalizer","default_updaterule" ,"default_voting_merge")
 	
@@ -75,63 +95,85 @@ def set_default(name,value,vb_override = False,check_override = False):
 	
 	# assumed to be numbers, of virtually any kind
 	numbers = ("verbosity","negative_feedback_learningspeed_reduction_factor")
-	if check_override is False:
-		# we control all is fine
-		if not all(callable(DEFAULTS[x]) for x in callable_entries):
-			error = 'some value in callable_entries ({}) is not callable: {}'
-			''.format(callable_entries,[DEFAULTS[x] for x in callable_entries if not callable(DEFAULTS[x])])
-		elif not all(isbool(DEFAULTS[x]) for x in boolean_entries):
-			error = 'some value in boolean_entries ({})is not a float: {}'
-			''.format(boolean_entries,[DEFAULTS[x] for x in boolean_entries if not isbool(DEFAULTS[x])])
-		elif not all(isinstance(DEFAULTS[x],float) and 0<=DEFAULTS[x]<=1 for x in floats01):
-			error = 'some value in floats01 ({}) is not a float: {}'
-			''.format(floats01,[DEFAULTS[x] for x in floats01 if not isinstance(DEFAULTS[x],float)])
-		elif not all(isinstance(DEFAULTS[x],(float,int)) for x in numbers):
-			error = 'some value in numbers ({}) is not a numerical entity: {}'
-			''.format(numbers,[DEFAULTS[x] for x in numbers if not isinstance(DEFAULTS[x],(int,float))])
-		else:
-			error = False
-			
-		if error:
-			raise BaseException(error)
-
-	if vb_override is not False:
-		vb = vb_override
+	
+	if not all(callable(DEFAULTS[x]) for x in callable_entries):
+		error = 'some value in callable_entries ({}) is not callable: {}'
+		''.format(callable_entries,[DEFAULTS[x] for x in callable_entries if not callable(DEFAULTS[x])])
+	elif not all(isbool(DEFAULTS[x]) for x in boolean_entries):
+		error = 'some value in boolean_entries ({})is not a float: {}'
+		''.format(boolean_entries,[DEFAULTS[x] for x in boolean_entries if not isbool(DEFAULTS[x])])
+	elif not all(isinstance(DEFAULTS[x],float) and 0<=DEFAULTS[x]<=1 for x in floats01):
+		error = 'some value in floats01 ({}) is not a float: {}'
+		''.format(floats01,[DEFAULTS[x] for x in floats01 if not isinstance(DEFAULTS[x],float)])
+	elif not all(isinstance(DEFAULTS[x],(float,int)) for x in numbers):
+		error = 'some value in numbers ({}) is not a numerical entity: {}'
+		''.format(numbers,[DEFAULTS[x] for x in numbers if not isinstance(DEFAULTS[x],(int,float))])
 	else:
-		vb = DEFAULTS['verbosity']
+		error = False
+		
+	if error:
+		raise BaseException(error)
+	
+	vb = DEFAULTS['verbosity']
 		
 	if vb > 0:
 		from .tests import wrap
-		print(wrap('DEFAULTS accessed.','red'))
-	if vb > 1:
-		from .tests import center
-		print(center(wrap(' DEFAULTS ','blue'),space = '-'))
-		from .tests import table
-		table([[name,DEFAULTS[name]] for name in DEFAULTS if 'stats' not in name ])
-		print(center(wrap('DEFAULTS > sky_stats','blue')))
-		table([  [name,DEFAULTS['sky_stats'][name]] for name in DEFAULTS['sky_stats'] if name != 'clouds'])
-		print(center(wrap('DEFAULTS > sky_stats > clouds','blue')))
-		table([[name,DEFAULTS['sky_stats']['clouds'][name]] for name in DEFAULTS['sky_stats']['clouds']])
-		print(center(wrap('DEFAULTS > agent_base_stats','blue')))
-		table([[name,DEFAULTS['agent_base_stats'][name]] for name in DEFAULTS['agent_base_stats']])
-		print(center(wrap('DEFAULTS > angel_base_stats','blue')))
-		table([[name,DEFAULTS['angel_base_stats'][name]] for name in DEFAULTS['angel_base_stats']])
-		print(center(wrap('DEFAULTS > god_base_stats','blue')))
-		table([[name,DEFAULTS['god_base_stats'][name]] for name in DEFAULTS['god_base_stats']])
-		print('-' * 100)
-			
+		print(wrap('> All good. <','green'))	
+	
 	return True
+
+def printout_defaults():
+	"""
+	Displays more or less nicely all defaults, regardless of the verbosity.
+	"""
+	
+	from .tests import center,wrap,table
+	print(center(wrap(' DEFAULTS ','blue'),space = '-'))
+	table([[name,DEFAULTS[name]] for name in DEFAULTS if 'stats' not in name ])
+	print(center(wrap('DEFAULTS > sky_stats','blue')))
+	table([  [name,DEFAULTS['sky_stats'][name]] for name in DEFAULTS['sky_stats'] if name != 'clouds'])
+	print(center(wrap('DEFAULTS > sky_stats > clouds','blue')))
+	table([[name,DEFAULTS['sky_stats']['clouds'][name]] for name in DEFAULTS['sky_stats']['clouds']])
+	print(center(wrap('DEFAULTS > agent_base_stats','blue')))
+	table([[name,DEFAULTS['agent_base_stats'][name]] for name in DEFAULTS['agent_base_stats']])
+	print(center(wrap('DEFAULTS > angel_base_stats','blue')))
+	table([[name,DEFAULTS['angel_base_stats'][name]] for name in DEFAULTS['angel_base_stats']])
+	print(center(wrap('DEFAULTS > god_base_stats','blue')))
+	table([[name,DEFAULTS['god_base_stats'][name]] for name in DEFAULTS['god_base_stats']])
+	print('-' * 100)
+	
+	return 
 	
 # INIT DEFAULTS (silently)
-set_default("default_updaterule" , 			agents.utils.belief_rules.TWUpdateRule.set_update_rule( DEFAULTS['default_updaterule'] ),0,True) 
-set_default("default_equalizer",	 		agents.utils.belief_rules.TWUpdateRule.set_equalizer( DEFAULTS["default_equalizer"] ),0,True) 
-set_default("default_antigravity", 			agents.utils.belief_rules.TWUpdateRule.set_antigravity( DEFAULTS["default_antigravity"] ),0,True)
-set_default("default_merger",	 			agents.utils.belief_rules.TWUpdateRule.set_merger( DEFAULTS["default_merger"] ),0,True)
-set_default("default_feedback_rule",	 	agents.utils.belief_rules.TWUpdateRule.set_feedback_rule( DEFAULTS["default_feedback_rule"] ),0,True)
-set_default("default_voting_merge",			skies.utils.avg) # average
+def init_defaults():
+	"""
+	Useful to init, or to reset, all defaults to initial value.
+	"""
+	set_default("default_updaterule" , 			agents.utils.belief_rules.TWUpdateRule.set_update_rule( DEFAULTS['default_updaterule'] ),0,True) 
+	set_default("default_equalizer",	 		agents.utils.belief_rules.TWUpdateRule.set_equalizer( DEFAULTS["default_equalizer"] ),0,True) 
+	set_default("default_antigravity", 			agents.utils.belief_rules.TWUpdateRule.set_antigravity( DEFAULTS["default_antigravity"] ),0,True)
+	set_default("default_merger",	 			agents.utils.belief_rules.TWUpdateRule.set_merger( DEFAULTS["default_merger"] ),0,True)
+	set_default("default_feedback_rule",	 	agents.utils.belief_rules.TWUpdateRule.set_feedback_rule( DEFAULTS["default_feedback_rule"] ),0,True)
+	set_default("default_voting_merge",			skies.utils.avg,0) # average. Also checks that all not-re-inited defaults are allright.
 
 _SKY = None 	# a newly created sky will be stored here
 _GOD = None 	# same for gods
-_CLUES = None 	# global queue of clues that can be processed by anyone.
+_CLUES = [] 	# global queue of clues that can be processed by anyone.
 _KNOWER = None 	# stores the last knower instantiated
 
+def printout_globals():
+	"""
+	Just for utility, prints out the content of the globals _SKY, _GOD,
+	_KNOWER, and the lenght of _CLUES. Ignores DEFAULTS['verbosity'].
+	"""
+	from .tests import wrap,table
+	
+	table([
+		[ '\t_SKY         ' , _SKY ],
+		[ '\t_GOD         ' , _GOD ],
+		[ '\t_KNOWER      '	, _KNOWER],
+		[ '\t_CLUES (len) ' , wrap(str(len(_CLUES)),'brightcyan')]
+	])
+	
+init_defaults()
+printout_defaults()

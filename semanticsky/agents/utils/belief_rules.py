@@ -160,7 +160,7 @@ class TWUpdateRule(object):
 			about.
 			"""
 			
-			return feedbacking_agent.evaluation.get(clue.about,0)
+			return feedbacking_agent.beliefbag[clue.about]
 			
 		def difference(clue,feedbacking_agent):
 			"""
@@ -171,7 +171,7 @@ class TWUpdateRule(object):
 			
 			diff = lambda x,y: max([x,y]) - min([x,y])
 			
-			adiff = diff(clue.value,feedbacking_agent.evaluation.get(clue.about,0))
+			adiff = diff(clue.value,feedbacking_agent.beliefbag[clue.about])
 			
 			return adiff
 		

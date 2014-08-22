@@ -146,27 +146,23 @@ class Agent(object):
 			
 		self.received_feedback[about].append(feedback)
 		
-		from semanticsky.skies.utils import ctype,ispair
+		from semanticsky.skies.clouds.core import ctype
 		from semanticsky import DEFAULTS
 		
-		if ispair(about):
-			c = ctype(about)
+	
+		c = ctype(about)
 			
-			if not self.stats['contextual_tw'].get(c):
-				self.set_contextual_tw(c, self.trustworthiness) 	# if no relative trustworthiness is available for that ctype, we initialize it to the overall value
+		if not self.stats['contextual_tw'].get(c):
+			self.set_contextual_tw(c, self.trustworthiness) 	# if no relative trustworthiness is available for that ctype, we initialize it to the overall value
 			
-			if feedback.sign == '-' and DEFAULTS['differentiate_learningspeeds']:
-				LS = DEFAULTS['learningspeed'] / DEFAULTS['negative_feedback_learningspeed_reduction_factor']
-				# for negative feedback we give less impacting feedback.
-			else:
-				LS = DEFAULTS['learningspeed']
-			
-			self.stats['contextual_tw'][ctype] = DEFAULTS['default_updaterule'](self.get_tw(c), feedback, LS, self)	
-			
+		if feedback.sign == '-' and DEFAULTS['differentiate_learningspeeds']:
+			LS = DEFAULTS['learningspeed'] / DEFAULTS['negative_feedback_learningspeed_reduction_factor']
+			# for negative feedback we give less impacting feedback.
 		else:
-			if DEFAULTS['verbosity'] > 1:
-				print('WARNING: feedback ignored because its *about* is of an unhandleable kind ({})'.format(about))
-				
+			LS = DEFAULTS['learningspeed']
+		
+		self.stats['contextual_tw'][ctype] = DEFAULTS['default_updaterule'](self.get_tw(c), feedback, LS, self)	
+		
 	def makewhisperer(self):
 		"""
 		Adds the agent to god's own whisperlist

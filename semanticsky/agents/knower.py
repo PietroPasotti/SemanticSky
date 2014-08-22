@@ -84,8 +84,9 @@ class Knower(GuardianAngel,object):
 		elif ln <= 50 and verbose:
 			print('Knower :: Feedbacking (short).')
 			verbose = False			
-		
-		bar = ss.ProgressBar(ln,title = 'Knower :: Feedback')
+
+		from semanticsky.tests import ProgressBar	
+		bar = ProgressBar(ln,title = 'Knower :: Feedback')
 		for clue in cluestovalue:
 			
 			if verbose:
@@ -93,14 +94,16 @@ class Knower(GuardianAngel,object):
 
 			if clue.agent is self:
 				continue
-					
+			
+			from semanticsky import DEFAULTS
+			feedback_production_rule = DEFAULTS['default_feedback_rule']		
 			myrating = feedback_production_rule(clue,self)
 			
-			sign = '+' if self.evaluation.get(clue.about) else '-' # the sign of a feedback is + iff, whatever the confidence of the feedbacked is, his suspect was correct
+			sign = '+' if self.beliefbag[clue.about] else '-' # the sign of a feedback is + iff, whatever the confidence of the feedbacked is, his suspect was correct (that is: also the feedbacker has a nonzero belief in it)
 			# insofar as the link is actually there.
 			
 			# self's opinion on the clue's about.
-			self.feedback(clue.agent,clue.about,myrating, sign,checkforduplicates = False)  # actually produces a Feedback object and sends it through
+			self.feedback(clue.agent,clue.about,myrating, sign)  # actually produces a Feedback object and sends it through
 		
 		if verbose:
 			print()

@@ -211,19 +211,22 @@ class GuardianAngel(Agent,object):
 		if not number: 
 			number = len(allbeliefs)
 		
-		if not len(number) > 0:
+		if not number > 0:
 			if vb > 0:
 				print('Nothing to express.')
 			return False
 		
 		if vb > 0: print(repr(self),' is expressing...')
-		if vb > 1: bar = ss.ProgressBar(number,title = '{} :: Expressing'.format(self.shortname()))
+		if vb > 1: 
+			from semanticsky.tests import ProgressBar
+			bar = ProgressBar(number,title = '{} :: Expressing'.format(self.shortname()))
 		
 		for i in range(number):
 			pair = allbeliefs[i]
 			if vb > 1: bar()
 			
 			value = self.beliefbag[pair]
+			from semanticsky.clues import Clue
 			clue = Clue(pair,value,self,trace = 'GuardianAngel.evaluate',supervisor = self.supervisor)
 		
 		print()

@@ -491,42 +491,10 @@ def init_bare_semanticsky():
 	return out
 
 # matplotlib tests
-def evaluate_online_accuracy_function(	god = None, # a deity. Must be a fresh one!
-										test = False, # if test is given (an integer), just up to *test* clouds will be added to god's sky before prematurely halting.
-										step = 1, # how many clouds per loop we add back to gods'sky. Dramatically improves runtime and memory usage
-										filename = "evaluation_output_FULL",
-										updaterule = False, # default is step_by_step_ls: newvalue = (previousvalue + newvalue) / 2
-										learningspeed = False, # default is 0.2 (or as defined at clues.learningspeed). Useful only if mergingrule takes learning speed into account!
-										mergingrule = False, # default points to learningrate classical merging of previous/new value
-										differentiation_of_learningspeeds = 0, # if this flag is false (or 1), differentiation is off.
-										punish_false_negatives = False): 	# if this flag goes true, the knower will give negative feedback also for all the
-																			# links that are NOT in his evaluation. This means TONS of (mostly useless) negative feedback.
+def evaluate_online_accuracy_function(): 
 	
-	global punish
-	punish = punish_false_negatives
-	
-	if differentiation_of_learningspeeds > 1:
-		tests.clues.differentiate_learningspeeds = True
-		tests.clues.negative_feedback_learningspeed_reduction_factor = differentiation_of_learningspeeds
-		
-	else:
-		tests.clues.differentiate_learningspeeds = False
-		tests.clues.negative_feedback_learningspeed_reduction_factor = 1		
-			
-	if learningspeed:
-		tests.clues.learningspeed = learningspeed
-	
-	if not god:
-		god = setup_new_god()
-	
-	if updaterule:
-		set_update_rule(updaterule)
-	
-	tests.random.shuffle(god.sky.sky)
-	cloudlist = god.sky.sky
-	
-	if not god.guardianangels:
-		god.spawn_servants()
+	import semanticsky
+	semanticsky.printout_defaults()
 	
 	god.remove_tag_similarity_angels()
 	
