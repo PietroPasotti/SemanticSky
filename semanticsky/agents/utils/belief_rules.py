@@ -57,10 +57,20 @@ class TWUpdateRule(object):
 		except NameError as e:
 			raise NameError('No MERGER was set as default. To do so, use TWUpdateRule.set_merger(function) for some function.')
 		
-	def set_merger(function):
+	def set_merger(function,makeglobal = True):
+		"""
+		All TWUpdateRule.set_<name> functions work as follows:
+		- If called on a string, they look up for a function s.t. 
+		function.__name__ == string, set them as global <name.upper()> 
+		(unless the kwarg 'makeglobal' is set to False), then return it. 
+		- If called on a function, they store it in the same global, and
+		return it.
 		
-		global MERGER
-		
+		The functions are stored as globals just for utility. What matters
+		is the content of semanticsksy.DEFAULTS. All other functions in
+		semanticsky will look there for their default functions.
+		"""
+	
 		if isinstance(function,str):
 			try:
 				function = getattr(TWUpdateRule.builtin_mergers, function)
@@ -70,13 +80,14 @@ class TWUpdateRule(object):
 		if not hasattr(function,'__call__'):
 			raise BaseException('The provided function is not callable.')
 		
-		MERGER = function
-		
-		return MERGER
+		if makeglobal:
+			global MERGER
+			MERGER = function
+			
+		return function
 
-	def set_equalizer(function):
-		
-		global EQUALIZER
+	def set_equalizer(function,makeglobal = True):
+		set_equalizer.__doc__ = set_merger.__doc__
 		
 		if isinstance(function,str):
 			try:
@@ -87,14 +98,15 @@ class TWUpdateRule(object):
 		if not hasattr(function,'__call__'):
 			raise BaseException('The provided function is not callable.')
 		
-		EQUALIZER = function
-		
-		return EQUALIZER
+		if makeglobal:
+			global EQUALIZER
+			EQUALIZER = function
+			
+		return function
 	
-	def set_antigravity(function):
-		
-		global ANTIGRAVITY
-		
+	def set_antigravity(function,makeglobal = True):
+		set_antigravity.__doc__ = set_merger.__doc__
+			
 		if isinstance(function,str):
 			try:
 				function = getattr(TWUpdateRule.builtin_antigravity, function)
@@ -104,12 +116,14 @@ class TWUpdateRule(object):
 		if not hasattr(function,'__call__'):
 			raise BaseException('The provided function is not callable.')
 		
-		ANTIGRAVITY = function
-		
-		return ANTIGRAVITY
+		if makeglobal:
+			global ANTIGRAVITY
+			ANTIGRAVITY = function
+			
+		return function
 	
-	def set_feedback_rule(function):
-		
+	def set_feedback_rule(function,makeglobal = True):
+		set_feedback_rule.__doc__ = set_merger.__doc__
 		global FEEDBACKRULE
 		
 		if isinstance(function,str):
@@ -121,14 +135,15 @@ class TWUpdateRule(object):
 		if not hasattr(function,'__call__'):
 			raise BaseException('The provided function is not callable.')
 		
-		FEEDBACKRULE = function
-		
-		return FEEDBACKRULE
+		if makeglobal:
+			global FEEDBACKRULE
+			FEEDBACKRULE = function
+			
+		return function
 	
-	def set_update_rule(function):
-		
-		global UPDATERULE
-		
+	def set_update_rule(function,makeglobal = True):
+		set_update_rule.__doc__ = set_merger.__doc__
+
 		if isinstance(function,str):
 			try:
 				function = getattr(TWUpdateRule.builtin_update_rules, function)
@@ -138,9 +153,11 @@ class TWUpdateRule(object):
 		if not hasattr(function,'__call__'):
 			raise BaseException('The provided function is not callable.')
 		
-		UPDATERULE = function
-		
-		return UPDATERULE
+		if makeglobal:
+			global UPDATERULE
+			UPDATERULE = function
+			
+		return function
 		
 	class builtin_feedback_rules():
 		"""
@@ -185,7 +202,9 @@ class TWUpdateRule(object):
 		
 		def classical_merger(oldvalue,newvalue,learningspeed):
 			"""
-			The most canonical one.
+			The most canonical one:
+			
+			oldvalue - (oldvalue - newvalue) * learningspeed
 			"""
 			
 			return oldvalue - (oldvalue - newvalue) * learningspeed
@@ -321,17 +340,18 @@ class TWUpdateRule(object):
 			for belief in beliefset:
 				if belief in angel.received_feedback:
 					if angel.received_feedback[belief][0].sign == '+': # not very neat though...
-						trues.append(beliefset[belief])
-			
+						trues.append(beliefset[belief]) # if the beliefset is a standard beliefbag, __getitem__ **should** return the unweighted, unequalized (raw) value of the belief.
+														# thus, if we want to move equalization downwards in the pipeline (equalize on weighted beliefs, and not on raw ones)
+														# we'll need to replace this line with trues.append(beliefset.weighted(belief)) or something equivalent.
 					else:
 						falses.append(beliefset[belief])
 				# if no feedback was ever received, this means that it's not a confirmed truth or falsity, so we do nothing about it
 			
 			from semanticsky.skies.utils import avg
-			centerf = avg(falses)
-			centert = avg(trues)
+			centerf = avg(falses) # center of falses is the average value of all false beliefs (beliefs whose feedback has sign '-')
+			centert = avg(trues) # and vice versa
 			
-			return(avg((centerf,centert)))
+			return(avg((centerf,centert))) # the average of the two points (p1+p2 / 2) is the the gravity point.
 			
 	class builtin_equalizers():
 		"""
@@ -346,6 +366,9 @@ class TWUpdateRule(object):
 			Collector of (often lambda) functions used to compute equalized
 			points: for easy access in case we don't want to equalize a full
 			belief set and we already have the gravity point.
+			
+			The descriptions of the curves are available as docstrings of
+			the corresponding equalizers.
 			"""
 			
 			def dummy(x,g):
@@ -385,8 +408,7 @@ class TWUpdateRule(object):
 			"""
 			Dummy.
 			
-			angel is required if we need to retrieve information such as
-			received feedback, or so.
+			Returns the plain beliefset.
 			"""
 			
 			return beliefset
@@ -402,6 +424,11 @@ class TWUpdateRule(object):
 									if oldvalue > antigrav else 
 									oldvalue - factor if oldvalue < antigrav 
 									else oldvalue
+			
+			i.e.: moves all values upstream from the antigravity point
+			upwards by *factor*, and downwards all values downstream. Those
+			which fall beyond 0 or 1 get moved back to 0 or 1 to obtain a
+			[0,1] distribution.
 			"""
 			
 			if antigravity_override:
@@ -442,8 +469,13 @@ class TWUpdateRule(object):
 								x ** (1 + (g-x) / (g)) 		if x < g else
 								x
 
-			Then, all values get scaled accordingly and the resulting beliefset
-			is returned.
+			That is, for x > g: x gets moved towards 1 by a factor depending
+			from the distance between x and g, which is negatively influenced
+			by the distance between g and 1. Thus, if g is very close to 1
+			(and so is x), x will be moved very little. If g is very far from 1
+			and x is close to 1, we'll have the maximum movement.
+			
+			If x gets moved too far (i.e. beyond 1 or 0), we move it back.
 			"""
 			if antigravity_override:
 				antigrav = antigravity_override(beliefset,angel)
@@ -495,6 +527,10 @@ class TWUpdateRule(object):
 					
 			After all, that's not really a circle but, well, it was inspired
 			by one.
+			
+			Basically, it means that x is moved more the most it's close
+			to halfway between G and 1 (or 0, if x < g). If x is after the
+			midpoint, it's moved to 1 (or 0).
 			"""
 			if antigravity_override:
 				antigrav = antigravity_override(beliefset,angel)
