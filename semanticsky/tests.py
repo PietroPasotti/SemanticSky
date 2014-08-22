@@ -557,9 +557,9 @@ def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online
 		
 		endtime = time.clock()
 		
-		totloops = test if test else int(len(cloudlist) / step)
+		totloops = test if test else (len(cloudlist) // step) + (len(cloudlist) % step)
 		elapsed = round(endtime - initime)
-		forecast = elapsed ** (totloops - loops)
+		forecast = elapsed * (totloops - loops)
 		
 		print('\r'+center('--- [loop {} :: {} elapsed :: {} estimated to the end] ---'.format(loops,elapsed,forecast)))
 	

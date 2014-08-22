@@ -99,8 +99,11 @@ class BeliefBag(dict,object):
 		self.touch()
 		
 	def weighted(self,item):
-		from semanticsky.skies.utils import ctype
-		return self.weightset[ctype(item)] * self.equalized(item) if self.equalization_active else self.weightset[ctype(item)] * self[item]
+		
+		from semanticsky.skies.clouds.core import ctype
+		# looks for contextual_tw; else retrieves overall trustworthiness
+		reltw = self.weightset.get(ctype(item), self.owner.trustworthiness)
+		return reltw * self.equalized(item) if self.equalization_active else reltw * self[item]
 
 	def equalized(self,item):
 		

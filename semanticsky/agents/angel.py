@@ -143,7 +143,7 @@ class GuardianAngel(Agent,object):
 		# step 2: what to do if evaluation is zero
 		if not evaluation > 0:
 			self.zero += 1
-			if DEFAULTS['log_zero_evaluations']: # check the DEFAULT for storing zero evaluations			
+			if DEFAULTS['log_zero_evaluations'] is False: # check the DEFAULT for storing zero evaluations			
 				return 0 # no clue is produced!
 			else:
 				pass # do nothing and go on: if silent is true, we'll return the evaluation and stop anyway; but if silent is false, we'll spawn a clue whose value is 0

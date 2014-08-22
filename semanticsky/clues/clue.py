@@ -67,9 +67,11 @@ class Clue(object):
 			_CLUES.append(self)	
 	
 	def __str__(self):
+		from semanticsky.tests import crop_at_nonzero
 		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
 	def __repr__(self):
+		from semanticsky.tests import crop_at_nonzero
 		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
 		
 	@property
