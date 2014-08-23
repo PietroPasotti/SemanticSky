@@ -3,6 +3,10 @@
 
 """
 Welcome to the heavens.
+
+The heavens have many defaults.
+For some examples of how to use this defaults management system, have a 
+look at the presets.
 """
 
 # this is where we will look for the data to initialize defaults SemanticSky objects on.
@@ -23,6 +27,8 @@ class __defaultshandler__(dict):
 		super().__init__(self.standard_defaults())
 		
 		__defaultshandler__.alreadyinited = True
+		
+		self.changelog = [] # a buffer for recent changes
 			
 	def standard_defaults(self):
 		"""
@@ -46,31 +52,31 @@ class __defaultshandler__(dict):
 			"default_feedback_rule":							'difference', 			# rule for computing which value the feedback should take
 			"log_zero_evaluations" : 							False ,					# toggles logging for zero evaluations of angels: see their evaluate() method.
 			"sky_stats" :														# defaults for skies.SemanticSky instances
-						{'number_of_words_in_corpus': 0,								# will count the number of words in the corpus of the sky
-						'number_of_tags': 0,											# will count the number of tags
-						'number_of_sentences': 0,										# idem
-						'language_recognition_threshold' : 0.4,							# threshold for skies.utils.guess_language function
+						{'number_of_words_in_corpus': 			0,						# will count the number of words in the corpus of the sky
+						'number_of_tags':						0,						# will count the number of tags
+						'number_of_sentences': 					0,						# idem
+						'language_recognition_threshold' : 		0.4,					# threshold for skies.utils.guess_language function
 						'clouds' : 												# defaults for skies.clouds.Cloud instances
-									{'depth':2,											# *max* number of layers per cloud (note: currently just one is used)
+									{'depth':					2,						# *max* number of layers per cloud (note: currently just one is used)
 									#'density': None,									# not used
 									#'thickness': None,									# not used
-									'min_coo_threshold': 2, 							# minimum number of co-occurrences for a word pair to be considered "co-occurring"
+									'min_coo_threshold': 		2,						# minimum number of co-occurrences for a word pair to be considered "co-occurring"
 									#'min_word_freq_threshold' : 2, 					# not used
-									'max_coo_length': 20,								# max length of the co-occurrence dictionary
-									'max_vocab_length': 30,								# used as crop value for skies.utils.most_freq_words_from_raw_texts
+									'max_coo_length': 			20,						# max length of the co-occurrence dictionary
+									'max_vocab_length': 		30,						# used as crop value for skies.utils.most_freq_words_from_raw_texts
 									#'cloud_hierarchy_inducer_threshold': 2.0/3.0		# not used
 									}
 						},
 			"agent_base_stats" :  												# defaults for agents.Agent instances
-							{ 'trustworthiness': 0.6,									# initial trustworthiness
-							'contextual_tw' : {}, 										# will map cluetypes to trustworthiness on the cluetype
-							'expertises': {},											# will collect areas of expertise (where contextual trustworthiness is higher)
+							{ 'trustworthiness': 				0.6,					# initial trustworthiness
+							'contextual_tw' : 					{},						# will map cluetypes to trustworthiness on the cluetype
+							'expertises': 						{},						# will collect areas of expertise (where contextual trustworthiness is higher)
 							#'communities': [],											# not used
-							'blocked' : False											# not very much used, but will be
+							'blocked' : 						False					# not very much used, but will be
 							},
-			"angel_base_stats" : {"trustworthiness" : 1},						# overrides agents' agent_base_stats in GuardianAngel instances
+			"angel_base_stats" : 				{"trustworthiness" : 1},				# overrides agents' agent_base_stats in GuardianAngel instances
 			"god_base_stats" : 													# overrides angels' angel_base_stats in God(s) instances
-				{'beliefbag_overrides' : {'equalization_active' : False}, 				# god needs no equalization
+				{'beliefbag_overrides' : {'equalization_active' : False}, 				# god needs no equalization. And btw, he receives no feedback whatsoever.
 				'power': 'over 9000'} 													# well...
 				}
 		
@@ -80,6 +86,8 @@ class __defaultshandler__(dict):
 		
 		if x not in self:
 			raise KeyError('{} is not a default. What are you doing?'.format(x))
+		
+		previous_state = self[x]
 		
 		super().__setitem__(x,y) # we setitem
 		
@@ -92,8 +100,43 @@ class __defaultshandler__(dict):
 			from .tests import wrap
 			print(wrap('> DEFAULTS accessed. <','red'))
 		
-		if check_override is not True:
-			self.check()
+		if check_override is True: # permanent
+			self.check_override = True
+		
+		if check_override == 1: # not permanent
+			check_override = True 
+		
+		if getattr(self,'check_override',check_override) is not True:
+			error = self.check()
+			if error is not True:
+				
+				from .tests import wrap,center
+				
+				print(wrap('-' * 100 ,'red'))
+				print(center(wrap("WARNING: some default has been altered in an unfamiliar way.",'red')))
+				print(center(wrap('Error message: "{}"'.format(error),'red')))
+				print(center(wrap("Change refused. Setting back '{}' to its previous state.".format(x),'red')))
+				print(center(wrap("If you know what you're doing, call set_defaults with kwarg 'check_override' set to True.\n This will also disable all future warnings.".format(x),'red')))
+				print(wrap('-' * 100 ,'red'))
+				
+				super().__setitem__(x,previous_state)
+			
+			else: # if there is no error
+				self.changed(previous_state,x) # we buffer the change
+			
+			
+	def changed(self,previous,key):
+		
+		self.changelog.append((previous,key)) # previous value for self[item], item
+	
+	def get_changelog(self):
+		"""
+		Fetches the buffer and resets it.
+		"""
+		
+		clog = self.changelog
+		self.changelog = []
+		return clog
 		
 	def check(self):
 			"""
@@ -114,24 +157,24 @@ class __defaultshandler__(dict):
 			numbers = ("verbosity","negative_feedback_learningspeed_reduction_factor")
 			
 			if not all(callable(self[x]) for x in callable_entries):
-				error = 'some value in callable_entries ({}) is not callable: {}'.format(callable_entries,[DEFAULTS[x] for x in callable_entries if not callable(self[x])])
+				error = 'some value in callable_entries ({}) is not callable as it should be: {}'.format(callable_entries,[DEFAULTS[x] for x in callable_entries if not callable(self[x])])
 			elif not all(isbool(DEFAULTS[x]) for x in boolean_entries):
-				error = 'some value in boolean_entries ({})is not a float: {}'.format(boolean_entries,[self[x] for x in boolean_entries if not isbool(self[x])])
+				error = 'some value in boolean_entries ({})is not boolean as it should be: {}'.format(boolean_entries,[self[x] for x in boolean_entries if not isbool(self[x])])
 			elif not all(isinstance(self[x],float) and 0<=DEFAULTS[x]<=1 for x in floats01):
-				error = 'some value in floats01 ({}) is not a float: {}'.format(floats01,[self[x] for x in floats01 if not isinstance(self[x],float)])
+				error = 'some value in floats01 ({}) is not a float as it should be: {}'.format(floats01,[self[x] for x in floats01 if not isinstance(self[x],float)])
 			elif not all(isinstance(self[x],(float,int)) for x in numbers):
-				error = 'some value in numbers ({}) is not a numerical entity: {}'.format(numbers,[self[x] for x in numbers if not isinstance(self[x],(int,float))])
+				error = 'some value in numbers ({}) is not a numerical entity as it should be: {}'.format(numbers,[self[x] for x in numbers if not isinstance(self[x],(int,float))])
 			else:
 				error = False
 				
 			if error:
-				raise BaseException(error)
+				return error
 			
 			vb = self['verbosity']
 				
 			if vb > 0:
 				from .tests import wrap
-				print(wrap('> All good. <','green'))	
+				print(wrap('> All good. <','red'))	
 			
 			return True
 		
@@ -154,13 +197,31 @@ class __defaultshandler__(dict):
 		table([[name,self['god_base_stats'][name]] for name in self['god_base_stats']])
 		print('-' * 100)
 		
-		return 
+		return
+		
+	def display_recent_changes(self):
+		
+		from .tests import center,wrap,table
+		
+		totable = []
+		clog = self.get_changelog()
+		print(center(wrap('Changelog:','red')))
+		for previousvalue,key in clog:
+			totable.append([ 'changed: {}'.format(key), previousvalue, '-->  {}'.format(self[key]) ])
+		
+		table(totable)
+		
+		if not clog:
+			print(center("> Empty <"))
+			
+		return
 								
 DEFAULTS = __defaultshandler__()
 
 from semanticsky import skies
 from semanticsky import agents
 from semanticsky import clues
+from .presets import presets
 
 def set_default(name,value,vb_override = False,check_override = False):
 	"""
@@ -186,13 +247,14 @@ def __init_defaults__():
 	"""
 	Useful to init, or to reset, all defaults to initial value.
 	"""
-	set_default("default_updaterule" , 			agents.utils.belief_rules.TWUpdateRule.set_update_rule( DEFAULTS['default_updaterule'] ),0,True) 
-	set_default("default_equalizer",	 		agents.utils.belief_rules.TWUpdateRule.set_equalizer( DEFAULTS["default_equalizer"] ),0,True) 
-	set_default("default_antigravity", 			agents.utils.belief_rules.TWUpdateRule.set_antigravity( DEFAULTS["default_antigravity"] ),0,True)
-	set_default("default_merger",	 			agents.utils.belief_rules.TWUpdateRule.set_merger( DEFAULTS["default_merger"] ),0,True)
-	set_default("default_feedback_rule",	 	agents.utils.belief_rules.TWUpdateRule.set_feedback_rule( DEFAULTS["default_feedback_rule"] ),0,True)
+	set_default("default_updaterule" , 			agents.utils.belief_rules.TWUpdateRule.set_update_rule( DEFAULTS['default_updaterule'] ),0,1) 
+	set_default("default_equalizer",	 		agents.utils.belief_rules.TWUpdateRule.set_equalizer( DEFAULTS["default_equalizer"] ),0,1) 
+	set_default("default_antigravity", 			agents.utils.belief_rules.TWUpdateRule.set_antigravity( DEFAULTS["default_antigravity"] ),0,1)
+	set_default("default_merger",	 			agents.utils.belief_rules.TWUpdateRule.set_merger( DEFAULTS["default_merger"] ),0,1)
+	set_default("default_feedback_rule",	 	agents.utils.belief_rules.TWUpdateRule.set_feedback_rule( DEFAULTS["default_feedback_rule"] ),0,1)
 	set_default("default_voting_merge",			skies.utils.avg,0) # average. Also checks that all not-(re)inited defaults are allright.
-
+	DEFAULTS.get_changelog() # clear changelogs
+	
 _SKY = None 	# a newly created sky will be stored here
 _GOD = None 	# same for gods
 _CLUES = [] 	# global queue of clues that can be processed by anyone.

@@ -88,8 +88,12 @@ class Knower(GuardianAngel,object):
 			print('Knower :: Feedbacking (short).')
 			verbose = False			
 
-		from semanticsky.tests import ProgressBar	
-		bar = ProgressBar(ln,title = '{} :: Feedback({})'.format(self.name, getattr(cluelist,'shortname','')))
+		from semanticsky.tests import ProgressBar
+		targetname = getattr(cluelist,'shortname','')
+		if callable(targetname): # shortname
+			targetname = '({})'.format(targetname())
+			
+		bar = ProgressBar(ln,title = '{} :: Feedback{}'.format(self.name, targetname ))
 		for clue in cluestovalue:
 			
 			if verbose:

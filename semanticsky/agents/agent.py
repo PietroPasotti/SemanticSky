@@ -140,21 +140,15 @@ class Agent(object):
 		Agent in the past has evaluated [about]. Now someone tells him
 		that the correct evaluation should instead be [value].
 		"""
-		
-		about = feedback.about
-		origin = feedback.origin
-		value = feedback.value	
-		
-		if not self.received_feedback.get(about):
-			self.received_feedback[about] = []
-			
-		self.received_feedback[about].append(feedback)
-		
 		from semanticsky.skies.clouds.core import ctype
 		from semanticsky import DEFAULTS
 		
-	
-		c = ctype(about)
+		if not self.received_feedback.get(feedback.about):
+			self.received_feedback[feedback.about] = []
+			
+		self.received_feedback[feedback.about].append(feedback)
+		
+		c = ctype(feedback.about)
 			
 		if not self.stats['contextual_tw'].get(c):
 			self.set_contextual_tw(c, self.trustworthiness) 	# if no relative trustworthiness is available for that ctype, we initialize it to the overall value
@@ -165,7 +159,7 @@ class Agent(object):
 		else:
 			LS = DEFAULTS['learningspeed']
 		
-		self.stats['contextual_tw'][ctype] = DEFAULTS['default_updaterule'](self.get_tw(c), feedback, LS, self)	
+		self.stats['contextual_tw'][c] = DEFAULTS['default_updaterule'](self.get_tw(c), feedback, LS, self)	
 		
 	def makewhisperer(self):
 		"""

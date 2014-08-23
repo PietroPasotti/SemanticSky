@@ -570,14 +570,20 @@ def dump_to_file(val,filename = "evaluation_output"):
 	print('Dumping output...')
 	path = "./tests_output/"
 	
-	filename = path + filename + '.log'
+	try:
+		filename = path + filename + '.log'
 	
-	import pickle
-	
-	with open(filename,'wb+') as f:
-		pickle.dump(val,f)
+		import pickle
 		
-	print("\tDumped to file {}.".format(filename))
+		with open(filename,'wb+') as f:
+			pickle.dump(val,f)
+			
+		print("\tDumped to file {}.".format(filename))
+	
+	except BaseException:
+		print('Pickling to file FAILED. Saving to temporary global {}'.format(filename))
+		exec("global {0}\n{0} = val".format(filename))
+	
 	return True
 		
 def add_to_sky_evaluate_feedback(god,listofclouds):

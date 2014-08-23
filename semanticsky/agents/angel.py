@@ -67,6 +67,7 @@ class GuardianAngel(Agent,object):
 		from.utils.algorithms import Algorithm as alg
 		
 		algs = alg.builtin_algs
+		ealgs = alg.experimental_algs
 		
 		transdict = {algs.tf_weighting : 'tf',
 			algs.tf_idf_weighting: 'idf',
@@ -77,8 +78,9 @@ class GuardianAngel(Agent,object):
 			algs.tag_overlap:'tago',
 			algs.extended_name_comparison: 'Enam', 
 			algs.naive_name_comparison: 'name',
-			algs.tag_similarity_naive: 'tags',
-			algs.tag_similarity_extended : 'Etag',
+			#ealgs.tag_similarity_naive: 'tags',
+			#ealgs.tag_similarity_extended : 'Etag',
+			#ealgs.askmyminions : 'mini',
 			algs.naive_core_overlap : 'core',
 			algs.extended_core_overlap : 'corE',
 			algs.someonesuggested: 'know'}
@@ -271,7 +273,7 @@ class GuardianAngel(Agent,object):
 		if DEFAULTS['equalization']:
 			value = self.beliefbag.equalized(belief) # fetch the equalized value if available
 		else:
-			value = self.beliefbag[belief] # returns 0 if item wasn't evaluated, 0.0 if it was but the evaluation was null
+			value = self.beliefbag[belief] # returns 0 if item wasn't evaluated, 0.0 if it was but the evaluation was null (and log_zero_evaluations DEFAULT is True)
 		
 		return self.weighted(belief,value) # agent level
 	
@@ -280,7 +282,7 @@ class GuardianAngel(Agent,object):
 		Prints nicely the god.trusts(self) outcome.
 		"""
 		
-		return self.god.trusts(self,local = False)
+		return self.supervisor.trusts(self,local = False)
 	
 	def agrees(self,other = None):
 		"""
@@ -340,17 +342,15 @@ class GuardianAngel(Agent,object):
 		"""
 		Tries to guess which areas he is (most) expert in.
 		At the moment, simply updates self.stats['expertises'] with
-		whatever he is deemed to be confident enough (relative_tw).
-		Enough == 'higher than average'.
+		whatever he is deemed to be confident enough (contextual_tw).
+		'Enough', for the moment, equates to 'higher than average'.
 		"""
+		from semanticsky.tests import crop_at_nonzero,avg
+		average = avg(self.stats['contextual_tw'].values())
 		
-		avg = sum(self.stats['relative_tw'].values()) / len(self.stats['relative_tw']) if self.stats['relative_tw'] else 0
-		
-		for tw,value in self.stats['relative_tw'].items():
-			if value > avg:
-				if tw not in self.stats['expertises']:
-					from semanticsky.tests import crop_at_nonzero
-					self.stats['expertises'][tw] = crop_at_nonzero(value,4)
+		for tw,value in self.stats['contextual_tw'].items():
+			if value > average:
+				self.stats['expertises'][tw] = crop_at_nonzero(value,4)
 		
 		return True
 	
@@ -363,4 +363,4 @@ class GuardianAngel(Agent,object):
 		from .utils import regret
 		from semanticsky.tests import diff
 		
-		return regret(self.beliefbag.toplevel() ,self.supervisor.knower.beliefbag)
+		return regret(self.beliefbag.toplevel() ,self.supervisor.knower.beliefbag,only_on_true_links = only_on_true_links)

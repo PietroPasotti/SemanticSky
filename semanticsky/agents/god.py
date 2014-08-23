@@ -243,7 +243,7 @@ class God(GuardianAngel,object):
 		if local:	
 			return trustdict
 		else:
-			from tests import table
+			from semanticsky.tests import table
 			
 			trusttable = []
 			
@@ -253,7 +253,7 @@ class God(GuardianAngel,object):
 				entrytable += [ ['\toverall : \t' + str(entry.trustworthiness) ] ]
 				entrytable += [ ['\tcontextual_tw'] ]
 				for relkey in entry.stats['contextual_tw']:
-					entrytable +=  [ [ '\t\t' + ss.utils.ctype_to_type(relkey) +'\t'+ str(entry.stats['contextual_tw'][relkey])  ] ]
+					entrytable +=  [ [ '\t\t' + str(relkey) +'    '+ str(entry.stats['contextual_tw'][relkey])  ] ]
 				trusttable += entrytable
 				
 			table(trusttable)
@@ -498,7 +498,7 @@ class God(GuardianAngel,object):
 		
 		self.consult(toconsult,verbose,consider,local)
 	
-	def expertises(self):
+	def lookup_expertises(self,local = False):
 		"""
 		Forces all angels to lookup_expertise() and returns them.
 		"""
@@ -506,8 +506,13 @@ class God(GuardianAngel,object):
 		for ga in self.guardianangels:
 			ga.lookup_expertises()
 			exps[ga] = ga.stats['expertises']
-			
-		return exps
+		
+		self.stats['expertises'] = exps
+		
+		if local:
+			return exps
+		
+		return
 		
 	def consultations_registry(self):
 		"""

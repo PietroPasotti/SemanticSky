@@ -1,14 +1,5 @@
 #!/usr/bin/python3
 
-# this needs some cleanup
-import nltk,re,sys,math
-from bs4 import BeautifulSoup, SoupStrainer
-from .utils import * # all functions such as sentence splitting, language recognition, tokenization...
-from sys import stdout
-from copy import deepcopy
-from collections import Counter
-from .clouds import Cloud
-
 class Data(object):
 	"""
 	reimplementation of Tweedejaars' DataWrapper
@@ -125,9 +116,9 @@ class Data(object):
 			for cluster in self.tag_aliases_classes:
 				if tag in cluster:
 					return cluster[0]  # that is: the proxytag
-			
-		
+
 		except AttributeError:
+		
 			self.handle_aliases()
 			return proxytag(self,tag)
 	
@@ -171,6 +162,7 @@ class Data(object):
 		alltags = self.oridata['tags']
 		from .cluster import clusterize1
 		self.tag_aliases_classes = clusterize1(alltags)
+		from copy import deepcopy
 		newbase = deepcopy(self.oridata)
 		
 		for cluster in self.tag_aliases_classes:
@@ -210,6 +202,8 @@ class Data(object):
 						
 			newbase['tags'][proxytag]['glossary'] = self.item(self.tag(proxytag)['glossary'])['text'] if self.tag(proxytag)['glossary'] else None
 			newbase['tags'][proxytag]['aliased_glossary'] = glostext # does NOT include proxytag's glossary; that one is stored under 'glossary'
+			
+			from copy import deepcopy
 			cl = deepcopy(cluster)
 			cl.remove(proxytag)
 			newbase['tags'][proxytag]['alias_of'] = cl
@@ -242,7 +236,6 @@ class Data(object):
 		
 		return None	
 	
-	# linking
 	def make_links_symmetric(self):
 		"""
 		As per the handle_aliases function, we sort of clusterize the links
@@ -280,9 +273,13 @@ class Data(object):
 		amsterdam', 'fuck off'.
 		"""
 		
+		from .utils import to_tokens_text, grab_text
+		from collections import Counter
 		
-		fullcorpus = ' '.join([  grab_text(item) for item in self.items_by_dict()  ])
-		totokens = to_tokens_text(fullcorpus,stem = False, stopwords = True) # we want true words, but no useless ones.
+		fullcorpus = ' '.join([  grab_text(item) for item in self.items_by_dict() ]) 	# a fully tokenized corpus. For large corpora
+																						# this might become a problem?
+																						
+		totokens = to_tokens_text(fullcorpus,stem = False, stopwords = True) # we want words, but no useless ones.
 		
 		wordseqcounter = Counter()
 		
@@ -314,7 +311,7 @@ class SemanticSky(object):
 	
 	def __init__(self,data = None,stats = None,empty = False,god = None):
 		
-		from semanticsky import DEFAULTS,_SKY
+		from semanticsky import DEFAULTS,_SKY,default_data_path
 		from time import clock
 		
 		self.counters = {	'coo':None,
@@ -325,7 +322,6 @@ class SemanticSky(object):
 		if stats is None:
 			stats = DEFAULTS['sky_stats']
 		if data is None:
-			from semanticsky import default_data_path
 			data = Data(default_data_path)
 		elif isinstance(data,Data):
 			pass
@@ -347,7 +343,6 @@ class SemanticSky(object):
 		if god is not None: # we can give a god to a sky...
 			self.god = god
 			return self.init_from_god()
-		
 		
 		starttime = clock()
 		#if not test: # we populate all counters, then the sky.
@@ -395,37 +390,43 @@ class SemanticSky(object):
 				item = self.data.item(i)
 			except KeyError:
 				item = self.data.tag(i)
-			
+				
+			from .clouds import Cloud
 			cloud = Cloud(self,item)
 		
 		return None
 		
 	def populate_counters(self):
 		"""
-		Populates the internal counters.
+		Populates the internal counters. These will be used by some angels
+		such as tf_weighting, to determine faster their evaluations.
 		"""
 		if self.vb > 0:
 			print()
 			print( ' -'*60)
 			print('Populating sky-level counters: \n\t token co-occurrences... ',end = '')
+		
 		self.populate_coo_counter()
 		if self.vb > 0:
-			print('\t [ Done. ]\n')
+			print('\t [ Done. ]')
 		
 			print("\t word frequency... ",end = '')
+		
 		self.populate_word_freq_counter()
 		if self.vb > 0:
-			print('\t\t [ Done. ]\n')
+			print('\t\t [ Done. ]')
 			
 			print("\t tag co-occurrences... ",end = '')
+		
 		self.populate_tag_coo_counter()
 		if self.vb > 0:	
-			print('\t\t [ Done. ]\n')
+			print('\t\t [ Done. ]')
 			
 			print("\t idf database... ",end = '')
+		
 		self.populate_idf_database()
 		if self.vb > 0:
-			print('\t\t [ Done. ]\n')
+			print('\t\t [ Done. ]')
 			print( ' -'*60)
 			print()			
 		del self.__tokens_temp # frees some memory
@@ -435,6 +436,9 @@ class SemanticSky(object):
 		This function instantiates a cloud per each item in the database,
 		whatever the type, and appends it to the sky.
 		"""
+		
+		from semanticsky.tests import ProgressBar
+		from .clouds import Cloud
 		
 		if self.sky:
 			return None
@@ -446,6 +450,7 @@ class SemanticSky(object):
 		for itemID in self.data.items():
 			item = self.getitem(itemID)
 			item['id'] = itemID # is a long()
+			
 			cloud = Cloud(self,item)
 			
 			if self.vb > 1: bar()
@@ -460,6 +465,7 @@ class SemanticSky(object):
 		for tagID in self.data.tags():
 			tag = self.data.tag(tagID)
 			tag['id'] = tagID # is the name of the tag == a str()
+			
 			cloud = Cloud(self,tag)
 			
 			if self.vb > 1: bar()
@@ -501,7 +507,8 @@ class SemanticSky(object):
 		"""
 		A generator for all pairwise-coupled clouds.
 		"""
-
+		from .clouds.core import pair # default pairing system : currently, Link instances.
+		
 		i = 0
 		
 		if not source:
@@ -512,8 +519,7 @@ class SemanticSky(object):
 		for clouda in source:
 			for cloudb in source[i:]:
 				if clouda != cloudb:
-					from .clouds.core import pair
-					yield pair(clouda,cloudb) # now yields LINKS.
+					yield pair(clouda,cloudb) 
 			
 			i += 1
 
@@ -570,6 +576,8 @@ class SemanticSky(object):
 		Counts co-occurrences in the whole corpus, maybe for weighting or
 		idf purposes.
 		"""
+		from .utils import to_sentences_item,count_coo_sent
+		from collections import Counter	
 		
 		DOCS = []
 
@@ -595,12 +603,14 @@ class SemanticSky(object):
 		"""
 		Generates a word frequency counter of all the database.
 		"""
+		from collections import Counter
 		wfreq_counter = Counter()
-
+		nsents = 0
 		docs = self.__tokens_temp
 		
 		for doc in docs:
 			for sent in doc:
+				nsents += 1
 				for word in sent:
 					wfreq_counter[word] += 1
 		
@@ -609,6 +619,9 @@ class SemanticSky(object):
 		self.counters['word_freq'] = wfreq_counter
 		
 		self.stats['number_of_words_in_corpus'] = nofwords
+		self.stats['number_of_sentences'] = nsents
+		self.stats['number_of_tags'] = len(list(self.data.tags()))
+	
 		return None
 
 	def populate_tag_coo_counter(self):
@@ -616,6 +629,7 @@ class SemanticSky(object):
 		Generates a tag co-occurrence database: the more two tags co-occur,
 		the more they are likely to be related.
 		"""
+		from collections import Counter
 		tag_coo_counter = Counter()
 
 		for itemID in self.data.items():
@@ -625,7 +639,7 @@ class SemanticSky(object):
 			for tag1 in item_tags:
 				for tag2 in item_tags[c:]:
 					if tag1 != tag2:
-						pair = frozenset({tag1,tag2})
+						pair = frozenset({tag1,tag2}) # shouldn't this be a Link instance? More or less same properties (?), but nicer.
 						tag_coo_counter[pair] += 1
 						c += 1
 
@@ -637,7 +651,7 @@ class SemanticSky(object):
 		Populates a database of idf weights: word --> idf
 		(the words are stemmed!)
 		"""
-		
+		from collections import Counter
 		idfcounter = Counter()
 		N = len(self.__tokens_temp) # number of documents of the whole database (i.e. no of items)
 			
@@ -656,8 +670,9 @@ class SemanticSky(object):
 				
 				if isthere:
 					nw += 1
-					
-			idfw = math.log( (N / nw) ,2)
+			
+			from math import log
+			idfw = log( (N / nw) ,2)
 			idfcounter[word] = idfw
 		
 		self.counters['idf_db'] = idfcounter

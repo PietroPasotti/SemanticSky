@@ -119,7 +119,7 @@ class BeliefBag(dict,object):
 			
 		if getcurve:
 			from ..utils import belief_rules
-			eqcurves = [item for item in belief_rules.TWUpdateRule.builtin_equalizers.curves.__dict__ if hasattr(item,'__call__')]
+			eqcurves = [item for item in belief_rules.TWUpdateRule.builtin_equalizers.curves.__dict__.values() if hasattr(item,'__call__')]
 			
 			for e in eqcurves: # looks up for the curve which matches his equalizer's __name__
 				if e.__name__ == self.equalizer.__name__:
@@ -163,6 +163,9 @@ class BeliefBag(dict,object):
 		This can be modified all in one by toying with agents and angels'
 		believes function.
 		"""
+		
+		# if the belief pipeline is ['raw','equalized','weighted'] as it originally was, then we could as well
+		# return self.weighted_belief_set() and get the same result.
 		
 		return {x : self.owner.believes(x) for x in self}
 	
