@@ -44,6 +44,10 @@ class Knower(GuardianAngel,object):
 		"""
 		Assigns a new supervisor to the knower and clears all preceding logs,
 		if *clear*.
+		
+		Warning: do NOT use unless the DEFAULTS with whom the former god
+		and the new gods were created are the same! Otherwise weird
+		things might happen.
 		"""
 		
 		self.supervisor = deity
@@ -146,7 +150,7 @@ class Knower(GuardianAngel,object):
 				i += 1
 				bar()
 			
-			self.give_feedback(clues,verbose = False) # vb off.
+			self.give_feedback(clues,verbose = False) # vb off
 		
 		if verbose: 
 			print()

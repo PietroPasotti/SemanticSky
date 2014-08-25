@@ -12,7 +12,17 @@ class Feedback(object):
 		self.about = about
 		self.value = value
 		self.sign = sign
-	
+		
+	def go(self):
+		"""
+		When we're sure the feedback is not a duplicate, we make it go.
+		"""	
+		
+		self.origin.receive_feedback(self)
+		self.destination.record_given_feedback(self)
+		
+		self.origin.supervisor.rebelieves(self.about) # we have god update its belief set!
+		
 	def __add__(self,other):
 		"""
 		Feedback's value!

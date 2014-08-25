@@ -72,8 +72,9 @@ class Agent(object):
 		if fb in destination.received_feedback.get(about,[]): # this is true also if there is an exactly equivalent feedback there! (though being a different object)
 			return
 		
-		destination.receive_feedback(fb)
-		self.record_given_feedback(fb)
+		fb.go()
+		#destination.receive_feedback(fb)
+		#self.record_given_feedback(fb) # this is now done by Feedback.go()
 		
 		return
 	

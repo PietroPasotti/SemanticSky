@@ -77,15 +77,10 @@ def getknower(god):
 	import semanticsky as ss
 	
 	if hasattr(god,'knower'):
-		if not god.knower.supervisor is god:
-			god.knower.new_supervisor(god)
 		return god.knower
-		
-	knower = ss._KNOWER if ss._KNOWER else ss.agents.Knower(god)
-	if not knower.supervisor is god:
-		knower.new_supervisor(god)
-		
-	return knower
+	else:
+		knower = ss._KNOWER if ss._KNOWER else ss.agents.Knower(god)		
+		return knower
 
 # interactive utilities
 def binput(msg):
@@ -2083,13 +2078,13 @@ def equate_all_links(deity = None,agentslist = []):
 	aglist = agentslist if agentslist else god.guardianangels
 	
 	for ga in aglist:
-		for link,ev in ga.evaluation.items():
-			del ga.evaluation[link]
+		for link,ev in ga.beliefbag.raw_items():
+			del ga.beliefbag[link]
 			itlinks = pid(link)
 			
-			truelink = sky.pair_by_id(*itlinks)
+			truelink = god.sky.pair_by_id(*itlinks)
 
-			ga.evaluation[truelink] = ev
+			ga.beliefbag[truelink] = ev
 	
 	return True
 	

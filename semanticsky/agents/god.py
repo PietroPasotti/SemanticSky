@@ -39,7 +39,7 @@ class God(GuardianAngel,object):
 		self.stats = deepcopy(DEFAULTS['agent_base_stats'])
 		self.stats.update(DEFAULTS['angel_base_stats'])
 		self.stats.update(DEFAULTS['god_base_stats'])   				# override all previous stages
-		self.beliefbag = BeliefBag(self,overrides = self.stats['beliefbag_overrides']) # we'll override the believes method, so as not to ask for equalization or weighting.
+		self.beliefbag = BeliefBag(self,None,**self.stats['beliefbag_overrides']) # we'll override the believes method, so as not to ask for equalization or weighting.
 		self.godid = deepcopy(God.godcount)
 		God.godcount += 1
 
