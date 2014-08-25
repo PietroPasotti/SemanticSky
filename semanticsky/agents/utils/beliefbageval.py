@@ -77,6 +77,8 @@ def multiangel_tf_gap_through_bags(listofangels):
 	
 	# god's
 	out['god'] = monitor_tf_gap_through_bags([BeliefBag(god, god_raw_beliefbag(god)),god.beliefbag], referencebag)
+	# the rawbag of a god is always the same (unless somehow his angel's *raw* beliefsets change, and this shouldn't be the case).
+	# the toplevel bag however changes. right?
 	# god has no equalization/weighting, so all we can monitor is the pre/post **his angel's** full belief pipeline.
 	
 	return out

@@ -2008,6 +2008,9 @@ def load_beliefbags(gaslist,filepath ='./semanticsky/data/agents/beliefbags/'):
 			excps.append(e)
 			if vb >0 :
 				print(' [Failed]')
+				
+		# Finally we have them update their antigravity point! Usually this is automated by the beliefbag.touch() method which is triggered by the setattr
+		# of the beliefbag
 		
 	print()
 	

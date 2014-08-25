@@ -8,7 +8,9 @@ regrets_ontrue.pdf
 
 :: same_lss average ls 04
 
+avg*
 regrets_for_series_of_weights.pdf
 regrets_for_series_of_weights_ontrue.pdf
 
 # all other files should have an indication of where they were taken from.
+

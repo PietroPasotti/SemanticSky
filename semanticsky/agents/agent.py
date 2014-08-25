@@ -67,12 +67,8 @@ class Agent(object):
 		"""
 		
 		from .utils import Feedback
-		fb = Feedback(self,destination,about,value,sign)
-		
-		if fb in destination.received_feedback.get(about,[]): # this is true also if there is an exactly equivalent feedback there! (though being a different object)
-			return
-		
-		fb.go()
+		Feedback(self,destination,about,value,sign)
+				
 		#destination.receive_feedback(fb)
 		#self.record_given_feedback(fb) # this is now done by Feedback.go()
 		

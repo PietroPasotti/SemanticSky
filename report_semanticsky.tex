@@ -244,14 +244,14 @@ This algorithm is very complex, takes ages to run and is so permissive that it c
 \subsection{Future work.}
 ~
 
-$\bullet \quad$Guardian Angels are cool, but they also are currently very stupid. Each one of them just performs a little task in a probably very naive way: this could be improved (but, on the other hand, the main idea behind ensembles is precisely a large number of very stupid algorithms that collectively produce a very smart decision. Be it their small number or their being too stupid, currently this doesn't happen so much).
+$\bullet \quad$Guardian Angels are cool, but they also are currently very stupid. Each one of them just performs a little task in a probably very naive way: this could be improved (but, on the other hand, the main idea behind ensembles is precisely a large number of very stupid algorithms that collectively produce a very smart decision. Be it their small number or their being too stupid, currently this doesn't happen so much). Thus, we could either increment their number (boosting is an option) or make them smarter.
 
-$\bullet \quad$Plus, the more and most diverse the angels' decision algorithm are, the higher the overall performance of the system will be. Thus, one immediate way to extend the system will be to implement more guardians, or to add slight variations to the already existing ones.
+$\bullet \quad$Plus, the more and most diverse the angels' decision algorithm are, the higher the overall performance of the system will be. Currently, there are bunches of three-to-four algorithms that perform very similar computations (and mostly work on the same evidence). Thus, one immediate way to extend the system will be to implement more guardians, or to add variations to the already existing ones.
 
-$\bullet \quad$As noticed above, also, the decisions of the algorithms which are currently implemented are based on a rather small subset of all the available information. Some algorithm only takes into account the words' frequency, some other the words' idf-frequency, some other just the `names' appearing in the text, and so on. Some effort might be put into smarter algorithms able to combine on the fly all these different types of inputs.
+$\bullet \quad$As noticed above, also, the decisions of the algorithms which are currently implemented are based on a rather small subset of all the available information. Some algorithm only takes into account the words' frequency, some other the words' idf-frequency, some other just the `names' appearing in the text, and so on. Some effort might be put into smarter algorithms able to combine on the fly all these different types of inputs, or to extend the range of inputs available, such as through web crawling\footnote{
+A first attempt in this direction has already been made: I constructed an algorithm which would, given a pair of words $a,b$, retrieve the number of google hits for the query ``NEAR($a,b$)|NEAR($a,b$)'', later normalizing it with the number of hits for queries containing just the single words $a$ and $b$. To do the same with clouds is not as straightforward and will need some more research and might involve, for example, keyword extraction (from other Angels' evaluations, maybe).}.
 
-$\bullet \quad$Another thing which might change is that currently algorithms don't (strictly speaking) learn anything. They just go on spitting the same decisions over and over, and is a higher-level algorithm that is delegated the work of gating their decisions so that they get their weight appropriately with respect to their usual worth. An attempt could be made to include amongst this kind of algorithm some more standard learners, such as neural networks or web crawlers\footnote{
-A first attempt in this direction has already been made: I constructed an algorithm which would, given a pair of words $a,b$, retrieve the number of google hits for the query ``NEAR($a,b$)|NEAR($a,b$)'', later normalizing it with the number of hits for queries containing just the single words $a$ and $b$. To do the same with clouds is not as straightforward and will need some more research and might involve, for example, keyword extraction.}.
+$\bullet \quad$Another thing which might change is that currently algorithms don't (strictly speaking) learn anything. They just go on spitting the same decisions over and over, and is a higher-level algorithm that is delegated the work of gating their decisions so that they get their weight appropriately with respect to their usual worth. An attempt could be made to include amongst this kind of algorithm some more standard learners, such as neural networks.
 
 $\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted clearly by how near they are) in the current state of the system.}
 
@@ -269,18 +269,25 @@ The fact that there is a centralised object gating the outputs of several other 
 
 More specifically, we found the closest neighbours of Semantic Sky in the literature to be the \emph{mixture of experts} methods and the \emph{stacked generalization model} models.\footnote{For terminology and explanations, see for example [Introduction to machine learning, 2nd ed. Ethem Alpaydin, pp. 434-435].}
 
+Also, some intuitions behind SemanticSky can be traced back to Neural Networks and / or Bayesian Network, with respect to which the major difference is that the neurons do not just transform the signal but actually produce it, and are not simple (though fuzzy) logic gates but are complex algorithms.
 
-\section{(Results)}
+\subsection{Future work.}
 
-Currently there are two tests of the framework on line.
+When some agent (or a Guardian) communicates to God a new decision concerning some item $x$, God's belief state is updated by the classical formula 
+\[new\_value = previous\_value - [(previous\_value - new\_value) * learning\_rate] \]
+and nothing more. Some efforts need to be put in determining whether this is the best strategy available. Through the mechanism of contextualized trustworthiness, angels themselves repress their own decisions based on the feedback they received, but this might not be enough, or there just might be more. Maybe some angel's decisions are just all wrong, or maybe it produces such good decisions that even though his confidence in them with trustworthiness at 1 is still not at all high, we might want to boost artificially his confidence: to hear more than we listen to, so to say. God itself might learn, in other words, some useful way of transforming the output to match the current state of the system, thereby minimising his regrets directly (instead of relying entirely on the angel's own learning mechanisms.).
 
-The first one consists in removing all the clouds from the sky and initializing an empty god on such empty sky. Then, we add back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$, this is necessary.}
+%Also, maybe something interesting would happen if God would be able to group similar angels making them a single voter with a proportionally higher impact on his decisions.
 
-Then, after adding each cloud, we ask all the guardians to evaluate the whole sky; that is: to assess all similarities they can spot between the present clouds. Finally, the Knower (an algorithm that `knows the truth') judges on their evaluations and triggers feedback.
+\section{Conclusions}
 
-The second test consists in starting with a full sky, but with no feedback. Then, one by one, we give feedback to each item in gods' beliefs, thus (through feedback) adjusting gods' weights and the trustworthiness of angels, refining the beliefs at each step.
+In this section we are going to discuss what we learned while working on SemanticSky.
+First, we will show some graphical and numerical results, in an attempt to evaluate how the system performs, therewith explaining why the results are what they are and not otherwise.
 
-\subsection{Test 1: online evaluation.}
+The main test we run consists in removing all the clouds from the sky and initializing an empty God on such empty sky. Then, we add them back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$, this is necessary.} and we ask all the guardians to evaluate the whole sky; that is: to assess all similarities they can spot between the present clouds. 
+Finally, the Knower (a training algorithm that `knows the truth') judges on their evaluations and triggers feedback, adjusting the trustworthiness of the angels in the various contexts.
+
+\subsection{Testing: online evaluation.}
 
 First I will write down clearly and discuss, where needed, the parameters I used for the test; then show the results.
 
@@ -292,12 +299,12 @@ To state this more clearly: guardians receive feedback only on items in the know
 
 $\bullet \quad$ Step = 6: clouds were added back to the sky 6 by 6.
 
-$\bullet \quad$ Update rule = median of all feedbacks. The current trustworthiness of some angel relative to some link type (person-to-person, question-to-answer...) is the \emph{median} of all the feedback he has ever received about links with that link type. Other available solutions include averaging (sum(all feedbacks)/ len(all feedbacks)) and step-by-step averaging (value = (previous value + value) / 2).
+$\bullet \quad$ Update rule = median of all feedbacks. The current trustworthiness of some angel relative to some link type (person-to-person, question-to-answer...) is the \emph{median} of all the feedback he has ever received about links with that link type. \footnote{Other available solutions include averaging \[(sum(all feedbacks)/ len(all feedbacks))\] and step-by-step averaging \[(value = (previous value + value) / 2)\], plus average and median of the last $n$ items.}
 
 $\bullet \quad$ Merging rule. This affects how the new suggested value (as computed by the update rule) is merged with the previous one. Extremes include ignoring it and replacing the latter with the former. The standard merge is:
 \[new\_value = previous\_value - [(previous\_value - new\_value) * learning\_rate] \]
 
-This is, at each loop of the test, the average value of each agent's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are there.
+This is, sampled at each loop of the test, the average value of each Angel's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are truly out there.
 
 We can see how the values increase and (seem to) stabilize for most angels after around 45 iterations. This means that there were $270$ clouds (since the step was 6) in the sky at that point. The least stable lines represent the angels which have very little nonzero evaluations, and thus receive less feedback.
 
@@ -333,9 +340,9 @@ We can see how the values increase and (seem to) stabilize for most angels after
 \endgroup%
 \vspace{5pt}
 
-Figure 2 shows the progression of average beliefs in false links: that is, links that are currently not in Starfish. As the test proceeds, the values quickly stabilize around (an average of) 0.05, represented quite accurately by God's line.
+As the test proceeds, the values quickly stabilize around (an average of) 0.05, represented quite accurately by God's line. Note that God's belief set is a weighted average, not a plain one.
 
-The convergence here is much faster because there are many more false links than true ones.
+Figure 2 shows the progression of average beliefs in false links: that is, links that are currently not in Starfish. The convergence in this case is much faster because there are many more false links than true ones.
 
 \stepcounter{myfigure}
 \def\svgwidth{550pt}
@@ -442,9 +449,9 @@ Although, the regrets computed on all links (and not only on true ones) reveals 
 \endgroup%
 \vspace{5pt}
 
-Here one can see how for some algorithms (the least smart) regrets are increasing almost exponentially (in parallel with the increase of available permutations of clouds as the sky increases in size), whereas the regrets of some other algorithms are even decreasing. God seems to be driven a bit too high, not following the best ones, but the worse.
+Here one can see how for some algorithms (the least smart) regrets are increasing almost exponentially (in parallel with the increase of available permutations of clouds as the sky increases in size), whereas the regrets of some other algorithms are even decreasing. God seems to be driven a bit too high, not following the best ones, but the worse.\footnote{This probably being due to the fact that high regrets means high confidence in the wrong things: and high confidence means high impact on God's belief state.}
 
-One can also notice that god's line is not the simple average of the other lines, but is a weighted average: it will be influenced (negatively) proportionally to the regrets of the angels: an high-regrets angel will probably have low average weights, and thus influence less god's beliefs (and finally, god's regrets).
+One can also notice that god's line is not the simple average of the other lines, but is a weighted average: it will be influenced (negatively) proportionally to the regrets of the angels. Ideally, an high-regrets angel should have low average weights, and thus influence less god's beliefs (and finally, god's regrets). The fact that this is not really happening here might mean that the low-regrets angels also have low average weights, which is in fact the case.
 
 \paragraph{A few extra facts}:
 
@@ -477,7 +484,7 @@ The same test, with different parameters (learning speed $0.4$, update rule = \e
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/belief_in_true_links.pdf}\hspace{-330pt} Figure \themyfigure : true links beliefs }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/avgbelief_in_true_links.pdf}\hspace{-330pt} Figure \themyfigure : true links beliefs }%
   \end{picture}%
 \endgroup%
 \vspace{5pt}
@@ -509,7 +516,7 @@ The same test, with different parameters (learning speed $0.4$, update rule = \e
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/belief_in_false_links.pdf}\hspace{-330pt} Figure \themyfigure : false links beliefs }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/avgbelief_in_false_links.pdf}\hspace{-330pt} Figure \themyfigure : false links beliefs }%
   \end{picture}%
 \endgroup%
 
@@ -541,7 +548,7 @@ The same test, with different parameters (learning speed $0.4$, update rule = \e
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/regrets_ontrue.pdf}\hspace{-355pt} Figure \themyfigure : regrets on true links }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/avgregrets_ontrue.pdf}\hspace{-355pt} Figure \themyfigure : regrets on true links }%
 	
   \end{picture}%
 \endgroup%
@@ -573,16 +580,13 @@ The same test, with different parameters (learning speed $0.4$, update rule = \e
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/regrets.pdf}\hspace{-355pt} Figure \themyfigure : regrets on all links }%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/avgregrets.pdf}\hspace{-355pt} Figure \themyfigure : regrets on all links }%
 	
   \end{picture}%
 \endgroup%
 
 
-
-
-
-\subsubsection{Conclusions}
+\subsubsection{Analysing the test output.}
 
 Summing up, tests of this kind were ran with the following parameters:
 
@@ -677,27 +681,38 @@ Even though, if we don't just look at true links, regrets are falling:
 
 So, at an absolute level, it seems that the system is learning the golden rule `if the 99\% of the times the right answer is ``no'', then I better just say no every time.' To face this situation, it seemed natural to go for some ways of countering sample bias, which is nonetheless out of the scope of the present report.\footnote{There is more on it in the Appendix, however.}
 
+\subsection{What comes next.}
 
+$\bullet \quad$ During the development of SemanticSky we had several intuitions of possible things to do, or possible alternative ways of doing things we were already doing. For example, when giving feedback, the standard way to go is to give a feedback closer to 1 the closer my evaluation of x is to the evaluation of whoever I am giving feedback to. A different option however is to give straight what should be, in my opinion, the evaluation for that item. While training, this is basically equivalent to having the knower give a 0-1 feedback or a continuum between 0 and 1 (closer to 1 for high confidence correct answers or low confidence false answers, and vice versa). We have run a couple of tests with this alternative algorithm, but due to lack of time we could not double check them and we have no definitive conclusions to draw.
 
+This and a number of options can and need be discussed. Probably, a bit more conceptual analysis ahead of a `now sit down and experiment' is preferable, in this case, being there so many parameters at stake whose interplay is in most cases too complex to have a clear balance.
 
+$\bullet \quad$ Closely related to the previous point, the issue on whether to give feedback on false negatives is still open. The main way to find a quick answer to this problem is, to my mind, to run a bunch of test flipping the switch on and off, and see what happens. This has not been done yet due to lack of machine time.
 
+$\bullet \quad$ Another thing that is missing is some sort of benchmarking: we had some ideas about trying to SemanticSky our way through the immense Wikipedia API or LastFm, IGN, or one of the many databases available.
 
+To extend the framework to deal with that kind of clouds is quite straightforward. The main obstacle, for the moment, seems computational in nature: if we choose to punish false negatives (and the answer to `should we do it' is still open), an evaluation on Starfish takes more than two or three days on my laptop. I wonder how many weeks would it take with (a subsection of) Wikipedia. But, given time and a machine one does not need to Skype his girlfriend, this is clearly something we want to do.
 
+$\bullet \quad$ For the moment we did not have time to generalize (codewise) the cloud-formation process. Some programming effort should be taken into doing that in a wise way.
 
+\subsection{Generalization.}
 
+How general is SemanticSky, or how long would it take to make it (more) general?
 
+To our mind, SemanticSky is quite general already. What is Starfish-specific, for the moment, is the cloud-formation process (that relies quite heavily on the information we have from Starfish) and in the Angels, that are built to use exactly these features.
 
+Namely, the database the system has been designed to work with contains data which is partially tagged: each item has a `title' field, an `author', and so on: what if it had not?
+There are many ways to go with untagged data (which would turn SemanticSky) closer to the unsupervised side of the semi-supervised class of approaches: we could either have some algorithms to pre-classify the documents or parts of them (for example to extract tags, or titles, to recognize authorship or inter-document relations) or we could have very simple clouds with only a `text' entry, and our angels will have to be smart and diverse enough to work on that sort of data without any more tagged input.
 
+Technically, all the work done by clouds could as well be done by Angels alone. The main idea behind clouds was to do beforehand something that angels would have needed to do themselves many times, such as tokenizing the text down to words, stemming, and extracting the tags that came along with the items. But there is no principled reason (if not maybe some computational considerations) for which we should keep the two things separated: we might as well decide to abandon the whole cloud principle and have the algorithms evaluate over the raw items, whatever they are, provided they come with the same toplevel data structure (otherwise, also Angels would need to be modified each time).
 
-\subsection{Test 2: feedback.}
+Personally, I think the cloud layer is not a bad thing and should be kept, mainly because it allows to standardise the input we receive to a more intuitive form, which all angels (regardless of what kind of data they were built to evaluate on) can accept without crashing.
 
-The second test was altogether different. Instead of emptying the sky and adding back clouds, we first make a full analysis, and then slowly give feedback to all the clues produced during the initial analysis, monitoring the subsequent evolution of the belief state and the trustworthiness of the angels.
+Regarding the way Angels can be generalized there is probably little to say: as specific entities they probably can't. What can be generalized is the framework, and probably angels will need to be written depending on the form of the items we are trying to evaluate upon. We might for example build a SemanticSky that recognizes similarities between songs. Then clouds would store some metadata, if available, or extract some features which we deem relevant such as bpm, number of layers, compression level, noise, and more. But, most likely, a tf/idf weighting algorithm will do little if this is all we have, and output 0 all the time.
 
-This is clearly usable as a measure of how good or bad the system adapts to feedback, thus, of its learning capacity.
+Of course, we could build an algorithm that just evaluates the similarity of two clouds at a higher level, but that would be a SemanticSky itself, and is not really what we want. Generalization of algorithms, in other words, is out of the scope here. What we had in mind is to make a general framework, but the supervised part of building the specific algorithms able to crunch the data we give them is not (as far as I can see) going to disappear soon.
 
-
-
-
+This is, if you want, the lower bound of the current SemanticSky-paradigm.
 
 
 
@@ -837,8 +852,8 @@ As a partial proof of the usefulness/correctness of this stance, we ran a test i
   \end{picture}%
 \endgroup%
 \vspace{5pt}
-
-As before, the two following figures represent the outcome of a different test (on the present test): taking the weight sets as sampled during the evolution of god's beliefs as the present test (median, learning rate 0, punish) proceeded and assigning them to a different god, we have him refresh his belief set according to these weights and then plot the resulting regrets.
+\clearpage
+As before, the two following, final figures represent the outcome of a different test (on the present test): taking the weight sets as sampled during the evolution of god's beliefs as the present test (median, learning rate 0, punish) proceeded and assigning them to a different god, we have him refresh his belief set according to these weights and then plot the resulting regrets.
 
 As you can see, also by comparing these figures to the previous (`healthy') ones, the regrets in this case touch the top (440) and seem stably hang to the asymptote. In the `all links' version of the regret calculation, on the other hand, we have an incredibly descending curve which stabilises at a very low value (1250 for God's regrets), against the 2000 top in the non-punish case(s).
 
@@ -918,27 +933,63 @@ Of course we would like regrets to decrease (especially where God is concerned),
 \endgroup%
 \vspace{5pt}
 
-\section{Further testing: differentiating learning rates to counter sample bias and equalization to counter algorithms output bias.}
+Even though these graphs seem to argue definitely in disfavour of punishing false negatives, this bad performance might be due to the huge sample bias we have to face in Starfish.
 
-During the first round of testing, we noticed that there were two important problems with the framework so far:
+Besides trying to compensate that in some ways (see next appendix), trying SemanticSky on a more balanced or simply bigger database will probably give more definitive results.
+
+
+
+
+
+\subsection{Further testing: differentiating learning rates to counter sample bias and equalization to counter algorithms output bias.}
+
+During the first round of testing, we noticed that there were two important problems that the framework was not able to cope with:
 \begin{itemize}
 \item a great sample bias (true links were 444, versus more than 21.000 false negatives in some cases).
-\item what I will call \textbf{output bias}: most algorithms' normalization of the output produced an uneven distribution of values pushed towards zero. Thus, the distance between the average of the values which received positive feedback (meaning that the guess was correct) and the average of the values which received a false feedback were quite near. If we want to call `confidence ratios' the raw outputs of the algorithms, we can phrase the problem by saying that the confidence ratios were on average very low (the highest average for all the algorithms being 0.3).
+\item what I will call \textbf{output bias}: most algorithms' normalization of the output produced an uneven distribution of values pushed towards zero. Thus, the distance between the average of the values which received positive feedback (meaning that the guess was correct) and the average of the values which received a false feedback were quite near. If we want to call `confidence ratios' the raw outputs of the algorithms, we can phrase the problem by saying that the confidence ratios were on average very low (the highest average for all the algorithms being 0.3, and the most of them leaning towards 0.05.).
 \end{itemize}
 
-To counter the first, we tried to differentiate the learning rates for the positive and the negative feedback.
+To counter the first, we introduced differentiation of learning rates for positive and negative feedback.
 
 To counter the latter, we tried to use what I will call an \textbf{equalizer}: a map from raw output of the algorithm to a more even distribution of values, evaluated online (or updated periodically) and eventually learned by the algorithms themselves, that tries to push apart the average of values that received a positive feedback and the average of these which received a negative one.
 
-The results follow.
+\subsection{Differentiation of learning rates.}
+An option known in machine learning for its effectiveness is to use different learning speeds for positive and negative examples, diminishing the latter by a factor that depends on the size of the sample bias we face.
 
-\section{Differentiation of learning rates.}
-A whole suite of experiments were run with a differentiation rate of 50: learning speed for negative feedback was set at 50 times lower than learning rate for positive feedback.
+No testing was made in this direction, even though the code already includes this possibility, disabling it by default, mainly because at the moment, as you will already know, we just are not giving any feedback on negative examples. Beside taking too much time to run, punishing false negatives had some other cons you can find in the appropriate appendix.
 
-\section{Equalization.}
+\subsection{Equalization.}
 The first experiments (as discussed in the central sections of this report) showed that between average confidence ratios in true and false items there was a gap, although maybe little. Thus, simple thresholding might have worked in pulling them apart.
 
-We were hoping that through weighting of output / feedback, that gap would increase and be a more accurate division line between true and false links. Nonetheless, what typically occurred was as follows (update rule: median, learning speed 0.4):
+We were hoping that through weighting of output / feedback, that gap would increase and be a more accurate division line between true and false links. Nonetheless, what typically occurred was that the weighting, which, you will remember, can only take down trustworthiness\footnote{And this, once more, is something to question.}, would push down all values. And being the evaluation spectrum [0/1], generally the values closer to 0 the positive pole (average of the values which received a positive feedback) would move down more than the negative one.
+
+At the end of this process, the gap had in fact decreased. In this table, you can read to the left the name of the Guardian Angel and on the right the difference between the gaps before and after a full evaluation (and a full round of feedback). A positive value means that the gap has increased, but unfortunately you cannot see any. 
+\vspace{5pt}
+
+\begin{tabular}{l || c }
+angel & polar gap on weighted beliefset \\
+\hline
+coo\_dicts\_extended\_neighbour & -0.00201 \\
+ coo\_dicts\_neighbour &-0.012\\
+ coo\_dicts\_overlap & -0.0037\\
+ coo\_dicts\_overlap\_v1 & -0.00202\\
+ coo\_dicts\_overlap\_v2& -0.0037\\
+ extended\_core\_overlap& -0.027\\
+ extended\_name\_comparison& -0.017\\
+ naive\_core\_overlap& -0.21\\
+ naive\_name\_comparison&  -0.15\\
+ tag\_overlap&  -0.036\\
+ tf\_idf\_weighting&  -0.014\\
+ tf\_weighting&-0.039\\
+ \hline
+ god &-0.032 \\
+\hline
+sum (including god) & -0.548
+\end{tabular}
+
+\vspace{5pt}
+
+Overall, the decrease rate of the gap is not so high, but if this is not evidence that something is wrong, then few other things could be.
 
 % IDEA: we take the unweighted average belief in true/false links and map it to the equalized and to the weighted, in this order
 % numerical measurement: the distance between the points at the various steps. Ideally it should increase! so, - distance at step 1 + distance at step 2 should be POSITIVE. The bigger the better.
@@ -954,16 +1005,42 @@ We were hoping that through weighting of output / feedback, that gap would incre
 
 
 
-With differentiation of learning rates, this is what we have:
- (the example is taken from an experiment with parameters update rule: median, learning speed 0.5):
+With equalization (and an experiment with the same parameters), this is what we have:
 
+\vspace{5pt}
 
+\begin{tabular}{l || c | c | c}
 
-Numerically speaking:
+angel & equalization & weighting & overall \\
+\hline
+coo\_dicts\_extended\_neighbour & 0.00074 & -0.0019 & -0.0012\\
+ coo\_dicts\_neighbour & -0.0081 & -0.0102&-0.018\\
+ coo\_dicts\_overlap & 0.0039 & -0.004&-0.000104\\
+ coo\_dicts\_overlap\_v1 & 0.00077& -0.0019 & -0.0012\\
+ coo\_dicts\_overlap\_v2& 0.0039& -0.004 & -0.000104\\
+ extended\_core\_overlap& 0.0075& -0.033& -0.025\\
+ extended\_name\_comparison& 0.032& -0.025 &0.0076\\
+ naive\_core\_overlap& 0.0012& -0.21 &-0.21\\
+ naive\_name\_comparison& 0.00069& -0.15 &-0.15\\
+ tag\_overlap& 0.018& -0.042& -0.023\\
+ tf\_idf\_weighting& 0.0301& -0.018 & 0.011\\
+ tf\_weighting& 0.038& -0.0506 & -0.011\\
+ \hline
+ god& & & -0.032 \\
+\hline
+sum (including god) & & & -0.453
+\end{tabular}
+\vspace{5pt}
 
+The middle column is the step from the raw evaluation to the equalized evaluation, the right column is the step from the equalized evaluation to the final state of the belief set: that is, the weighted (by contextual trustworthiness) and equalized belief set.
 
-[TABLE: distance between average points from raw to toplevel beliefset (of god)]
+As you can see, equalization manages in all but one case (where the algorithm is \emph{so} bad that its average confidence in correct suggestions is lower than the that in wrong ones) to widen the gap between the poles. The problem is that then weighting manages to destroy that effort. Maybe this could be countered by making equalization heavier (the curve was very flat close to the centre of gravity of the push, and unfortunately that's precisely where most values are!), but maybe this is just not working.
 
+In most cases, the overall value (gap difference between unweighted, unequalized and weighted, equalized belief sets) is still negative, which means that the gap is decreasing. We can see however that except for a few examples (still too many, maybe) equalization has managed to reduce a bit (still too little, probably) the negative squeezing effect of weighting (look at the `sum' lines: more or less one fifth effect decrease).
+
+Besides, it's questionable (though it seemed quite natural to us) the order we chose for the pipeline: we might as well equalize up the weighted beliefset, instead of weighting down the equalized beliefset. Who knows what might happen.
+
+More experimentation and research are needed to draw more definitive conclusions here, but we think that this equalization business is probably going in the right direction, but just `not enough' to solve all of our problems, including the weather.
 
 
 

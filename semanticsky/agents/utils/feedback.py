@@ -13,15 +13,27 @@ class Feedback(object):
 		self.value = value
 		self.sign = sign
 		
+		if self in destination.received_feedback.get(about,[]): # if this is a duplicate of a preexisting feedback: we do nothing.
+			return
+		else:
+			self.go()
+			return
+			
 	def go(self):
 		"""
-		When we're sure the feedback is not a duplicate, we make it go.
+		When we're sure the feedback is not a duplicate, we make it go:
+		
+		- we have the origin record the production of the feedback
+		- and the destination receive it: actually process it and update 
+			its contextual trustworthiness accordingly
+		- finally: we have god update its belief set
 		"""	
 		
-		self.origin.receive_feedback(self)
-		self.destination.record_given_feedback(self)
+		self.origin.record_given_feedback(self) # we have the origin record the production of the feedback
+		self.destination.receive_feedback(self) # and the destination receive it: actually process it and update its contextual trustworthiness accordingly.
 		
-		self.origin.supervisor.rebelieves(self.about) # we have god update its belief set!
+		self.origin.supervisor.rebelieves(self.about) # finally: we have god update its belief set!
+		return
 		
 	def __add__(self,other):
 		"""
