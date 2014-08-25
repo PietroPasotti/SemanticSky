@@ -363,4 +363,6 @@ class GuardianAngel(Agent,object):
 		from .utils import regret
 		from semanticsky.tests import diff
 		
-		return regret(self.beliefbag.toplevel() ,self.supervisor.knower.beliefbag,only_on_true_links = only_on_true_links)
+		toplevel = { belief:value for belief,value in self.beliefbag.toplevel().items() if belief in self.supervisor.logs } # for testing! Otherwise loaded evaluation will be taken into account from the start
+		
+		return regret(toplevel ,self.supervisor.knower.beliefbag,only_on_true_links = only_on_true_links)

@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+
 # These defaults influence the behaviour of the whole heavens. Handle with care. Touch here for experiments or testing.
 
 """
@@ -36,9 +37,9 @@ class __defaultshandler__(dict):
 		"""
 		standard_defaults = {															
 			"verbosity" :										2, 						# 0 = all silent. 1 = no progress bars, but a few messages to know how you're doing. 2: even a few insults, sometimes.				
-			"punish_false_negatives" : 							False,					# toggles (negative) feedback also on false positives
+			"punish_false_negatives" : 							False,					# toggles feedback also on false positives; see semanticsky.agents.Knower.give_feedback
 			"god_learningspeed" : 								0.8, 					# how hard is it for god to come to believe the futile suggestions you produce
-			"learningspeed" : 									0.2, 					# how hard is it for god to come to believe that you're a moron
+			"learningspeed" : 									0.2, 					# how hard is it for you to come to believe that you're a moron
 			"negative_feedback_learningspeed_reduction_factor":	50, 					# if differentiate_learningspeeds goes True, this factor divides feedback for negative examples
 			"differentiate_learningspeeds" : 					False,					# toggles the differentiation of learningspeeds for all (and only) angels
 			"equalization" : 									False, 					# toggles equalization for all (and only) angels
@@ -123,8 +124,7 @@ class __defaultshandler__(dict):
 			
 			else: # if there is no error
 				self.changed(previous_state,x) # we buffer the change
-			
-			
+					
 	def changed(self,previous,key):
 		
 		self.changelog.append((previous,key)) # previous value for self[item], item
@@ -216,7 +216,7 @@ class __defaultshandler__(dict):
 			
 		return
 								
-DEFAULTS = __defaultshandler__()
+DEFAULTS = __defaultshandler__() # ... and there can be only one
 
 from semanticsky import skies
 from semanticsky import agents
@@ -225,16 +225,12 @@ from .presets import presets
 
 def set_default(name,value,vb_override = False,check_override = False):
 	"""
-	Alias to DEFAULTS.__setitem__.
+	Alias to DEFAULTS.__setitem__, which might require a few kwargs.
+	Check_override can be set to 1 if you want an one-off illegal
+	alteration, or to True if you want to permanently disable the 
+	protection.
 	"""
-	
 	return DEFAULTS.__setitem__(name,value,vb_override,check_override)
-
-def check_defaults():
-	"""
-	alias of DEFAULTS.check()
-	"""
-	return DEFAULTS.check()
 
 def display_defaults():
 	"""
@@ -255,10 +251,10 @@ def __init_defaults__():
 	set_default("default_voting_merge",			skies.utils.avg,0) # average. Also checks that all not-(re)inited defaults are allright.
 	DEFAULTS.get_changelog() # clear changelogs
 	
-_SKY = None 	# a newly created sky will be stored here
-_GOD = None 	# same for gods
-_CLUES = [] 	# global queue of clues that can be processed by anyone.
-_KNOWER = None 	# stores the last knower instantiated
+_SKY = None 	# a newly created sky will be stored here.
+_GOD = None 	# same for gods.
+_KNOWER = None 	# and for knowers.
+_CLUES = [] 	# global queue of clues that can be processed by their supervisor whenever he feels like listening to a bunch of mortals.
 
 def printout_globals():
 	"""

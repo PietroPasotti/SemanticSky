@@ -647,7 +647,8 @@ class God(GuardianAngel,object):
 		for belief in self.beliefbag:
 			if verbose and topno:
 
-				if vb > 1: bar()
+				if vb > 1: 
+					bar()
 						
 			self.rebelieves(belief) # will update beliefs
 

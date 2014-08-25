@@ -1,0 +1,14 @@
+
+:: same_lss median ls04
+ 
+belief_in_false_links.pdf
+belief_in_true_links.pdf
+regrets.pdf
+regrets_ontrue.pdf
+
+:: same_lss average ls 04
+
+regrets_for_series_of_weights.pdf
+regrets_for_series_of_weights_ontrue.pdf
+
+# all other files should have an indication of where they were taken from.

@@ -89,13 +89,21 @@ class Clue(object):
 		"""
 		
 		about = self.about
+		
 		try:
-			from semanticsky.skies.clouds.core import ctype
-			return ctype(about)
-		except BaseException as e:
-			print ('Unknown about type: {} (of type {}).'.format(about,type(about)))
-			raise e
-
+			return self.about.ctype() # Link objects have it
+		except AttributeError:
+			try:
+				from semanticsky.skies.clouds.core import ctype
+				return ctype(about)
+			except BaseException as e:
+				print ('Unknown about type: {} (of type {}).'.format(about,type(about)))
+				raise e
+		
+	def ctype(self): 
+		# shortcut
+		return self.contenttype
+	
 	@property
 	def weightedvalue(self):
 		

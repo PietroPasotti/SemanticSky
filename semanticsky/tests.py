@@ -68,7 +68,7 @@ def setup_full_god(God = None):
 	
 	god = setup_new_god() if not God else God
 	god.spawn_servants()
-	load_evaluations_to_gas(god.guardianangels)
+	load_beliefbags(god.guardianangels)
 	god.express_all()
 	
 	return god
@@ -183,7 +183,7 @@ def interactive_setup(god,auto = False):
 			
 	god.guardianangels = chosen
 	
-	tests.load_evaluations_to_gas(god.guardianangels)
+	tests.load_beliefbags(god.guardianangels)
 	
 	loadedweights = 0
 	if input(bmag('\t>> Do you want to load weights as well? ')) in 'yesYES' or auto:
@@ -544,7 +544,7 @@ def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online
 		if test and loops > test:
 			print('\n')
 			print(loops, ' loops hit. Stopping. Total list of clouds already included now stored to cluecount.log: \n\n ', [cloud.item['id'] for cloud in god.sky.sky])
-			pickle.dump( [cloud.item['id'] for cloud in god.sky.sky] , open('./tests_output/cluecount.log','wb+'))
+			pickle.dump( [cloud.item['id'] for cloud in god.sky.sky] , open('./semanticsky/data/tests_output/cluecount.log','wb+'))
 			break
 		
 		print('\nExtracted clouds [{}]. Now the sky contains {} clouds.'.format([acloud.item['id'] for acloud in clouds ],len(god.sky.sky) + len(clouds)))
@@ -568,20 +568,20 @@ def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online
 
 def dump_to_file(val,filename = "evaluation_output"):
 	print('Dumping output...')
-	path = "./tests_output/"
+	abspath = "./semanticsky/data/tests_output/"
 	
 	try:
-		filename = path + filename + '.log'
+		fullpath = abspath + filename + '.log'
 	
 		import pickle
 		
-		with open(filename,'wb+') as f:
+		with open(fullpath,'wb+') as f:
 			pickle.dump(val,f)
 			
-		print("\tDumped to file {}.".format(filename))
+		print("\tDumped to file {}.".format(fullpath))
 	
-	except BaseException:
-		print('Pickling to file FAILED. Saving to temporary global {}'.format(filename))
+	except BaseException as error:
+		print('Pickling to file FAILED :: [{}]. Saving to temporary global {}'.format(error,filename))
 		exec("global {0}\n{0} = val".format(filename))
 	
 	return True
@@ -819,51 +819,26 @@ def printparams(local = False):
 		print(DEFAULTS)
 	else:
 		return DEFAULTS
+	
+def funcs_to_names(dictionary):
+	"""
+	Being functions unpickleable, we replace them with their __name__
+	attribute throughout a dictionary (which may contain other dictionaries).
+	"""
+	clean = {}
+	for key,value in dictionary.items():
+		if isinstance(value,dict):
+			cvalue = funcs_to_names(value)
+		else:
+			if callable(value):
+				cvalue = value.__name__
+			else:
+				cvalue = value
+		
+		clean[key] = cvalue	
+		
+	return clean
 
-def get_progressions_from_tests(filepaths = None,include_ontrue = False):
-
-	global temp_progressions
-	
-	temp_progressions = {}
-	
-	if not filepaths:
-	
-		filepaths = [
-		"./tests_output/diverse_lss/average_ls02_factor50/full_test_average_ls02_factor50_FULL.log",
-		"./tests_output/diverse_lss/median_ls05_factor50/full_test_median_ls05_factor50_FULL.log",
-		"./tests_output/diverse_lss/average_ls06_factor50/full_test_average_ls06_factor50_FULL.log",
-		"./tests_output/diverse_lss/median_ls08_factor50/full_test_median_ls08_factor50_FULL.log",
-		#"./tests_output/diverse_lss/feedback_average_ls1/test_output_average_ls1_FEEDBACK.log", ## feedback
-		"./tests_output/diverse_lss/median_ls1_factor50/full_test_median_ls1_factor50_FULL.log",
-		#"./tests_output/diverse_lss/feedback_median_ls02/test_output_median_ls02_FEEDBACK.log.log", ## feedback
-		#"./tests_output/diverse_lss/step_by_step_ls02_factor50/full_test_step_by_step_ls02_factor50_FULL.log", # raises errors
-		#"./tests_output/diverse_lss/median_ls02_factor50/full_test_median_ls02_factor50_FULL.log", # raises errors
-		"./tests_output/diverse_lss/step_by_step_ls08_factor50/full_test_step_by_step_ls08_factor50_FULL.log"
-			]
-	
-	out = {}
-	
-	for path in filepaths:
-		try:
-			print('Extracting information from ',path)
-			print()
-			evaluator = Evaluator(path)
-			progressions_of_regrets = evaluator.plot_ga_regrets(getlines = True)
-			print()
-			progressions_of_regrets_ontrue = evaluator.plot_ga_regrets(only_on_true = True,getlines = True) if include_ontrue else None
-			# should return dictionaries of names of angels + 'god' to lists (arrays) of numbers
-			out[path] = {'regrets' : progressions_of_regrets,'regrets_ontrue':progressions_of_regrets_ontrue}
-			del evaluator
-			print('\n\n')
-			
-		except BaseException as e:
-			out[path] = e
-			print('An exception occurred: ',e)
-	
-	print('Output saved to temp_progressions.')
-	temp_progressions = out
-	return temp_progressions
-			
 class BlackBox(object):
 	"""
 	Wrapper for a god's belief set.
@@ -879,7 +854,13 @@ class BlackBox(object):
 		self.truths = tuple( Link(link.ids) for link in knower.beliefbag) # we store the truths, as we'll always do from now on, as tuples of IDs.
 		
 		from semanticsky import DEFAULTS
-		self.parameters = DEFAULTS.copy() # we store a copy of the defaults.
+		params = DEFAULTS.copy() # we store a copy of the defaults.
+		
+		self.parameters = funcs_to_names(params) # should clean off all (unpickleable) functions and replace them with their __name__ attribute
+			# it's then little work to reconstruct the original DEFAULTS by replacing all strings (as they occur as values) looking up the function
+			# which they're __name__ of. We could, for this purpose, set all __names__ to be more explicit paths to where the function is defined.
+		
+		return 
 								
 	def istrue(self,link):
 		
@@ -947,7 +928,7 @@ class BlackBox(object):
 			
 class Evaluator(object):
 	
-	def __init__(self,filename = "./tests_output/evaluation_output.log"):
+	def __init__(self,filename = "./semanticsky/data/tests_output/evaluation_output.log"):
 		"""
 		Can init from pickled or from dict.
 		Expected data structure:
@@ -966,18 +947,12 @@ class Evaluator(object):
 		"""
 		
 		if isinstance(filename,dict):
-			self.raw_data = self.normalize(filename)
-			
-			bbs = tuple(self.blackboxes())
-			if not hasattr(bbs[0],'truths'):
-				self.gettruths()
-			
-			return
-		
-		import pickle
-		with open (filename, 'rb') as f:
-			self.raw_data = self.normalize(pickle.load(f))
-			
+			self.raw_data = self.normalize(filename)			
+		else:
+			import pickle
+			with open (filename, 'rb') as f:
+				self.raw_data = self.normalize(pickle.load(f))
+				
 		bbs = tuple(self.blackboxes())
 		if not hasattr(bbs[0],'truths'):
 			self.gettruths()
@@ -1113,7 +1088,7 @@ class Evaluator(object):
 		
 		rdic = {}
 		
-		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 		for outdic in self.iter_values():
 			bb = outdic['BlackBox']
 			
@@ -1128,7 +1103,7 @@ class Evaluator(object):
 		
 		toplen = max( len(x) for x in rdic.values() )
 		
-		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Normalizing Results')
+		bar = ProgressBar(len(self.raw_data),title = 'Normalizing Results')
 		for key in rdic: # normalize all lengths
 			
 			bar()
@@ -1136,7 +1111,7 @@ class Evaluator(object):
 			if len(rdic[key]) < toplen:
 				rdic[key] = [0]*(toplen - len(rdic[key])) + rdic[key]
 		
-		bar = tests.clues.ss.ProgressBar(len(rdic),title = 'Preparing Plot')
+		bar = ProgressBar(len(rdic),title = 'Preparing Plot')
 		for listofvalues in rdic.values():
 			
 			bar()
@@ -1173,7 +1148,7 @@ class Evaluator(object):
 			
 		self.addtoplot(evo,text = name)
 	
-	def display_guardians(self,names = None,params = ('distance_from_perfection==regret?',)):
+	def display_guardians(self,names = None,params = ('regrets',)):
 		
 		if not names:
 			key = tuple(self.raw_data.keys())[0]
@@ -1194,7 +1169,7 @@ class Evaluator(object):
 
 	def guardian_names(self):
 		
-		from algorithms import algsbyname
+		from semanticsky.agents.utils.algorithms import algsbyname
 		
 		return [name for name in algsbyname if name not in ['someonesuggested','tag_similarity_naive','tag_similarity_extended']]
 	
@@ -1206,7 +1181,7 @@ class Evaluator(object):
 		if use_stored_values: # we use values filled in at runtime, instead of computing them again
 			progressions = {}
 			godprog = []
-			bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+			bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 			for out in self.iter_values():
 				bar()
 				greg = out.get('god_regrets')
@@ -1246,7 +1221,7 @@ class Evaluator(object):
 		progressions = {aname : [] for aname in self.guardian_names()}
 		godprog = [] # god's progression
 		
-		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 
 		for bb in self.blackboxes():
 			
@@ -1288,7 +1263,7 @@ class Evaluator(object):
 		
 		progressions = {angel : {} for angel in self.guardian_names()}
 		
-		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 		for bb in self.blackboxes():
 			
 			bar()
@@ -1325,7 +1300,7 @@ class Evaluator(object):
 			# progressions is now
 			# angel.name : { 'PP' : [0.1,0.12], 'PO' : [0.22,0.232] ...}		
 					
-		bar = tests.clues.ss.ProgressBar(len(progressions),title = 'Normalizing Values')
+		bar = ProgressBar(len(progressions),title = 'Normalizing Values')
 		try:
 			toplen = max( max(len(x) for x in progressions[angel].values() ) for angel in progressions if progressions[angel] )
 		except ValueError:
@@ -1372,7 +1347,7 @@ class Evaluator(object):
 		beliefs = {ga:[] for ga in self.guardian_names()}
 		beliefs['God'] = []
 		
-		bar = tests.clues.ss.ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 		for out in self.iter_values():
 			
 			box = out['BlackBox']
@@ -1412,7 +1387,7 @@ class Evaluator(object):
 			for name,believeds in allbeliefs.items(): # the average of the current logs for the given linktype is added to the progression
 				beliefs[name].append(avg(believeds))
 							
-		bar = tests.clues.ss.ProgressBar(len(beliefs),title = 'Normalizing')
+		bar = ProgressBar(len(beliefs),title = 'Normalizing')
 		toplen = max(len(x) for x in beliefs.values())
 		
 		for name,values in beliefs.items():
@@ -1557,7 +1532,7 @@ class RegretsPlotter(object):
 		
 		progressions = {}
 		
-		bar = tests.clues.ss.ProgressBar(len(self.evaluator.raw_data)/self.samplingstep ,title = 'Reading Blackboxes')
+		bar = ProgressBar(len(self.evaluator.raw_data)/self.samplingstep ,title = 'Reading Blackboxes')
 		for bb in self.evaluator.blackboxes():
 			
 			if i % self.samplingstep != 0:
@@ -2028,7 +2003,8 @@ def load_beliefbags(gaslist,filepath ='./semanticsky/data/agents/beliefbags/'):
 				pid = lambda x: (tuple(x)[0].item['id'], tuple(x)[1].item['id'])	
 				
 				for link,ev in evaluation.items():
-					ga.beliefbag[ga.supervisor.sky.pair_by_id(pid(link))] = ev
+					ga.beliefbag[ga.supervisor.sky.pair_by_id(pid(link))] = ev # we fetch the **same object** by its pid. 
+					# Re-aliasing the broken-by-pickle aliases.
 				
 				ga.consulted = True
 				if vb >0 :

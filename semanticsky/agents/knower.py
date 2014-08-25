@@ -66,6 +66,13 @@ class Knower(GuardianAngel,object):
 		to them.
 		Overrides whisperpipe.
 		"""
+		from semanticsky.clues import Clue
+		from semanticsky import DEFAULTS
+		
+		if verbose is True:
+			vb = DEFAULTS['verbosity']
+		else:
+			vb = 0
 		
 		if str(cluelist.__class__) in ["<class 'semanticsky.agents.angel.GuardianAngel'>","<class 'semanticsky.agents.agent.Agent'>"]:
 			cluestovalue = cluelist.clues
@@ -80,34 +87,35 @@ class Knower(GuardianAngel,object):
 		i = 0
 		
 		if ln == 0:
-			if verbose:
+			if vb > 0:
 				print( 'Knower :: Feedback, empty.')
 			return True
 		
-		elif ln <= 50 and verbose:
+		elif ln <= 50 and vb > 0:
 			print('Knower :: Feedbacking (short).')
-			verbose = False			
+			vb = 0		
 
-		from semanticsky.tests import ProgressBar
-		targetname = getattr(cluelist,'shortname','')
-		if callable(targetname): # shortname
-			targetname = '({})'.format(targetname())
-			
-		bar = ProgressBar(ln,title = '{} :: Feedback{}'.format(self.name, targetname ))
+		if vb > 1:
+			from semanticsky.tests import ProgressBar
+			targetname = getattr(cluelist,'shortname','')
+			if callable(targetname): # shortname
+				targetname = '({})'.format(targetname())
+			bar = ProgressBar(ln,title = '{} :: Feedback{}'.format(self.name, targetname ))
+		
 		for clue in cluestovalue:
 			
-			if verbose:
+			if vb > 1:
 				bar()
 
 			if clue.agent is self:
 				continue
 			
-			from semanticsky import DEFAULTS
 			feedback_production_rule = DEFAULTS['default_feedback_rule']	# FEEDBACK RULE
 			punish_false_negatives = DEFAULTS['punish_false_negatives'] 	# PUNISH
 			
 			if not self.believes(clue.about) and not punish_false_negatives:
 				# if the clue's about is not in my evaluation and we're not supposed to punish false negatives, we won't give feedback to this clue.
+				# : it's just an 'I dunno, I have no opinion here.'
 				continue # we skip the clue
 			
 			myrating = feedback_production_rule(clue,self)

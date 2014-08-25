@@ -18,12 +18,12 @@ class BeliefBag(dict,object):
 		self.touchcounter = 0 # when it hits *antigrav_updaterate*, triggers self.update_antigrav() and then it resets
 		self.antigrav = None # gravity point is not set at start
 		#self.factor = 0 # boh
+
+		self.__dict__.update(overrides) # we can overwrite some kwargs to personalise in fancy ways the bag's attributes.
 		
 		if self.weightset:
 			self.update_antigrav()
-			
-		self.__dict__.update(overrides) # we can overwrite some kwargs to personalise the bag.
-	
+		
 	@property
 	def weightset(self):
 		return self.owner.stats['contextual_tw']
