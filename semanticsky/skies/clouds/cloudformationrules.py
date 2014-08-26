@@ -8,12 +8,17 @@ invokes all cloud formation rules loaded on it before returning the layers.
 
 class LayerBuilder():
 	
-	def __init__(self,cloud,pipeline_override = False):
+	def __init__(self,cloud,pipeline_override = False,autobuild = True):
 		
 		self.cloud = cloud
 		if pipeline_override:
 			self._pipeline = LayerBuilder.get_pipeline(pipeline_override) # must be a string!
 		self.oritem = cloud.item
+		
+		if autobuild:
+			self.build_layers()
+		else:
+			return	
 		
 	def __call__(self,item,layerno):
 		"""
@@ -87,7 +92,7 @@ class LayerBuilder():
 			"""
 			
 			# assumes item is still a dictionary.
-			allts = item.get('tags')
+			allts = item.get('tags',[])
 			aliases = item.get('alias_of')
 			if aliases: allts.extend(aliases)
 			
@@ -102,17 +107,21 @@ class LayerBuilder():
 				out = ''
 
 				if isinstance(value,str):
+					out += ' '
 					out += value
 
 				elif isinstance(value,(tuple,list)):
 					for subval in value:
+						out += ' '
 						out += lookupdate(subval)
 						
 				elif isinstance(value,dict):
 					for subval in value.values():
+						out += ' '
 						out += lookupdate(subval)
 
 				else: # we force into string.
+					out += ' '
 					out += str(value)
 					
 				
@@ -121,8 +130,13 @@ class LayerBuilder():
 			tostring = ''
 			for key,value in item.items():
 				
-				tostring += lookupdate(value)
+				if key == 'tags': ## we don't add tags to the stringed text, otherwise we mess up names and tf_idf counts!
+					continue 
 				
+				tostring += lookupdate(value)
+				tostring += ' '
+				
+			tostring.strip()
 			return tostring,{} # we could also have used ..utils.grab_text()
 			
 		def preprocess(item,builder): # cleans html
@@ -279,8 +293,16 @@ class LayerBuilder():
 							break
 							
 				N = len(builder.cloud.sky._tokens_temp)
-				idf[word] = log( (N / nw) ,2)
-				
+				try:
+					idf[word] = log( (N / nw) ,2)
+				except ZeroDivisionError:
+					# then the word is a tag! We added them to the item's string a few steps ago, but they aren't counted in the sky's _tokens_temp.
+					# print("word {} not found! Weird, isn't it?".format(word))
+					# we ignore them(?)
+					
+					# fixed: shouldn't happen anymore (removed tags from stringed text.)
+					pass
+					
 			return item, (('words_tfidf', idf), ('words_tf' , tf))
 		
 		def top_coo(item,builder):
@@ -289,16 +311,18 @@ class LayerBuilder():
 			"""
 			from ..utils import Counter, update_coo_dict_with_raw_text
 			coodict = Counter()
-			for text in ctexts: update_coo_dict_with_raw_text(coodict,item)
-			minfreq = builder.cloud.stats['clouds']['min_coo_threshold']
-			maxln = builder.cloud.stats['clouds']['max_coo_length']
 			
-			if len(ctexts) < 200:
+			update_coo_dict_with_raw_text(coodict,item)
+			
+			minfreq = builder.cloud.stats['min_coo_threshold']
+			maxln = builder.cloud.stats['max_coo_length']
+			
+			if len(item) < 200:
 				pass # if there is very little text, we are less picky, and keep all coos
 			else:
 				coodict = Counter({ el:value for el,value in coodict.most_common(maxln) if coodict[el] >= minfreq })
 			
-			return item, ('top_coo' , dict(topcoo))
+			return item, ('top_coo' , dict(coodict))
 		
 		def core(item,builder):
 			"""

@@ -56,10 +56,10 @@ class __defaultshandler__(dict):
 						{'number_of_words_in_corpus': 			0,						# will count the number of words in the corpus of the sky
 						'number_of_tags':						0,						# will count the number of tags
 						'number_of_sentences': 					0,						# idem
-						'language_recognition_threshold' : 		0.4,					# threshold for skies.utils.guess_language function
 						'clouds' : 												# defaults for skies.clouds.Cloud instances
 									{'depth':					2,						# *max* number of layers per cloud (note: currently just one is used)
 									#'density': None,									# not used
+									'language_recognition_threshold' : 	0.4,			# threshold for skies.utils.guess_language function
 									#'thickness': None,									# not used
 									'min_coo_threshold': 		2,						# minimum number of co-occurrences for a word pair to be considered "co-occurring"
 									#'min_word_freq_threshold' : 2, 					# not used
