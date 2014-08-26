@@ -100,12 +100,7 @@ class Cloud(object):
 							re.compile(r"[A-Z][a-z]+,(?:\s?[A-Z]\.)+?"), 			# captures "Betti, A." these are the last one to be extracted, so that we won't ruin other names
 							re.compile(r"[A-Z]+[A-Z0-9]{1-5}") 						# captures 'FNWI', 'UVA' and 'ECTN', and also 'ECT2N'. also, VU																
 							]
-							
-		#oldarray = [	re.compile(r"[A-Z][a-z]+\s[A-Z][a-z]+\b"), 				
-		#					re.compile(r"[A-Z][.].*?\s[A-Z][a-z]+\b"),			
-		#					re.compile(r"[A-Z][a-z]+\s[A-Za-z]+\s[A-Z][a-z]+"),	
-		#					re.compile(r"[A-Z][a-z]+,(?:\s?[A-Z]\.)*?")	]
-			
+						
 		clean1 = []
 		@Group
 		def handle_links_and_preprocessing():
@@ -268,6 +263,7 @@ class Cloud(object):
 		maxfqlen = self.sky.stats['clouds']['max_vocab_length']
 		idfcount = Counter()
 		tfcount = Counter()
+		
 		for word,wordcount in most_freq_words_from_raw_texts(ctexts,crop = maxfqlen):
 			lentexts = len(' '.join(ctexts).split(' '))
 			wordfreq = wordcount / lentexts

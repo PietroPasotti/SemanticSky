@@ -429,7 +429,6 @@ class SemanticSky(object):
 			print('\t\t [ Done. ]')
 			print( ' -'*60)
 			print()			
-		del self.__tokens_temp # frees some memory
 		
 	def populate_sky(self):
 		"""
@@ -586,7 +585,7 @@ class SemanticSky(object):
 			sents = to_sentences_item(itemdict) # breaks an item down to tokens: [['']]
 			DOCS.append(sents)
 
-		self.__tokens_temp = DOCS
+		self._tokens_temp = DOCS
 
 		coo_counter = Counter()
 		
@@ -606,7 +605,7 @@ class SemanticSky(object):
 		from collections import Counter
 		wfreq_counter = Counter()
 		nsents = 0
-		docs = self.__tokens_temp
+		docs = self._tokens_temp
 		
 		for doc in docs:
 			for sent in doc:
@@ -653,11 +652,11 @@ class SemanticSky(object):
 		"""
 		from collections import Counter
 		idfcounter = Counter()
-		N = len(self.__tokens_temp) # number of documents of the whole database (i.e. no of items)
+		N = len(self._tokens_temp) # number of documents of the whole database (i.e. no of items)
 			
 		for word in self.counters['word_freq']:
 			nw = 0 # number of docs with word
-			for doc in self.__tokens_temp:
+			for doc in self._tokens_temp:
 				
 				isthere = False
 				

@@ -78,9 +78,13 @@ class __defaultshandler__(dict):
 			"angel_base_stats" : 				{"trustworthiness" : 1},				# overrides agents' agent_base_stats in GuardianAngel instances
 			"god_base_stats" : 													# overrides angels' angel_base_stats in God(s) instances
 				{'beliefbag_overrides' : {'equalization_active' : False}, 				# god needs no equalization. And btw, he receives no feedback whatsoever.
-				'power': 'over 9000'} 													# well...
-				}
-		
+				'power': 'over 9000'},													# well...
+			"layerformer_defaults" : {
+				'main_pipeline': 'Starfish_pipeline'		
+				}	
+			}
+			
+			
 		return standard_defaults
 		
 	def __setitem__(self,x,y,vb_override = False,check_override = False):
@@ -195,6 +199,8 @@ class __defaultshandler__(dict):
 		table([[name,self['angel_base_stats'][name]] for name in self['angel_base_stats']])
 		print(center(wrap('DEFAULTS > god_base_stats','blue')))
 		table([[name,self['god_base_stats'][name]] for name in self['god_base_stats']])
+		print(center(wrap('DEFAULTS > layerformer_defaults','blue')))
+		table([[name,self['layerformer_defaults'][name]] for name in self['layerformer_defaults']])
 		print('-' * 100)
 		
 		return
