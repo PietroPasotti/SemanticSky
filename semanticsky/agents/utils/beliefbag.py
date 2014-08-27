@@ -61,7 +61,7 @@ class BeliefBag(dict,object):
 		To avoid confusions...
 		"""
 		if not iknowwhatimdoing:
-			raise BaseException("Use raw_items instead.")
+			raise BaseException("Ambiguous. Use raw_items instead.")
 			
 		return super().items()
 	

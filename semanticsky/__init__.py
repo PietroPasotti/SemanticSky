@@ -53,10 +53,7 @@ class __defaultshandler__(dict):
 			"default_feedback_rule":							'difference', 			# rule for computing which value the feedback should take
 			"log_zero_evaluations" : 							False ,					# toggles logging for zero evaluations of angels: see their evaluate() method.
 			"sky_stats" :														# defaults for skies.SemanticSky instances
-						{'number_of_words_in_corpus': 			0,						# will count the number of words in the corpus of the sky
-						'number_of_tags':						0,						# will count the number of tags
-						'number_of_sentences': 					0,						# idem
-						'clouds' : 												# defaults for skies.clouds.Cloud instances
+						{'clouds' : 												# defaults for skies.clouds.Cloud instances
 									{'depth':					2,						# *max* number of layers per cloud (note: currently just one is used)
 									#'density': None,									# not used
 									'language_recognition_threshold' : 	0.4,			# threshold for skies.utils.guess_language function
@@ -72,15 +69,15 @@ class __defaultshandler__(dict):
 							{ 'trustworthiness': 				0.6,					# initial trustworthiness
 							'contextual_tw' : 					{},						# will map cluetypes to trustworthiness on the cluetype
 							'expertises': 						{},						# will collect areas of expertise (where contextual trustworthiness is higher)
-							#'communities': [],											# not used
-							'blocked' : 						False					# not very much used, but will be
+							#'communities': [],											# not used, but why?
+							#'blocked' : 						False					# not used, but will be
 							},
 			"angel_base_stats" : 				{"trustworthiness" : 1},				# overrides agents' agent_base_stats in GuardianAngel instances
 			"god_base_stats" : 													# overrides angels' angel_base_stats in God(s) instances
 				{'beliefbag_overrides' : {'equalization_active' : False}, 				# god needs no equalization. And btw, he receives no feedback whatsoever.
 				'power': 'over 9000'},													# well...
-			"layerformer_defaults" : {
-				'main_pipeline': 'Starfish_pipeline'		
+			"layerbuilder_defaults" : {											# used by the algorithm that constructs the clouds out of starfish items
+				'main_pipeline': 'Starfish_pipeline'									# name of the builtin sequence of commands used to construct the clouds' layer(s) 
 				}	
 			}
 			
@@ -104,7 +101,7 @@ class __defaultshandler__(dict):
 		if vb > 0:
 			from .tests import wrap
 			print(wrap('> DEFAULTS accessed. <','red'))
-		
+
 		if check_override is True: # permanent
 			self.check_override = True
 		
@@ -182,13 +179,32 @@ class __defaultshandler__(dict):
 			
 			return True
 		
-	def display(self):
+	def display(self,title = 'DEFAULTS',space = '-'):
 		"""
 		Displays more or less nicely all defaults, regardless of the verbosity.
-		"""		
+		"""	
+		
 		from .tests import center,wrap,table
-		print(center(wrap(' DEFAULTS ','blue'),space = '-'))
-		table([[name,self[name]] for name in self if 'stats' not in name ])
+		
+		def recursivedisplay(dic,title,space,onlyfirst = False):
+
+			postponed = [(key,value) for key, value in dic.items() if isinstance(value,dict) and bool(value)] # nonempty dicts
+			todo = [[key,value] for key,value in dic.items() if not (isinstance(value,dict) and bool(value))]
+			
+			print(center(wrap(' {} '.format(title),'blue'),space = onlyfirst if onlyfirst else space))
+			table(todo)
+			
+			for name,post in postponed:
+				recursivedisplay(post, title + ' > ' + str(name),space = ' ')
+			
+			return
+		
+		return recursivedisplay(self,'DEFAULTS',' ','-')	
+		
+		
+		
+		print(center(wrap(' {} '.format(title),'blue'),space = space))
+		table([[name,self[name]] for name in self if 'stats' not in name and name != 'layerbuilder_defaults'])
 		print(center(wrap('DEFAULTS > sky_stats','blue')))
 		table([  [name,self['sky_stats'][name]] for name in self['sky_stats'] if name != 'clouds'])
 		print(center(wrap('DEFAULTS > sky_stats > clouds','blue')))
@@ -200,7 +216,7 @@ class __defaultshandler__(dict):
 		print(center(wrap('DEFAULTS > god_base_stats','blue')))
 		table([[name,self['god_base_stats'][name]] for name in self['god_base_stats']])
 		print(center(wrap('DEFAULTS > layerformer_defaults','blue')))
-		table([[name,self['layerformer_defaults'][name]] for name in self['layerformer_defaults']])
+		table([[name,self['layerbuilder_defaults'][name]] for name in self['layerbuilder_defaults']])
 		print('-' * 100)
 		
 		return

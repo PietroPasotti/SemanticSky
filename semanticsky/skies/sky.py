@@ -321,6 +321,11 @@ class SemanticSky(object):
 		
 		if stats is None:
 			stats = DEFAULTS['sky_stats']
+			stats.update({'number_of_words_in_corpus': 			0,						# will count the number of words in the corpus of the sky
+						'number_of_tags':						0,						# will count the number of tags
+						'number_of_sentences': 					0,						# idem
+						}) # there's no need to stick these into the defaults. They're just for fun.
+			
 		if data is None:
 			data = Data(default_data_path)
 		elif isinstance(data,Data):
@@ -354,7 +359,7 @@ class SemanticSky(object):
 			print('Populating sky... \n')
 		self.populate_sky()
 		if self.vb > 0:
-			print('\t*Initialization successful* :: [ {} seconds elapsed]\n'.format( (clock() - starttime) ))
+			print('\t*Initialization successful* :: [ {} seconds elapsed]\n'.format( round(clock() - starttime) ))
 			print( ' -'*60)
 		
 	def __repr__(self):

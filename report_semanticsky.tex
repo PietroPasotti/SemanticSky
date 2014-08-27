@@ -40,7 +40,7 @@ The main steps through which this is achieved follow:
 \begin{itemize}
 \item First, each document is transformed into a {\bf Cloud}: an object which theoretically should encapsulate all the information we can extract from the base document. Examples include: names of people mentioned in the document, names of places, statistically frequent word and frequently co-occurring (at a sentence level) pairs of words.
 \item  Secondly, these clouds are pairwise evaluated by a list of algorithms called {\bf Guardian Angels} which try to judge their similarity based on different and possibly complementary criteria.
-\item Finally, the evaluations of the Guardian Angels are merged into a single one, which represents the final state of the system, at this stage.
+\item Finally, the evaluations of the Guardian Angels are merged into a single one by a supervisor algorithm called (of course) \textbf{God}, which represents the final state of the system, at this stage.
 \end{itemize}
 
 When the system is first initialized, or when a new document is added to the corpus, this is all there is to it.
@@ -48,28 +48,11 @@ When the system is first initialized, or when a new document is added to the cor
 But then, some more things will happen, as {\bf Agents} (true people) evaluate by themselves the appropriateness of a link or the relevance of a tag or keyword to some page.
 
 \begin{itemize}
-\item The current state of the system is kept under watch on by a supervisor algorithm called {\bf God}, is judged either stable or unsettled. If some part of the network is unsettled, then God waits for more discussion to happen between agents and maybe even fuels it by suggesting relevant links to the parties involved or informing the parties of the presence of a third option, and so on...
-\item Once the system settles on some decision, such as the complete relatedness of two items, or maybe even the plain equivalence of two approaches that just happened to go under different names, then God gives feedback to all agents involved (human or algorithmic) regarding the accuracy of their guesses relative to the final state. This way, suggestion-givers who gave bad suggestions will be taken less into account in the future.
+\item The current state of the system is kept under watch by the supervisor algorithm called God, and is judged either stable or unsettled. If some part of the network is unsettled, then God waits for more discussion to happen between agents and maybe even fuels it by suggesting relevant links to the parties involved or informing the parties of the presence of a third option, and so on...
+\item Once the system settles on some decision, such as the complete relatedness of two items, or maybe even the plain equivalence of two approaches that just happened to go under different names, then God gives feedback to all or some of the agents involved (human or algorithmic) regarding the accuracy of their guesses relative to the final state. This way, voters who gave bad suggestions will be taken less into account in the future, and vice versa.
 \end{itemize}
 
-Crucially, the supervisor algorithm will need to `suspend judgement' on user-backed agents while a discussion is still going on, so that plain democracy will decide on the final state of the system (the objective is to respect people's suggestions, not to distort them) without being influenced by the feedback they received. God is not a moderator: is a plain container and merger of opinions. He listens to the discussion and takes notes. On the other hand it's up to him to judge whether an algorithm is good or not.
-
-Currently it's very easy to implement a new algorithm in the system:
-
-\begin{lstlisting}
-import clues
-def evaluate(cloud1,cloud2):
-	...
-	return myevaluation
-
-myalgorithm = clues.algorithms.Algorithm(evaluate)
-myguardian = clues.GuardianAngel(myalgorithm)
-myguardian.evaluate_all() 
-# this will make it evaluate
-# all 2-permutations of clouds.
-\end{lstlisting}
-
-But not all algorithm are good, and most are good just on very specific subsets of the system. Suppose that we have an algorithm that just checks whether the authors of the document are the same person (and does that by regex matching some query). This algorithm will then return zero for all documents where an 'author' is not defined or the query doesn't match. God then will (try to) understand that the algorithm is useful in some subdomain, even though his average accuracy is very low.
+Currently there is a handful of algorithms in the system, and it is fairly easy to add a new one. Even though, not all algorithm are good, and most are good just on very specific subsets of the system. Suppose that we have an algorithm that just checks whether the authors of the document are the same person (and does that by regex matching some query). This algorithm will then return zero for all documents where an 'author' is not defined or the query doesn't match. God then will (try to) understand that the algorithm is useful in some subdomain, even though his average accuracy is very low.
 
 The evaluations that a Guardian Angel performs differ from those of an human agent only in that they are produced automatically. Their route is in fact basically the same: they either get queued and later on processed by God, or (by default) they get immediately processed.
 
@@ -94,12 +77,12 @@ SemanticSky currently performs little or no semantic analysis, so the cloud will
 
 This is what layers are meant to be for: the innermost layer will certainly contain these four words, plus the most relevant others that, with diverse heuristics, we will be able to extract from the body of the document itself.
 
-Currently, the clouds store just about everything in a single layer, as the information we have is all first-hand: comes directly from the document, which is the most trustworthy source of information we can have at the moment. The layer-building function currently tokenizes everything down to words, stems them (so as to capture the relevance of, say, `learn-', even though in the document the concept appears under many different grammatical forms, which would make the statistical relevance of `learn' by itself very low) and finally produce a list of the pairs of words most frequently co-occurring in sentences.
+Currently, the clouds store just about everything in a single layer, as the information we have is all first-hand: comes directly from the document, which is the most trustworthy source of information we have. The layer-building function currently tokenizes everything down to words, stems them (so as to capture the relevance of, say, `learn-', even though in the document the concept appears under many different grammatical forms, which would make the statistical relevance of `learn' by itself very low) and finally produce a list of the pairs of words most frequently co-occurring in sentences.
 
-The sorts of information a cloud currently contains in its only layer are (extracted via regex matching and tokenization):
+The sorts of information a cloud currently contains in its only layer are (extracted in various ways):
 \begin{itemize}
 \item names: all Capitalized Sequences Of Words.
-\item urls: all urls either hidden in hrefs (the documents' text is html) or explicitly mentioned in the text.
+\item urls: all urls either hidden in hrefs (the documents' original text is html) or explicitly mentioned in the text.
 \item words: information about their frequency (tf) \emph{and} their frequency weighted by their inverse document frequency (tf-idf).
 \item core: a special subset of words which we have reasons to believe more important than the other ones; namely those which come from titles or which are labeled as `headline'.
 \item tags: a list of the tags assigned to the Starfish item.
@@ -287,7 +270,7 @@ First, we will show some graphical and numerical results, in an attempt to evalu
 The main test we run consists in removing all the clouds from the sky and initializing an empty God on such empty sky. Then, we add them back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$, this is necessary.} and we ask all the guardians to evaluate the whole sky; that is: to assess all similarities they can spot between the present clouds. 
 Finally, the Knower (a training algorithm that `knows the truth') judges on their evaluations and triggers feedback, adjusting the trustworthiness of the angels in the various contexts.
 
-\subsection{Testing: online evaluation.}
+\subsection{Testing: online monitoring of the system's evaluation.}
 
 First I will write down clearly and discuss, where needed, the parameters I used for the test; then show the results.
 
@@ -600,7 +583,7 @@ Summing up, tests of this kind were ran with the following parameters:
 \item Median and average, learning rate 0.2, punish = True\footnote{This means that feedback was given not on known truths but also on unknown pairs (which, we remind, are assumed to have similarity $0$'). More on this in the appendix.}.
 \end{itemize}
 
-From these tests clearly emerged that regret on true links (figures 3 and 6) stably decreased, but average belief in true links stays as low as 0.05.
+From these tests clearly emerged that regret on true links (figures 3 and 6) stably decreased, but average belief in true links also decreases or in general stays as low as 0.05.
 
 Also, since clouds were added in batches of 5 or 6, and regret on true links depends on the amount of true links available given the current cloud set, it's unclear whether the (final) regrets would have been lower, had the weights permanently all been set to 1.
 
@@ -683,7 +666,7 @@ So, at an absolute level, it seems that the system is learning the golden rule `
 
 \subsection{What comes next.}
 
-$\bullet \quad$ During the development of SemanticSky we had several intuitions of possible things to do, or possible alternative ways of doing things we were already doing. For example, when giving feedback, the standard way to go is to give a feedback closer to 1 the closer my evaluation of x is to the evaluation of whoever I am giving feedback to. A different option however is to give straight what should be, in my opinion, the evaluation for that item. While training, this is basically equivalent to having the knower give a 0-1 feedback or a continuum between 0 and 1 (closer to 1 for high confidence correct answers or low confidence false answers, and vice versa). We have run a couple of tests with this alternative algorithm, but due to lack of time we could not double check them and we have no definitive conclusions to draw.
+$\bullet \quad$ During the development of SemanticSky we had several intuitions of possible things to do, or possible alternative ways of doing things we were already doing. For example, when giving feedback, the standard way to go is to give a feedback closer to 1 the closer my evaluation of x is to the evaluation of whoever I am giving feedback to. A different option however is to give straight what should be, in the opinion of the feedback-giver, the evaluation for that item. While training, this is basically equivalent to having the knower give a 0-1 feedback or a continuum between 0 and 1 (closer to 1 for high confidence correct answers or low confidence false answers, and vice versa). We have run a couple of tests with this alternative algorithm, but due to lack of time we could not double check them and we have no definitive conclusions to draw.
 
 This and a number of options can and need be discussed. Probably, a bit more conceptual analysis ahead of a `now sit down and experiment' is preferable, in this case, being there so many parameters at stake whose interplay is in most cases too complex to have a clear balance.
 
@@ -695,36 +678,37 @@ To extend the framework to deal with that kind of clouds is quite straightforwar
 
 $\bullet \quad$ For the moment we did not have time to generalize (codewise) the cloud-formation process. Some programming effort should be taken into doing that in a wise way.
 
-\subsection{Generalization.}
+\subsection{On generality and generalization.}
 
 How general is SemanticSky, or how long would it take to make it (more) general?
 
-To our mind, SemanticSky is quite general already. What is Starfish-specific, for the moment, is the cloud-formation process (that relies quite heavily on the information we have from Starfish) and in the Angels, that are built to use exactly these features.
+To our mind, SemanticSky is quite general already. What is Starfish-specific are the cloud-formation process (that partly relies on the information we have from Starfish) and the Angels, that are built to use exactly these features.
 
-Namely, the database the system has been designed to work with contains data which is partially tagged: each item has a `title' field, an `author', and so on: what if it had not?
-There are many ways to go with untagged data (which would turn SemanticSky) closer to the unsupervised side of the semi-supervised class of approaches: we could either have some algorithms to pre-classify the documents or parts of them (for example to extract tags, or titles, to recognize authorship or inter-document relations) or we could have very simple clouds with only a `text' entry, and our angels will have to be smart and diverse enough to work on that sort of data without any more tagged input.
+For example, Starfish items come with a list of tags, which we store in clouds and some angels use as a basis for their evaluation.
 
-Technically, all the work done by clouds could as well be done by Angels alone. The main idea behind clouds was to do beforehand something that angels would have needed to do themselves many times, such as tokenizing the text down to words, stemming, and extracting the tags that came along with the items. But there is no principled reason (if not maybe some computational considerations) for which we should keep the two things separated: we might as well decide to abandon the whole cloud principle and have the algorithms evaluate over the raw items, whatever they are, provided they come with the same toplevel data structure (otherwise, also Angels would need to be modified each time).
+More specifically, the database the system has been designed to work with contains data which is partially annotated: each item has a `title' field, an `author', and other metadata: what if it had not?
+
+There are many ways to go with unannotated data which would move SemanticSky closer to the unsupervised side of the semi-supervised class of approaches: we could either have some algorithms to pre-classify the documents or parts of them (for example to extract tags, or titles, to recognize authorship or inter-document relations) or we could have very simple clouds with only a `text' entry, and our angels will have to be smart and diverse enough to work on that sort of data without any more annotated input.
+
+Here I must add that technically, all the work done by clouds could as well be done by Angels alone. The main idea behind clouds was to do beforehand something that angels would have needed to do themselves, such as tokenizing the text down to words, stemming, and extracting the tags that came along with the items. But there is no higher-order reason for which we should keep the two things separated: we might as well decide to abandon the whole cloud system and have the algorithms evaluate over the raw items, whatever they are, provided they come with the same toplevel data structure (otherwise, also guardians would need to be modified each time).
 
 Personally, I think the cloud layer is not a bad thing and should be kept, mainly because it allows to standardise the input we receive to a more intuitive form, which all angels (regardless of what kind of data they were built to evaluate on) can accept without crashing.
 
-Regarding the way Angels can be generalized there is probably little to say: as specific entities they probably can't. What can be generalized is the framework, and probably angels will need to be written depending on the form of the items we are trying to evaluate upon. We might for example build a SemanticSky that recognizes similarities between songs. Then clouds would store some metadata, if available, or extract some features which we deem relevant such as bpm, number of layers, compression level, noise, and more. But, most likely, a tf/idf weighting algorithm will do little if this is all we have, and output 0 all the time.
+Regarding the way Angels can be generalized there is probably little to say: as specific algorithms they probably can't. What can be generalized is the framework, and probably angels will need to be written depending on the form of the items we are trying to evaluate upon. We might for example build a SemanticSky that recognizes similarities between songs. Then clouds would store some metadata, if available, or extract some features which we deem relevant such as bpm, number of layers, compression level, noise, and more. But, most likely, a tf/idf weighting algorithm will do little if this is all we have, and return 0 all the time.
 
-Of course, we could build an algorithm that just evaluates the similarity of two clouds at a higher level, but that would be a SemanticSky itself, and is not really what we want. Generalization of algorithms, in other words, is out of the scope here. What we had in mind is to make a general framework, but the supervised part of building the specific algorithms able to crunch the data we give them is not (as far as I can see) going to disappear soon.
+Of course, we could build an algorithm that just evaluates the similarity of two clouds at a higher level, but that would be a SemanticSky itself. Generalization of the single algorithms that evaluate pairwise the clouds in the sky, in other words, is out of the scope here. What we had in mind is to make a general framework, but the supervised part of building the specific algorithms able to crunch the data we give them is not (as far as I can see) going to disappear soon.
 
-This is, if you want, the lower bound of the current SemanticSky-paradigm.
-
-
+This is, if you want, the lower structural bound of the current version of SemanticSky.
 
 
 
 
 \part{Appendices.}
-\section{Punishing.}
+\section{Punishing false positives and negatives.}
 
 The decision to only give feedback on known truths (thus not penalising false positives [what I say is, but is not]) can be questioned. Also, no (negative) feedback is given on false negatives, and this is even more questionable.
 
-In short, feedback is given to all and only those angels which have a non-zero opinion about a link which we know to be true. Angels which spot similarities where we know there are none (false positives), or angels who don't spot similarities where we know there are (false negatives), are not punished for this, for two different reasons.
+In short, feedback is given to all and only those clues which convey a non-zero opinion about a link which our training set labels as true. Angels which spot similarities where we know there are none (false positives), or angels who don't spot similarities where we know there are (false negatives), are not punished for this for two different reasons.
 
 \paragraph{Reasons for not punishing for false negatives:} the main one I can see is that we chose to interpret the decision of the angels not as opinions about the relatedness of items, but about confidence ratios about such relation.
 
@@ -741,18 +725,20 @@ Given that the algorithms we used were relatively naive and relied, as explained
 
 As a consequence of these considerations, we chose not to punish the angels for their false negatives: if they can't see anything, it's not their fault and there's nothing they can do about it: it's not by lowering their (relative) trustworthiness that we will improve the situation.
 
+Even though, it's imaginable that there is an angel whose suggestions are all wrong. In this case, his trustworthiness will stay as high as the initial value (in the tests we run, that defaulted to 1!). By defaulting the initial trustworthiness to 0, this issue would partly solve. But maybe there are just sharper ways to go about this.
+
 \paragraph{Reasons for not punishing for false positives:}
 
 First of all, the Knower's belief set is assumed to be `all there is to know', literally, but in a dynamic frame such as Starfish's one, we want to always keep the discussion going. When the state of the discussion (the state of the art, if you wish) is not yet settled, when there is no agreement or just too little opinions to have a definitive decision, then the rationale of `all there is to know' becomes questionable.
 
 But most crucially, what matters for the purpose of classification is not the unrealistic target of all and only true items being detected as such (zero false negatives and false positives), but that the gap in the confidences is wide enough to allow for a nice separation of them from the false ones (via ranking, for suggestions, or by thresholding, for selection of links.)
 
-And, as it comes out, the angels are already somewhat good to do this as they are. The average confidence in true links against false links is, as it has been previously shown, clearly in advantage of true links. So, instead of punishing an angel's relative trustworthiness regarding some link type because of its (many) errors in which he nonetheless has very low confidence, thereby lowering the future impact of his (few) right clues in which he has a higher confidence, we could just not give bad feedback on the low-confidence errors.
+And, as it comes out, the angels are already somewhat good to do this as they are. The average confidence in true links against false links is, as it has been previously shown, slightly in advantage of true links. So, instead of punishing an angel's relative trustworthiness regarding some link type because of its (many) errors in which he nonetheless has very low confidence, thereby lowering the future impact of his (few) right clues in which he has a higher confidence, we could just not give bad feedback on the low-confidence errors.
 
-Clearly if an angel had high confidence on some or many errors, the situation would need more accurate consideration, and it might even be worth considering some thresholded triggering of feedback based precisely on a trustworthiness / confidence function, so that we give feedback on items only when the angel is trustworthy enough in his own suggestion.
+Clearly if an angel had high confidence on some or many errors, the situation would need more accurate consideration, and it might even be worth considering some thresholded triggering of feedback based precisely on a trustworthiness / confidence function, so that we give feedback on items only when the angel is trustworthy enough in his own suggestion, or that the learning rate for each feedback is some function of these factors.
 
 
-\paragraph{A backing experiment.}
+\paragraph{A (quite faulty) backing experiment.}
 
 As a partial proof of the usefulness/correctness of this stance, we ran a test in which we set the punish flag to True, thus giving feedback to false positives (to give feedback on false negatives is currently just not possible in the framework, but it will in the future). Graphs of the outcome follows, and are rather self-explanatory. Update rule: median, learning speed 0.2. 
 
@@ -861,6 +847,8 @@ This is due to the fact that all trustworthiness ratios go down, and thus, being
 
 Of course we would like regrets to decrease (especially where God is concerned), but as you can see from the graph displaying the evolution of regrets on true links, this is not happening in an altogether desirable way.
 
+Nonetheless, the results of this test are not totally satisfactory and most certainly not conclusive. The sample bias we face in Starfish (with 444 existing links versus circa 74691 possible ones, including tag clouds) has probably had a role in taking down the trustworthiness so much. Maybe employing some sample bias countering technique such as the ones discussed in the next appendix could show us an entirely different picture.
+
 
 
 \clearpage
@@ -965,9 +953,10 @@ We were hoping that through weighting of output / feedback, that gap would incre
 
 At the end of this process, the gap had in fact decreased. In this table, you can read to the left the name of the Guardian Angel and on the right the difference between the gaps before and after a full evaluation (and a full round of feedback). A positive value means that the gap has increased, but unfortunately you cannot see any. 
 \vspace{5pt}
+\begin{center}Polar gap increase from unweighted to weighted beliefsets.\end{center}
 
 \begin{tabular}{l || c }
-angel & polar gap on weighted beliefset \\
+angel & polar gap increase \\
 \hline
 coo\_dicts\_extended\_neighbour & -0.00201 \\
  coo\_dicts\_neighbour &-0.012\\
@@ -1005,9 +994,10 @@ Overall, the decrease rate of the gap is not so high, but if this is not evidenc
 
 
 
-With equalization (and an experiment with the same parameters), this is what we have:
+With equalization turned on (keeping the other parameters still), this is what we have:
 
 \vspace{5pt}
+\begin{center}Polar gap increase from unweighted to weighted and equalized beliefsets.\end{center}
 
 \begin{tabular}{l || c | c | c}
 
@@ -1036,11 +1026,11 @@ The middle column is the step from the raw evaluation to the equalized evaluatio
 
 As you can see, equalization manages in all but one case (where the algorithm is \emph{so} bad that its average confidence in correct suggestions is lower than the that in wrong ones) to widen the gap between the poles. The problem is that then weighting manages to destroy that effort. Maybe this could be countered by making equalization heavier (the curve was very flat close to the centre of gravity of the push, and unfortunately that's precisely where most values are!), but maybe this is just not working.
 
-In most cases, the overall value (gap difference between unweighted, unequalized and weighted, equalized belief sets) is still negative, which means that the gap is decreasing. We can see however that except for a few examples (still too many, maybe) equalization has managed to reduce a bit (still too little, probably) the negative squeezing effect of weighting (look at the `sum' lines: more or less one fifth effect decrease).
+In most cases, the overall value (gap difference between unweighted, unequalized and weighted, equalized belief sets) is still negative, which means that the gap is decreasing. We can see however that except for a few examples (still too many, maybe) equalization has managed to reduce a bit (still too little, probably) the negative squeezing effect of weighting (look at the `sum' lines: more or less one fifth effect decrease). Even though, that was not enough to influence God's ideas: his gap decrease is exactly the same at least up to the third decimal digit.
 
 Besides, it's questionable (though it seemed quite natural to us) the order we chose for the pipeline: we might as well equalize up the weighted beliefset, instead of weighting down the equalized beliefset. Who knows what might happen.
 
-More experimentation and research are needed to draw more definitive conclusions here, but we think that this equalization business is probably going in the right direction, but just `not enough' to solve all of our problems, including the weather.
+More experimentation and research are needed to draw definitive conclusions here, but we think that this equalization business is probably going in the right direction, but just `not enough' to solve all of our problems, including the weather.
 
 
 

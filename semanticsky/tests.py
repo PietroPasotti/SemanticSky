@@ -1895,7 +1895,7 @@ def store_sky(sky = None,nameoffile = None):
 	if nameoffile is None:
 		nameoffile = './semanticsky/data/skies/sky_{}.sky'.format("dmy_{}_{}_{}_hms_{}_{}_{}".format(time.tm_mday,time.tm_mon,time.tm_year,time.tm_hour,time.tm_min,time.tm_sec))
 	
-	with open(nameoffile,'ab+') as storage:
+	with open("./semanticsky/data/skies/" + nameoffile + '.sky','ab+') as storage:
 		
 		if sky is None:
 			from semanticsky import SKIES

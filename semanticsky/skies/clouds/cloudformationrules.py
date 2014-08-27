@@ -69,7 +69,7 @@ class LayerBuilder():
 			return self._pipeline
 		
 		from semanticsky import DEFAULTS	
-		pipeline_name = DEFAULTS['layerformer_defaults']['main_pipeline']
+		pipeline_name = DEFAULTS['layerbuilder_defaults']['main_pipeline']
 		# we lookup the pipeline in the builtins.
 		self._pipeline = LayerBuilder.get_pipeline(pipeline_name)
 		return self._pipeline
@@ -235,9 +235,13 @@ class LayerBuilder():
 			
 			allnames = []
 			
+			from copy import deepcopy
+			tempitem = deepcopy(item)
+			
 			for reg in re_names_array:
-				N = reg.findall(item)
-				
+				N = reg.findall(tempitem)
+				re.sub(reg,'',tempitem) # we remove the names we found, so that if we capture "A.Betti" from the string "she was Claude A. Betti" then we don't capture "Claude A."
+										# but we remove them just from a temporary copy of the item, not from the final one. Right?
 				cleanN = []
 				
 				for name_candidate in N:
@@ -386,14 +390,12 @@ class LayerBuilder():
 			pipeline is implemented. Extendable at will.
 			
 			
-			""" # this docstring will become really cool once cloudformationrules is imported...
-			
-			
-			
+			"""
+					
 			lr = LayerBuilder.builtin_layerrules
 			
 			pipeline = {0: 	[lr.tags, 										# retrieves the (given) tags for the starfish item
-							lr.crunch_down_to_string,						# then we transform the item into a string of all the text we can catch.
+							lr.crunch_down_to_string,						# then we transform the item into a string containing all the text we can catch.
 							lr.preprocess,									# strips off html tags and other rubbish, thereby also retrieving urls 
 							lr.guess_language,								# does what it says, but in a very stupid way
 							lr.names,										# retrieves all names we can find in the raw text.
@@ -405,8 +407,7 @@ class LayerBuilder():
 		
 			return pipeline
 			
-# fill docstrings of pipelines:
-
+# fill docstrings of builtin_pipelines:
 for builtinpipeline in LayerBuilder.builtin_pipelines.__dict__.values():
 	if not callable(builtinpipeline):
 		continue
@@ -416,4 +417,4 @@ for builtinpipeline in LayerBuilder.builtin_pipelines.__dict__.values():
 	for no,layerpipe in pipeline.items():
 		builtinpipeline.__doc__ += 'Layer {}:\n'.format(no)
 		for function in layerpipe:
-			builtinpipeline.__doc__ += "Step {}: {} : {}\n".format(layerpipe.index(function),function.__name__,function.__doc__)
+			builtinpipeline.__doc__ += "\t\tStep {}: {} : {}\n".format(layerpipe.index(function),function.__name__,function.__doc__)

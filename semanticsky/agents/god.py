@@ -1,7 +1,6 @@
  #!/usr/bin/python3
 					
 from .angel import GuardianAngel
-__all__ = ['God']
 					
 class God(GuardianAngel,object):
 	"""
@@ -15,6 +14,9 @@ class God(GuardianAngel,object):
 		We totally override the GuardianAngel's init method, because they 
 		need a supervisor; we don't. But if a supervisor is given, we can
 		then link God to another God which takes decisions on the former's.
+		Also, god doesn't have yet an algorithm. Even though a generalization
+		of this procedure could lead to God and Angels being instances of
+		the same class.
 		
 		overrides, if given, should be a dict from some keywords such as
 		"merging_strategy", 'default_merger' or "learningspeed" to some 

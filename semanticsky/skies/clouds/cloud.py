@@ -20,7 +20,6 @@ class Cloud(object):
 			
 			# how to build a cloud:
 			from .cloudformationrules import LayerBuilder
-			
 			builder = LayerBuilder(self,autobuild = True) # this will let the builder fill the layers of this little cloud.
 			
 			if self not in sky.sky:
@@ -90,3 +89,6 @@ class Cloud(object):
 		else:
 			return False
 
+	def core(self):
+		
+		return self.layers[0]['core']
