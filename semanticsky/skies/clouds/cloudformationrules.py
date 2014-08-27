@@ -20,7 +20,7 @@ class LayerBuilder():
 		else:
 			return	
 		
-	def __call__(self,item,layerno):
+	def fillayer(self,item,layerno):
 		"""
 		Updates the *layerno* layer of self.cloud following the full pipeline.
 		"""
@@ -53,6 +53,9 @@ class LayerBuilder():
 		return
 		
 	def build_layers(self):
+		"""
+		Actually fills up the layers, one by one. Interface to self.fillayer.
+		"""
 		
 		for layerno in self.pipeline(): # all the layers the former is capable to form
 			try:
@@ -60,10 +63,16 @@ class LayerBuilder():
 			except BaseException:
 				self.cloud.layers.append({})
 			
-			self(self.cloud.item,layerno)
+			self.fillayer(self.cloud.item,layerno)
 		
 	@property
 	def pipeline(self):
+		"""
+		Returns a callable, which in turn returns a dictionary from int to
+		lists of functions.
+		Each int is the depth of a layer, and points to the list of functions
+		which, called on the clouds' item, are needed to fill that layer.
+		"""
 		
 		if hasattr(self,'_pipeline'):
 			return self._pipeline
@@ -99,10 +108,15 @@ class LayerBuilder():
 			return item, ('tags', allts)
 		
 		def crunch_down_to_string(item,builder):
+			"""
+			Transforms the item into a single string, containing all the text
+			we have but the tags. (Could also use ..utils.grab_text())
+			"""
 			
-			# Fatal Python error: Cannot recover from stack overflow.
-			
-			def lookupdate(value):
+			def recursearch(value):
+				"""Walks through an object and grabs all strings he can get. 
+				If the value's a tuple, list or dict, it does so recursively, 
+				else it forces to string."""
 				
 				out = ''
 
@@ -124,7 +138,6 @@ class LayerBuilder():
 					out += ' '
 					out += str(value)
 					
-				
 				return out
 						
 			tostring = ''
@@ -133,16 +146,16 @@ class LayerBuilder():
 				if key == 'tags': ## we don't add tags to the stringed text, otherwise we mess up names and tf_idf counts!
 					continue 
 				
-				tostring += lookupdate(value)
+				tostring += recursearch(value)
 				tostring += ' '
 				
 			tostring.strip()
-			return tostring,{} # we could also have used ..utils.grab_text()
+			return tostring,{} # does not fill any layers' entry, just modifies the item.
 			
-		def preprocess(item,builder): # cleans html
+		def preprocess(item,builder):
 			"""
 			This should always be the first rule if the item has html formatted 
-			parts.
+			parts. Cleans html tags and rubbish (BeautifulSoupping).
 			Returns all the info it can get from hrefs.
 			"""
 			

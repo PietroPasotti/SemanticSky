@@ -71,9 +71,9 @@ The following sections will try to show in some more details how SemanticSky cur
 
 At the moment, clouds are more or less simple wrappers for documents. The central data structure for a cloud is what we will call \textbf{layers}. What makes it a simple wrapper is the fact that only the first layer is currently being filled; but the main idea behind a layered cloud is that it should include hierarchically ordered information: from the most precious (and most hardly one-to-one matchable) information to the second-hand, less polished one.
 
-To show the reason behind this few things would do better than an example: suppose we have a document called `Rise and Fall of Ziggy Stardust', containing a couple of pages of history of this man called Ziggy. Unless the title is ironic or in any way misleading, which, assume, is not the case, we already have in front of us a few very important informations: that this document is about a man called Ziggy Stardust and that a rise and a fall are somehow involved.
+To show the reason behind this few things would do better than an example: suppose we have a document called `Rise and Fall of Ziggy Stardust', containing a couple of pages of history of this man called Ziggy. Unless the title is ironic or in any way misleading, which, assume, is not the case, we already have a few important informations: that this document is about a man called Ziggy Stardust and that a rise and a fall are somehow involved.
 
-SemanticSky currently performs little or no semantic analysis, so the cloud will not know that it is Ziggy rising and falling, but just that the names `Ziggy', `rise', `fall' are relevant descriptors of the document. And what's so important about the title is that the mere fact of it being a title tells us that the information stored there is important. This is possible, of course, only because the input data is partly annotated: it's not an uniform body of plain text, but already contains some extra information which we can use. In absence of this, other methods could be used to extract headers, titles and other kind of sources of usually very relevant information.
+SemanticSky currently performs little or no semantic analysis (even though it was originally intended to), so the cloud will not know that it is Ziggy rising and falling, but just that the names `Ziggy', `rise', `fall' are relevant descriptors of the document. And what's so important about the title is that the mere fact of it being a title tells us that the information stored there is important. This is possible, of course, only because the input data is partly annotated: it's not an uniform body of plain text, but already contains some extra information which we can use. In absence of this, other methods could be used to extract headers, titles and other kind of sources of usually very relevant information.
 
 This is what layers are meant to be for: the innermost layer will certainly contain these four words, plus the most relevant others that, with diverse heuristics, we will be able to extract from the body of the document itself.
 
@@ -130,9 +130,9 @@ Guardian Angels are currently the core of the algorithmic part of SemanticSky, a
 
 Basically, a Guardian is nothing but an agent that only examines pairs of items when prompted (by God) and that takes decisions based on a never changing algorithm.
 
-Their strength is of a collective kind: each of them takes decisions based on a rather small part of all the evidence available, and produces a generally inaccurate (but, on average, above chance) prediction.
+Their strength is of a collective kind: each of them takes decisions based on a rather small part of all the evidence available, and produces a prediction whose only requirement is to be accurate above chance.
 
-Follows a quick description of all the algorithms currently implemented (which is basically their docstring).
+Follows a short description of all the algorithms currently implemented.
 
 
 \paragraph{tf and tf\_idf\_weighting}
@@ -227,14 +227,14 @@ This algorithm is very complex, takes ages to run and is so permissive that it c
 \subsection{Future work.}
 ~
 
-$\bullet \quad$Guardian Angels are cool, but they also are currently very stupid. Each one of them just performs a little task in a probably very naive way: this could be improved (but, on the other hand, the main idea behind ensembles is precisely a large number of very stupid algorithms that collectively produce a very smart decision. Be it their small number or their being too stupid, currently this doesn't happen so much). Thus, we could either increment their number (boosting is an option) or make them smarter.
+$\bullet \quad$Guardian Angels do work, but they also are currently very stupid. Each one of them just performs a little task in a probably naive way: this could be improved. On the other hand, the main idea behind ensembles is precisely a large number of very stupid algorithms that collectively produce a very smart decision. Be it that their small number or their being too stupid, currently this is not happening so much. To face this situation, we could either increment their number (boosting is an option, or even bagging if we had a larger dataset) or make them smarter.
 
 $\bullet \quad$Plus, the more and most diverse the angels' decision algorithm are, the higher the overall performance of the system will be. Currently, there are bunches of three-to-four algorithms that perform very similar computations (and mostly work on the same evidence). Thus, one immediate way to extend the system will be to implement more guardians, or to add variations to the already existing ones.
 
 $\bullet \quad$As noticed above, also, the decisions of the algorithms which are currently implemented are based on a rather small subset of all the available information. Some algorithm only takes into account the words' frequency, some other the words' idf-frequency, some other just the `names' appearing in the text, and so on. Some effort might be put into smarter algorithms able to combine on the fly all these different types of inputs, or to extend the range of inputs available, such as through web crawling\footnote{
 A first attempt in this direction has already been made: I constructed an algorithm which would, given a pair of words $a,b$, retrieve the number of google hits for the query ``NEAR($a,b$)|NEAR($a,b$)'', later normalizing it with the number of hits for queries containing just the single words $a$ and $b$. To do the same with clouds is not as straightforward and will need some more research and might involve, for example, keyword extraction (from other Angels' evaluations, maybe).}.
 
-$\bullet \quad$Another thing which might change is that currently algorithms don't (strictly speaking) learn anything. They just go on spitting the same decisions over and over, and is a higher-level algorithm that is delegated the work of gating their decisions so that they get their weight appropriately with respect to their usual worth. An attempt could be made to include amongst this kind of algorithm some more standard learners, such as neural networks.
+$\bullet \quad$Another thing which might change is that currently algorithms don't (strictly speaking) learn anything. They just go on spitting the same decisions over and over, and is a higher-level algorithm that is delegated the work of gating their decisions so that they get their weight appropriately with respect to their usual worth. An attempt could be made to include amongst the angels some more standard learners, such as neural networks.
 
 $\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted clearly by how near they are) in the current state of the system.}
 
@@ -662,7 +662,7 @@ Even though, if we don't just look at true links, regrets are falling:
 \endgroup%
 \vspace{5pt}
 
-So, at an absolute level, it seems that the system is learning the golden rule `if the 99\% of the times the right answer is ``no'', then I better just say no every time.' To face this situation, it seemed natural to go for some ways of countering sample bias, which is nonetheless out of the scope of the present report.\footnote{There is more on it in the Appendix, however.}
+So, at an absolute level, it seems that the system is learning the golden rule `if the 99\% of the times the right answer is ``no'', then I better just say no every time.' To face this situation, it seemed natural to go for some ways of countering sample bias. Some early attempts are described in the appendix.
 
 \subsection{What comes next.}
 
@@ -952,8 +952,9 @@ The first experiments (as discussed in the central sections of this report) show
 We were hoping that through weighting of output / feedback, that gap would increase and be a more accurate division line between true and false links. Nonetheless, what typically occurred was that the weighting, which, you will remember, can only take down trustworthiness\footnote{And this, once more, is something to question.}, would push down all values. And being the evaluation spectrum [0/1], generally the values closer to 0 the positive pole (average of the values which received a positive feedback) would move down more than the negative one.
 
 At the end of this process, the gap had in fact decreased. In this table, you can read to the left the name of the Guardian Angel and on the right the difference between the gaps before and after a full evaluation (and a full round of feedback). A positive value means that the gap has increased, but unfortunately you cannot see any. 
-\vspace{5pt}
-\begin{center}Polar gap increase from unweighted to weighted beliefsets.\end{center}
+\clearpage
+\begin{center}Table 2:\\
+Polar gap increase from unweighted to weighted beliefsets.\end{center}
 
 \begin{tabular}{l || c }
 angel & polar gap increase \\
@@ -997,7 +998,9 @@ Overall, the decrease rate of the gap is not so high, but if this is not evidenc
 With equalization turned on (keeping the other parameters still), this is what we have:
 
 \vspace{5pt}
-\begin{center}Polar gap increase from unweighted to weighted and equalized beliefsets.\end{center}
+\begin{center}
+Table 2:\\
+Polar gap increase from unweighted to weighted and equalized beliefsets.\end{center}
 
 \begin{tabular}{l || c | c | c}
 
@@ -1024,9 +1027,9 @@ sum (including god) & & & -0.453
 
 The middle column is the step from the raw evaluation to the equalized evaluation, the right column is the step from the equalized evaluation to the final state of the belief set: that is, the weighted (by contextual trustworthiness) and equalized belief set.
 
-As you can see, equalization manages in all but one case (where the algorithm is \emph{so} bad that its average confidence in correct suggestions is lower than the that in wrong ones) to widen the gap between the poles. The problem is that then weighting manages to destroy that effort. Maybe this could be countered by making equalization heavier (the curve was very flat close to the centre of gravity of the push, and unfortunately that's precisely where most values are!), but maybe this is just not working.
+As you can see, equalization manages in all but one case (where probably the algorithm is \emph{so} bad that its average confidence in correct suggestions is lower than the that in wrong ones) to widen the gap between the poles. The problem is that then weighting manages to destroy that effort. Maybe this could be countered by making equalization heavier (the curve was very flat close to the centre of gravity of the push, and unfortunately that's precisely where most values are!), but maybe this is just not working.
 
-In most cases, the overall value (gap difference between unweighted, unequalized and weighted, equalized belief sets) is still negative, which means that the gap is decreasing. We can see however that except for a few examples (still too many, maybe) equalization has managed to reduce a bit (still too little, probably) the negative squeezing effect of weighting (look at the `sum' lines: more or less one fifth effect decrease). Even though, that was not enough to influence God's ideas: his gap decrease is exactly the same at least up to the third decimal digit.
+In most cases, the overall value (gap difference between unweighted, unequalized and weighted, equalized belief sets) is still negative, which means that the gap is decreasing. We can see however that except for a few examples (still too many, maybe) equalization has managed to reduce a bit (still too little, probably) the negative squeezing effect of weighting: if we look at the `sum' lines, more or less one fifth effect decrease. Even though, that was not enough to influence God's ideas: his gap decrease is exactly the same at least up to the third decimal digit.
 
 Besides, it's questionable (though it seemed quite natural to us) the order we chose for the pipeline: we might as well equalize up the weighted beliefset, instead of weighting down the equalized beliefset. Who knows what might happen.
 
