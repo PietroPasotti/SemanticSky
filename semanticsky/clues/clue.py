@@ -68,18 +68,17 @@ class Clue(object):
 	
 	def __str__(self):
 		from semanticsky.tests import crop_at_nonzero
-		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
+		return "< Clue about {0.ids}, valued {} by {0.agent}. >".format(self,crop_at_nonzero(self.value,4))
 		
 	def __repr__(self):
 		from semanticsky.tests import crop_at_nonzero
-		return "< Clue about {}, valued {} by {}. >".format(self.ids,crop_at_nonzero(self.value,4),self.agent)
+		return "< Clue about {0.ids}, valued {} by {0.agent}. >".format(self,crop_at_nonzero(self.value,4))
 		
 	@property
 	def trustworthiness(self):
 		"""
 		The trustworthiness of a clue is the one of he who formulated it.
 		"""
-		
 		return self.agent.get_tw(self.contenttype) # returns the relative-to-self's contenttype trustworthiness OR the agent's overall tw if the former is unavailable
 	
 	@property
@@ -97,30 +96,40 @@ class Clue(object):
 				from semanticsky.skies.clouds.core import ctype
 				return ctype(about)
 			except BaseException as e:
-				print ('Unknown about type: {} (of type {}).'.format(about,type(about)))
-				raise e
+				raise TypeError("Error: [{}]. Unhandleable self.about's contenttype: {} (of type {}).".format(e,about,type(about)))
 		
 	def ctype(self): 
-		# shortcut
+		"""
+		Alias to contenttype, which btw should replace it someday.
+		"""
 		return self.contenttype
 	
 	@property
 	def weightedvalue(self):
-		
+		"""
+		Self-explanatory.
+		"""
 		return self.trustworthiness * self.value
 	
 	@property
 	def ids(self):
 		"""
-		Assumes that the about is a Link;
-		if this fails, assumes that the about is a pair of objects each
-		of which has an 'item' attribute such that obj.item.__getattr__('id')
+		Tries to delegate to self.about.ids. If absent, assumes that 
+		self.about is a tuple-or-list-like pair of objects each of which 
+		has an 'item' attribute such that obj.item.__getattr__('id')
 		returns an unique-to-the-object ID.
+		
+		In other words:
+		return tuple(self.about[x].item['id'] for x in (0,1))
+		
+		Note: things might get quite screwed up if the order of the items
+		is random. That's the reason for the skies.Link class (an ordered
+		tuple, basically).
 		"""
 		
 		if hasattr(self.about,'ids'):
 			return self.about.ids # delegates ids to Link.ids
 		else:
 			ab = tuple(self.about)
-			return (ab[0].item['id'],ab[1].item['id'])
+			return tuple(ab[x].item['id'] for x in (0,1))
 		
