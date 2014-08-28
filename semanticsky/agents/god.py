@@ -73,10 +73,9 @@ class God(GuardianAngel,object):
 		return wrap("< The Lord :: {} >".format(self.godid),'brightblue')
 	
 	def receive(self,clue):
-		ag = clue.agent
 		from semanticsky import DEFAULTS
 		if DEFAULTS['verbosity'] > 0:
-			print('God accepts no feedback, mortal. Agent {} will be brutalized for this.'.format(ag))
+			print('God accepts no feedback, mortal. Agent {} will be brutalized for this.'.format(clue.agent))
 		return None
 			
 	def get_sky(self):
@@ -106,6 +105,7 @@ class God(GuardianAngel,object):
 		the previous clue.
 		Else, returns False.
 		"""
+		
 		about = clue.about
 		cluelist = self.logs.get(about,[])
 			
@@ -125,15 +125,11 @@ class God(GuardianAngel,object):
 		Where clue is a clue about anything believable by god.
 		"""
 		
-		#if not self.beliefbag.get(clue.about,False):
-		#	self.beliefbag[clue.about] = 0 # the initial belief is zero: if asked 'does God believe x?' default answer is 'no'
-		# but beliefbag's __getattr__ already returns 0 instead of raising KeyError
-		
 		preclue = self.has_already_guessed(clue)
 		if preclue: # if the agent has already clue'd about that link or object, we assume he has changed his mind:
 			self.logs[clue.about].remove(preclue)	# his previous clue is erased from the history
 													# and the value of the belief in about is updated to the average of the values still in the history
-		###### UPDATE ALGORITHM
+		###### UPDATE part
 		
 		from semanticsky.tests import avg
 		from semanticsky import DEFAULTS
@@ -142,7 +138,7 @@ class God(GuardianAngel,object):
 		new_value = self.voting_merging_strategy(clue.weightedvalue for clue in self.logs[clue.about]) # we compute the new should-be-value of the belief
 		
 		new_learned_value = self.learning_merger(previous_value,new_value,self.learningspeed)
-		### we use the default merge!! function of previous value, new value and learningspeed
+		### we use the default merge! function of previous value, new value and learningspeed
 		
 		self.beliefbag[clue.about] = new_learned_value
 	
@@ -227,15 +223,9 @@ class God(GuardianAngel,object):
 		trustdict = {}
 		
 		if not agents:
-			#global AGENTS
-			
-			#agents = AGENTS
 			agents = self.guardianangels
-			
 		elif not isinstance(agents,list):
 			agents = [agents]
-		elif isinstance(agents,Agent):
-			return agents.trustworthiness 
 		else:
 			pass
 			
@@ -273,17 +263,6 @@ class God(GuardianAngel,object):
 		
 		
 	# WHISPERING
-	def update_whisperers(self):
-		"""
-		Updates god's whisperers list. That is: all agents or algorithms
-		that have the power to start a backpropagation.
-		"""
-		# from semanticsky import _AGENTS
-		#self.whisperers = [agent for agent in _AGENTS if agent.stats['blocked'] is False]
-		
-		# will be useful when semanticsky will be up and running.
-		pass
-		
 	def whisperer(self,agent):
 		"""
 		Adds agent to self.whisperers.

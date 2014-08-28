@@ -2,7 +2,6 @@
 
 # need ss, DEFAULTS, and 
 from ..agents import GuardianAngel
-__all__ = ['Knower'] # __all__ is a list of all and only the names we want accessible to the toplevel module's view
 
 class Knower(GuardianAngel,object):
 	"""

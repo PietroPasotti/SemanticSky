@@ -31,41 +31,96 @@
 
 \part{SemanticSky.}
 
-\section{Overview of Semanticsky.}
+\section{Making the case for SemanticSky.}
 
-SemanticSky is a program which, given as input a set of documents, outputs a small multi-agent system where some built-in algorithmic agents try to infer similarity relations (currently, only content/topic similarity) between the input documents.
+(as the previous project has showed,) There are many ways to go if the target is to classify documents by similarity. More precisely, what we need is an algorithm for deriving from a set of documents a graph whose nodes are documents (or documents descriptors, as we shall see) and whose edges represent a similarity relation between pairs of documents.
 
-The main steps through which this is achieved follow:
+\def\svgwidth{280pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(0.08,-0.18){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/fromdocstoclouds.pdf}\hspace{-280pt} }%
+	
+  \end{picture}%
+\endgroup%
+\vspace{15pt}
 
-\begin{itemize}
-\item First, each document is transformed into a {\bf Cloud}: an object which theoretically should encapsulate all the information we can extract from the base document. Examples include: names of people mentioned in the document, names of places, statistically frequent word and frequently co-occurring (at a sentence level) pairs of words.
-\item  Secondly, these clouds are pairwise evaluated by a list of algorithms called {\bf Guardian Angels} which try to judge their similarity based on different and possibly complementary criteria.
-\item Finally, the evaluations of the Guardian Angels are merged into a single one by a supervisor algorithm called (of course) \textbf{God}, which represents the final state of the system, at this stage.
-\end{itemize}
 
-When the system is first initialized, or when a new document is added to the corpus, this is all there is to it.
+(as the previous project has showed,) There are several algorithms that can do this, each one of them basing its decision on a particular descriptor/feature of the documents. 
 
-But then, some more things will happen, as {\bf Agents} (true people) evaluate by themselves the appropriateness of a link or the relevance of a tag or keyword to some page.
+As the reader might know, each document has multiple features, and (unless we use some sort of feature selection) each one of them is a plausible candidate for assessing the pairwise similarity of the documents. For example, a document can be described by enumerating the words it is made of; the characters it is made of, but also the capitalized words it contains, its line-wise length, the number and target of hyperlinks or the shape of the coffee stains on its author's desk.
 
-\begin{itemize}
-\item The current state of the system is kept under watch by the supervisor algorithm called God, and is judged either stable or unsettled. If some part of the network is unsettled, then God waits for more discussion to happen between agents and maybe even fuels it by suggesting relevant links to the parties involved or informing the parties of the presence of a third option, and so on...
-\item Once the system settles on some decision, such as the complete relatedness of two items, or maybe even the plain equivalence of two approaches that just happened to go under different names, then God gives feedback to all or some of the agents involved (human or algorithmic) regarding the accuracy of their guesses relative to the final state. This way, voters who gave bad suggestions will be taken less into account in the future, and vice versa.
-\end{itemize}
+Now suppose we have many different algorithms, each one of which takes into account just one of these features. It's plausible that each algorithm, basing its decisions on different evidence (or maybe just reasoning from it in a different way) will output a different decision for any given pair of documents, or most of them. Then, statistically, if their decisions are diverse enough, it has been proved\footnote{For literature: [Ethem Alpaydin 2010 ch.17].} that combining their suggestions results in a much more accurate prediction than any of their individual outputs.
 
-Currently there is a handful of algorithms in the system, and it is fairly easy to add a new one. Even though, not all algorithm are good, and most are good just on very specific subsets of the system. Suppose that we have an algorithm that just checks whether the authors of the document are the same person (and does that by regex matching some query). This algorithm will then return zero for all documents where an 'author' is not defined or the query doesn't match. God then will (try to) understand that the algorithm is useful in some subdomain, even though his average accuracy is very low.
+Furthermore, depending on the kind of algorithm we are considering, its precision will correlate in some way with the contents of the documents we are having it evaluate: documents with a lot of words and no image are more likely to be correctly classified by a word-based algorithm than by an algorithm that only considers attached .jpg images. Thus, we can consider each algorithm as a local expert: in a more or less restricted region of the space of inputs, each algorithm is capable of predictions which, beside being more likely to get it right than random guess\footnote{This is a necessary requirement for the algorithms in general.}, are also more likely to be correct than the suggestions of all other algorithms.
 
-The evaluations that a Guardian Angel performs differ from those of an human agent only in that they are produced automatically. Their route is in fact basically the same: they either get queued and later on processed by God, or (by default) they get immediately processed.
+Once we have identified these local experts, we may want to combine their suggestions in order to take into account, for each decision we are trying to make, just or mainly the experts in the field the decision is taking place. In other words, we want to train the system in a way such that it will learn (for we don't know it in advance) which algorithm is better at what, and such that having learned this, it will merge the outputs of all the algorithms in a way to maximise the likelihood of having a correct decision (relative to what the system has learned up to that moment).
 
-The `processing' implemented is currently quite naive. When an agent has a suspect strong $x$ about the similarity of two documents $y=sim(a,b)$, a ``Clue'' is spawned that conveys the information that the agent has an opinion $x$ about the fact $y$.
+Suppose then that we did not have the suggestions of (the previous project) about which algorithm is better at what. Then the only way to discover the expertises of the algorithms is to give them feedback: the system has to learn on-line, so as that its future decisions are based on the past evidence. In a real-world application of SemanticSky, the feedback can plausibly be expected to come from the users of such a classification system. For the purposes of this project however we came up with a training mechanism to simulate human input, which will be explained in the appropriate section.
 
-Once the clue gets read by God, he will log it and then retrieve all logs about $y$; that is, all the information he has about $y$. Then, he will retrieve all the confidences of the clues (how strongly who produced them believed into them) and the weights (how well their authors usually do at guessing).
+In order to manage the feedback mechanism, and to merge the outputs of the various algorithms into a single one, the system needs a supervisor algorithm.
+Since we were speaking of clouds and skies, it seemed natural to go on with the metaphor and have picture ourselves a round table of guardian angels suggesting their opinions to God himself.
 
-The weighted confidences are then averaged, and God's belief about $x$ is updated to the thus obtained value.
+This is then the pipeline of SemanticSky:
 
-Once the system reaches a stable situation about some fact $y$, the supervisor algorithm will hand out feedback to all the algorithms which had some suggestions about $y$ or the discussion surrounding it. We can in fact imagine that, taken any pair of documents, there will be some arguments in favour and some against their similarity or relevance to one another. Not unlike what goes on behind a Wikipedia page (in the 'discussion' section), people will be allowed to debate about various issues, such as pertinence of tags, of links, and in general, let us say, the structure of the network. 
-Once the discussion is over (this can be detected by, for example, a month of silence in the discussion page), the system will then adjust the weights of the Guardian Angels' future suggestions. For example, suppose that an algorithm gave particularly good suggestions in this situation (but not in many others); God will then try to guess what is that the algorithm (and maybe even the agent) is good and bad about, and adjust his weights selectively, not unlikely what goes on in the so-called Stacked Generalization models and Mixture of Experts models, which will be discussed later in the Supervisor.Feedback section.
+\def\svgwidth{350pt}
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{1229.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.50366032)%
+    \put(0,-0.02){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/semanticsky_pipeline.pdf}\hspace{-280pt} }%
+	
+  \end{picture}%
+\endgroup%
+\vspace{15pt}
 
-The following sections will try to show in some more details how SemanticSky currently (as of the end of July, 2014) works; starting from the clouds, up to the very heart of this tiny digital pantheon.
+We can consider the network of clouds to be an internal representation of the set of documents, which the system uses as basis for its judgements. The set of judgements, on the other hand, can be considered as the belief state of God (or of SemanticSky as a whole). Each document is represented by a cloud, and the similarity of clouds (that hopefully mirrors the similarity of the underlying documents) is assessed by angels which then contribute with different weights to God's decisions.
+
+Through feedback, the system is able to modify on the fly the weights, thereby modifying the edges of the network of clouds, as if it was adapting his image of the world (his hypothesis) to best fit the evidence we give to it.
+
 
 \section{Clouds: the bricks.}
 
@@ -91,7 +146,7 @@ The sorts of information a cloud currently contains in its only layer are (extra
 
 \subsection{Future work.}
 
-The framework can clearly be expanded even at this level, and time permitting, this will be most certainly one of the most promising directions to go. The layer-based structure is already there, but is not currently used. An immediate expansion of SemanticSky could involve filling the lower-level layers.
+The framework can clearly be expanded already at this level, and in our opinion this will be most certainly one of the most promising directions to go. The layer-based structure is already there, but is not currently used. An immediate expansion of SemanticSky could involve filling the lower-level layers.
 
 Possible sources for the information to fill these layers with include:
 
@@ -238,9 +293,9 @@ $\bullet \quad$Another thing which might change is that currently algorithms don
 
 $\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted clearly by how near they are) in the current state of the system.}
 
-\section{The Supervisor.}
+\section{God: the Supervisor.}
 
-The Supervisor, also called God, is a gating machine that mediates between the angels and the final output of the system, doing the mostly bureaucratic work of gathering the judgements of the algorithms and agents involved in some voting and weighting them up or down according to the source's trustworthiness, finally merging them (by averaging) into a conclusive judgement that goes to build a belief state.
+The Supervisor is a gating machine that mediates between the angels and the final output of the system, doing the mostly bureaucratic work of gathering the judgements of the algorithms and agents involved in some voting and weighting them up or down according to the source's trustworthiness, finally merging them (by averaging) into a conclusive judgement that goes to build a belief state.
 
 Such belief state is the final outcome of the system, and represents a snapshot of the link structure within Starfish according to the system. Ideally, we want such structure to closely match Starfish's own link structure (the links that physically appear in the pages) that currently have been hand-hard-wired there by physical persons.
 
@@ -250,7 +305,7 @@ These considerations, among others, led us to the conclusion that recall is not 
 
 The fact that there is a centralised object gating the outputs of several other objects (partly algorithmic, but mostly human) makes Semantic Sky close to what goes under the label of `ensemble methods'.
 
-More specifically, we found the closest neighbours of Semantic Sky in the literature to be the \emph{mixture of experts} methods and the \emph{stacked generalization model} models.\footnote{For terminology and explanations, see for example [Introduction to machine learning, 2nd ed. Ethem Alpaydin, pp. 434-435].}
+More specifically, we found the (hem) nearest neighbours of Semantic Sky in the literature to be the \emph{mixture of experts} methods and the \emph{stacked generalization model} models.\footnote{For terminology and explanations, see for example [Introduction to machine learning, 2nd ed. Ethem Alpaydin, pp. 434-435].}
 
 Also, some intuitions behind SemanticSky can be traced back to Neural Networks and / or Bayesian Network, with respect to which the major difference is that the neurons do not just transform the signal but actually produce it, and are not simple (though fuzzy) logic gates but are complex algorithms.
 
