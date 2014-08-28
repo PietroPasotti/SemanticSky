@@ -72,13 +72,13 @@
 
 As the reader might know, each document has multiple features, and (unless we use some sort of feature selection) each one of them is a plausible candidate for assessing the pairwise similarity of the documents. For example, a document can be described by enumerating the words it is made of; the characters it is made of, but also the capitalized words it contains, its line-wise length, the number and target of hyperlinks or the shape of the coffee stains on its author's desk.
 
-Now suppose we have many different algorithms, each one of which takes into account just one of these features. It's plausible that each algorithm, basing its decisions on different evidence (or maybe just reasoning from it in a different way) will output a different decision for any given pair of documents, or most of them. Then, statistically, if their decisions are diverse enough, it has been proved\footnote{For literature: [Ethem Alpaydin 2010 ch.17].} that combining their suggestions results in a much more accurate prediction than any of their individual outputs.
+Now suppose we have many different algorithms, each one of which takes into account just one of these features. It is plausible that each algorithm, basing its decisions on different evidence (or maybe just reasoning from it in a different way) will output a different decision for any given pair of documents, or most of them. Then, statistically, if their decisions are diverse enough, it has been proved\footnote{For literature: [Ethem Alpaydin 2010 ch.17].} that combining their suggestions results in a much more accurate prediction than any of their individual outputs.
 
-Furthermore, depending on the kind of algorithm we are considering, its precision will correlate in some way with the contents of the documents we are having it evaluate: documents with a lot of words and no image are more likely to be correctly classified by a word-based algorithm than by an algorithm that only considers attached .jpg images. Thus, we can consider each algorithm as a local expert: in a more or less restricted region of the space of inputs, each algorithm is capable of predictions which, beside being more likely to get it right than random guess\footnote{This is a necessary requirement for the algorithms in general.}, are also more likely to be correct than the suggestions of all other algorithms.
+Furthermore, depending on the kind of algorithm we are considering, its precision will correlate in some way with the contents of the documents we are having it evaluate: documents with a lot of words and no image are more likely to be correctly classified by a word-based algorithm than by an algorithm that only considers attached .jpg images. Thus, we can consider each algorithm as a local expert: in a more or less restricted region of the space of inputs, each algorithm is capable of predictions which, beside being more likely to get it right than random guess\footnote{Which is a necessary requirement for the algorithms in general.}, are also more likely to be correct than the suggestions of all other algorithms.
 
-Once we have identified these local experts, we may want to combine their suggestions in order to take into account, for each decision we are trying to make, just or mainly the experts in the field the decision is taking place. In other words, we want to train the system in a way such that it will learn (for we don't know it in advance) which algorithm is better at what, and such that having learned this, it will merge the outputs of all the algorithms in a way to maximise the likelihood of having a correct decision (relative to what the system has learned up to that moment).
+Once we have identified these local experts, we may want to combine their suggestions in order to take into account, for each decision we are trying to make, just or mainly the experts in the field the decision is taking place. In other words, we want to train the system in a way such that it will learn (for we don't know it in advance) which algorithm is better at what, and such that having learned this, it will merge the outputs of all the algorithms in a way to maximise the likelihood of having a correct decision given what the system has learned up to that moment.
 
-Suppose then that we did not have the suggestions of (the previous project) about which algorithm is better at what. Then the only way to discover the expertises of the algorithms is to give them feedback: the system has to learn on-line, so as that its future decisions are based on the past evidence. In a real-world application of SemanticSky, the feedback can plausibly be expected to come from the users of such a classification system. For the purposes of this project however we came up with a training mechanism to simulate human input, which will be explained in the appropriate section.
+Suppose then that we did not have the suggestions of **the previous project** about which algorithm is better at what. Then the only way to discover the expertises of the algorithms is to give them feedback: the system has to learn on-line, so as that its future decisions are based on the past evidence. In a real-world application of SemanticSky, the feedback can plausibly be expected to come from the users of such a classification system. For the purposes of this project however we came up with a training mechanism to simulate human input, which will be explained in the appropriate section.
 
 In order to manage the feedback mechanism, and to merge the outputs of the various algorithms into a single one, the system needs a supervisor algorithm.
 Since we were speaking of clouds and skies, it seemed natural to go on with the metaphor and have picture ourselves a round table of guardian angels suggesting their opinions to God himself.
@@ -124,22 +124,22 @@ Through feedback, the system is able to modify on the fly the weights, thereby m
 
 \section{Clouds: the bricks.}
 
-At the moment, clouds are more or less simple wrappers for documents. The central data structure for a cloud is what we will call \textbf{layers}. What makes it a simple wrapper is the fact that only the first layer is currently being filled; but the main idea behind a layered cloud is that it should include hierarchically ordered information: from the most precious (and most hardly one-to-one matchable) information to the second-hand, less polished one.
+At the moment, clouds are more or less simple wrappers for documents. The central data structure for a cloud is made of what we will call \textbf{layers}. What makes it a simple wrapper is the fact that only one layer, the topmost, is currently being filled; but the main idea behind a layered cloud is that it should include hierarchically ordered information: from the most precious (and most hardly one-to-one matchable) information to the second-hand, less polished one.
 
 To show the reason behind this few things would do better than an example: suppose we have a document called `Rise and Fall of Ziggy Stardust', containing a couple of pages of history of this man called Ziggy. Unless the title is ironic or in any way misleading, which, assume, is not the case, we already have a few important informations: that this document is about a man called Ziggy Stardust and that a rise and a fall are somehow involved.
 
-SemanticSky currently performs little or no semantic analysis (even though it was originally intended to), so the cloud will not know that it is Ziggy rising and falling, but just that the names `Ziggy', `rise', `fall' are relevant descriptors of the document. And what's so important about the title is that the mere fact of it being a title tells us that the information stored there is important. This is possible, of course, only because the input data is partly annotated: it's not an uniform body of plain text, but already contains some extra information which we can use. In absence of this, other methods could be used to extract headers, titles and other kind of sources of usually very relevant information.
+SemanticSky currently performs little or no semantic analysis (even though it was originally intended to), so the cloud will not know that it is Ziggy rising and falling, but just that the names `Ziggy', `rise', `fall' are relevant descriptors of the document. And the mere fact of the title being a title, supposing we know how to identify it, tells us that the information stored there is important. This is possible, of course, only because the input data is partly annotated: it's not an uniform body of plain text, but already contains some extra information which we can use. In absence of this, other methods could be used to extract headers, titles and other kind of sources of usually relevant information.
 
 This is what layers are meant to be for: the innermost layer will certainly contain these four words, plus the most relevant others that, with diverse heuristics, we will be able to extract from the body of the document itself.
 
-Currently, the clouds store just about everything in a single layer, as the information we have is all first-hand: comes directly from the document, which is the most trustworthy source of information we have. The layer-building function currently tokenizes everything down to words, stems them (so as to capture the relevance of, say, `learn-', even though in the document the concept appears under many different grammatical forms, which would make the statistical relevance of `learn' by itself very low) and finally produce a list of the pairs of words most frequently co-occurring in sentences.
+Currently, the clouds store just about everything in a single layer as the information we have is all first-hand: it comes directly from the document, which is the most trustworthy source of information we have.
 
-The sorts of information a cloud currently contains in its only layer are (extracted in various ways):
+The sorts of information a cloud contains in its only layer are (extracted in various ways):
 \begin{itemize}
 \item names: all Capitalized Sequences Of Words.
-\item urls: all urls either hidden in hrefs (the documents' original text is html) or explicitly mentioned in the text.
+\item urls: all urls either hidden in hrefs (if the documents' original text is html) or explicitly mentioned in the text.
 \item words: information about their frequency (tf) \emph{and} their frequency weighted by their inverse document frequency (tf-idf).
-\item core: a special subset of words which we have reasons to believe more important than the other ones; namely those which come from titles or which are labeled as `headline'.
+\item core: a special subset of words which (e.g. due to annotations) we have reasons to believe more important than the other ones; for example those which come from titles or headlines.
 \item tags: a list of the tags assigned to the Starfish item.
 \end{itemize}
 
@@ -152,7 +152,7 @@ Possible sources for the information to fill these layers with include:
 
 \begin{enumerate}
 \item The web. The second layer could be filled up, for example, with information drawn from google querying for 'The Rise and Fall of Ziggy Stardust' or some other keywords.
-\item Other clouds. At some stage, suppose, the system will settle on the decision that Ziggy's cloud is clearly related (for most of the Starfish users, at least) with (say) David Bowie's cloud. Then, once the confidence about this fact is higher than a certain threshold, we might let some keywords of either clouds `filter' into the lower layers of the other cloud.\footnote{This might have the side effect of forming loops of self-reinforcing feedbacks, so we will have to make sure that algorithms, when re-evaluating the two clouds, won't take into account \emph{that} information as well.}
+\item Other clouds. At some stage, suppose, the system will settle on the decision that Ziggy's cloud is clearly related with (say) David Bowie's cloud. Then, once the confidence about this fact is higher than a certain threshold, we might let some keywords of either clouds `filter' into the lower layers of the other cloud.\footnote{This might have the side effect of forming loops of self-reinforcing feedbacks, so we will have to make sure that algorithms, when re-evaluating the two clouds, won't take into account \emph{that} information as well.}
 \item Corpora information. From a corpus search we might discover that `stardust' is very frequently related with Carl Sagan and stars.
 \end{enumerate}
 
@@ -161,7 +161,7 @@ The latter example about stars and Carl Sagan is a clear situation where we want
 
 \section{Agents.}
 
-Agents in Semantic Sky are basically pipes for human input. In Starfish, they will probably be associated with accounts of people who has write access to the Starfish network, but at a more general level, they are `whatever human source of information we have'.
+Agents in Semantic Sky are basically pipes for human input. In Starfish, they will probably be associated with accounts of people who have write access to the Starfish network, but at a more general level, they are `whatever human source of information we have'.
 
 Beside being able to rate similarity of item-pairs, relevance of tags to items, modifying the items, suggesting (removal of) new links or tags, agents are crucial insofar as their discussions and final decisions trigger feedback, which in turn teaches the system what they want. 
 
@@ -322,7 +322,7 @@ and nothing more. Some efforts need to be put in determining whether this is the
 In this section we are going to discuss what we learned while working on SemanticSky.
 First, we will show some graphical and numerical results, in an attempt to evaluate how the system performs, therewith explaining why the results are what they are and not otherwise.
 
-The main test we run consists in removing all the clouds from the sky and initializing an empty God on such empty sky. Then, we add them back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$, this is necessary.} and we ask all the guardians to evaluate the whole sky; that is: to assess all similarities they can spot between the present clouds. 
+The main test we developed consists in removing all the clouds from the sky and initializing an empty God in the empty sky. Then, we add them back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$ of output, this is necessary.} and we ask all the guardians to evaluate the whole sky; that is: to assess all similarities they can spot between the present clouds. 
 Finally, the Knower (a training algorithm that `knows the truth') judges on their evaluations and triggers feedback, adjusting the trustworthiness of the angels in the various contexts.
 
 \subsection{Testing: online monitoring of the system's evaluation.}
@@ -331,7 +331,7 @@ First I will write down clearly and discuss, where needed, the parameters I used
 
 $\bullet \quad$ Learning rate $= 0.4$.
 
-$\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.\footnote{In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links currently not in Starfish and mistakenly captured by the guardians as similar. For further discussion and a test with punish True, see Appendix .}
+$\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.\footnote{In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links currently not in Starfish and mistakenly captured by the guardians as similar. For further discussion and a test with punish True, see the Appendix.}
 
 To state this more clearly: guardians receive feedback only on items in the knower's database = Starfish's database. The valuation they get for some link, namely, is $1 - $ their current rating of the link.
 
@@ -344,7 +344,7 @@ $\bullet \quad$ Merging rule. This affects how the new suggested value (as compu
 
 This is, sampled at each loop of the test, the average value of each Angel's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are truly out there.
 
-We can see how the values increase and (seem to) stabilize for most angels after around 45 iterations. This means that there were $270$ clouds (since the step was 6) in the sky at that point. The least stable lines represent the angels which have very little nonzero evaluations, and thus receive less feedback.
+We can see how the values increase and (seem to) stabilize for most angels after around 45 iterations. This means that there were $270$ clouds (since the step was 6) in the sky at that point. The least stable lines represent the angels which have few nonzero evaluations, and thus receive less feedback.
 
 \stepcounter{myfigure}
 \def\svgwidth{550pt}
@@ -629,11 +629,11 @@ The same test, with different parameters (learning speed $0.4$, update rule = \e
 Summing up, tests of this kind were ran with the following parameters:
 
 \begin{itemize}
-\item Median, learning rates 0.2, 0.4(2), 0.5, 0.8, 1.
+\item Median, learning rates 0.2, 0.4(2), 0.5, 0.8 and 1.
 
-\item Average, learning rates 0.4(2), 0.8, 1.
+\item Average, learning rates 0.4(2), 0.8 and 1.
 
-\item Step by step average, learning rate 0.2, 0.8.
+\item Step by step average, learning rates 0.2 and 0.8.
 
 \item Median and average, learning rate 0.2, punish = True\footnote{This means that feedback was given not on known truths but also on unknown pairs (which, we remind, are assumed to have similarity $0$'). More on this in the appendix.}.
 \end{itemize}
@@ -723,7 +723,7 @@ So, at an absolute level, it seems that the system is learning the golden rule `
 
 $\bullet \quad$ During the development of SemanticSky we had several intuitions of possible things to do, or possible alternative ways of doing things we were already doing. For example, when giving feedback, the standard way to go is to give a feedback closer to 1 the closer my evaluation of x is to the evaluation of whoever I am giving feedback to. A different option however is to give straight what should be, in the opinion of the feedback-giver, the evaluation for that item. While training, this is basically equivalent to having the knower give a 0-1 feedback or a continuum between 0 and 1 (closer to 1 for high confidence correct answers or low confidence false answers, and vice versa). We have run a couple of tests with this alternative algorithm, but due to lack of time we could not double check them and we have no definitive conclusions to draw.
 
-This and a number of options can and need be discussed. Probably, a bit more conceptual analysis ahead of a `now sit down and experiment' is preferable, in this case, being there so many parameters at stake whose interplay is in most cases too complex to have a clear balance.
+This and a number of other possible alternative settings can and need be discussed. Probably, a bit more conceptual analysis ahead of a `now sit down and experiment' is preferable, in this case, being there so many parameters at stake whose interplay is in most cases too complex to have a clear balance.
 
 $\bullet \quad$ Closely related to the previous point, the issue on whether to give feedback on false negatives is still open. The main way to find a quick answer to this problem is, to my mind, to run a bunch of test flipping the switch on and off, and see what happens. This has not been done yet due to lack of machine time.
 
@@ -745,7 +745,7 @@ More specifically, the database the system has been designed to work with contai
 
 There are many ways to go with unannotated data which would move SemanticSky closer to the unsupervised side of the semi-supervised class of approaches: we could either have some algorithms to pre-classify the documents or parts of them (for example to extract tags, or titles, to recognize authorship or inter-document relations) or we could have very simple clouds with only a `text' entry, and our angels will have to be smart and diverse enough to work on that sort of data without any more annotated input.
 
-Here I must add that technically, all the work done by clouds could as well be done by Angels alone. The main idea behind clouds was to do beforehand something that angels would have needed to do themselves, such as tokenizing the text down to words, stemming, and extracting the tags that came along with the items. But there is no higher-order reason for which we should keep the two things separated: we might as well decide to abandon the whole cloud system and have the algorithms evaluate over the raw items, whatever they are, provided they come with the same toplevel data structure (otherwise, also guardians would need to be modified each time).
+Here I must add that technically, all the work done by clouds could as well be done by Angels alone. The main idea behind clouds was to do beforehand something that angels would have needed to do themselves, such as tokenizing the text down to words, stemming, and extracting the tags that came along with the items. But there is no higher-order reason for which we should keep the two things separated: we might as well decide to abandon the whole cloud system and have the algorithms evaluate over the raw items, whatever they are, provided they come with the same toplevel datatype/data structure (otherwise, also guardians would need to be modified each time).
 
 Personally, I think the cloud layer is not a bad thing and should be kept, mainly because it allows to standardise the input we receive to a more intuitive form, which all angels (regardless of what kind of data they were built to evaluate on) can accept without crashing.
 
@@ -1011,25 +1011,25 @@ At the end of this process, the gap had in fact decreased. In this table, you ca
 \begin{center}Table 2:\\
 Polar gap increase from unweighted to weighted beliefsets.\end{center}
 
-\begin{tabular}{l || c }
+{\hspace{35pt}}\begin{tabular}{l || c }
 angel & polar gap increase \\
 \hline
-coo\_dicts\_extended\_neighbour & -0.00201 \\
- coo\_dicts\_neighbour &-0.012\\
- coo\_dicts\_overlap & -0.0037\\
- coo\_dicts\_overlap\_v1 & -0.00202\\
- coo\_dicts\_overlap\_v2& -0.0037\\
- extended\_core\_overlap& -0.027\\
- extended\_name\_comparison& -0.017\\
- naive\_core\_overlap& -0.21\\
- naive\_name\_comparison&  -0.15\\
- tag\_overlap&  -0.036\\
- tf\_idf\_weighting&  -0.014\\
- tf\_weighting&-0.039\\
+coo\_dicts\_extended\_neighbour & 			-0.00201 \\
+ coo\_dicts\_neighbour &							-0.012\\
+ coo\_dicts\_overlap & 							-0.0037\\
+ coo\_dicts\_overlap\_v1 & 						-0.00202\\
+ coo\_dicts\_overlap\_v2& 						-0.0037\\
+ extended\_core\_overlap& 						-0.027\\
+ extended\_name\_comparison& 				-0.017\\
+ naive\_core\_overlap& 							-0.21\\
+ naive\_name\_comparison&  					-0.15\\
+ tag\_overlap& 								 		-0.036\\
+ tf\_idf\_weighting&  								-0.014\\
+ tf\_weighting&										-0.039\\
  \hline
- god &-0.032 \\
+ god &													-0.032 \\
 \hline
-sum (including god) & -0.548
+sum (including god) & 								-0.548
 \end{tabular}
 
 \vspace{5pt}
@@ -1061,22 +1061,22 @@ Polar gap increase from unweighted to weighted and equalized beliefsets.\end{cen
 
 angel & equalization & weighting & overall \\
 \hline
-coo\_dicts\_extended\_neighbour & 0.00074 & -0.0019 & -0.0012\\
- coo\_dicts\_neighbour & -0.0081 & -0.0102&-0.018\\
- coo\_dicts\_overlap & 0.0039 & -0.004&-0.000104\\
- coo\_dicts\_overlap\_v1 & 0.00077& -0.0019 & -0.0012\\
- coo\_dicts\_overlap\_v2& 0.0039& -0.004 & -0.000104\\
- extended\_core\_overlap& 0.0075& -0.033& -0.025\\
- extended\_name\_comparison& 0.032& -0.025 &0.0076\\
- naive\_core\_overlap& 0.0012& -0.21 &-0.21\\
- naive\_name\_comparison& 0.00069& -0.15 &-0.15\\
- tag\_overlap& 0.018& -0.042& -0.023\\
- tf\_idf\_weighting& 0.0301& -0.018 & 0.011\\
- tf\_weighting& 0.038& -0.0506 & -0.011\\
+coo\_dicts\_extended\_neighbour & 		0.00074 & 		-0.0019 & 		-0.0012\\
+ coo\_dicts\_neighbour & 					-0.0081 & 		-0.0102&		-0.018\\
+ coo\_dicts\_overlap &						 	0.0039 & 		-0.004&			-0.000104\\
+ coo\_dicts\_overlap\_v1 & 					0.00077& 		-0.0019 & 		-0.0012\\
+ coo\_dicts\_overlap\_v2& 					0.0039& 			-0.004 & 		-0.000104\\
+ extended\_core\_overlap& 					0.0075& 			-0.033& 			-0.025\\
+ extended\_name\_comparison& 			0.032& 			-0.025 &			0.0076\\
+ naive\_core\_overlap& 						0.0012& 			-0.21 &			-0.21\\
+ naive\_name\_comparison& 					0.00069& 		-0.15 &			-0.15\\
+ tag\_overlap& 									0.018& 			-0.042& 			-0.023\\
+ tf\_idf\_weighting& 							0.0301& 			-0.018 & 		0.011\\
+ tf\_weighting& 									0.038& 			-0.0506 & 		-0.011\\
  \hline
- god& & & -0.032 \\
+ god& & & 																					-0.032 \\
 \hline
-sum (including god) & & & -0.453
+sum &					 							0.1287& 			-0.5506& 		-0.453
 \end{tabular}
 \vspace{5pt}
 
@@ -1084,7 +1084,7 @@ The middle column is the step from the raw evaluation to the equalized evaluatio
 
 As you can see, equalization manages in all but one case (where probably the algorithm is \emph{so} bad that its average confidence in correct suggestions is lower than the that in wrong ones) to widen the gap between the poles. The problem is that then weighting manages to destroy that effort. Maybe this could be countered by making equalization heavier (the curve was very flat close to the centre of gravity of the push, and unfortunately that's precisely where most values are!), but maybe this is just not working.
 
-In most cases, the overall value (gap difference between unweighted, unequalized and weighted, equalized belief sets) is still negative, which means that the gap is decreasing. We can see however that except for a few examples (still too many, maybe) equalization has managed to reduce a bit (still too little, probably) the negative squeezing effect of weighting: if we look at the `sum' lines, more or less one fifth effect decrease. Even though, that was not enough to influence God's ideas: his gap decrease is exactly the same at least up to the third decimal digit.
+In most cases, the overall value (gap difference between unweighted, unequalized and weighted, equalized belief sets) is still negative, which means that the gap is decreasing. We can see however that except for a few examples (still too many, maybe) equalization has managed to reduce a bit (still too little, probably) the negative squeezing effect of weighting: if we look at the `sum' lines, more or less one fifth effect decrease, more or less the sum of the gap gain in the `equalization' column. Even though, that was not enough to influence God's ideas: his gap decrease is exactly the same at least up to the third decimal digit.
 
 Besides, it's questionable (though it seemed quite natural to us) the order we chose for the pipeline: we might as well equalize up the weighted beliefset, instead of weighting down the equalized beliefset. Who knows what might happen.
 
