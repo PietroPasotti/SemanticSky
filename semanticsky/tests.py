@@ -494,7 +494,8 @@ def interactive(god = None,auto = False):
 
 # matplotlib tests # FIXED: should be working.
 def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online_evaluation_output',step = 6,test = False): 
-	
+
+	import time,pickle,random	
 	import semanticsky
 	
 	for doverride,value in defaults_overrides.items():
@@ -504,22 +505,16 @@ def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online
 	
 	god = setup_new_god()
 	god.spawn_servants()
-	#tprint('removing tag-similarity angels...')
-	#god.remove_tag_similarity_angels() # now that tag_similarity angels have been moved to Algorithm.experimental_algs, they shouldn't be loaded anymore.
-	
+
 	knower = getknower(god)
-	#tprint('equating links...')
-	#equate_all_links(god,[knower]) # knower evaluates_all on the spot, so there should be no need for this.
-	
+
 	tprint('loading evaluations to guardians...')		
 	load_beliefbags(god.guardianangels)
 	
-
 	god.cleanbuffer() # EMPTY THE BUFFER (even though it should be rather empty already).
 	
 	loops = 0
 	output = {}
-	import time,pickle,random
 	
 	zeropout = evaluate_status(god)
 	output[0] = zeropout
@@ -557,6 +552,9 @@ def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online
 		forecast = elapsed * (totloops - loops)
 		
 		print('\r'+center('--- [loop {} :: {} elapsed :: {} estimated to the end] ---'.format(loops,elapsed,forecast)))
+	
+	if not len(god.sky.sky) in output:
+		output[len(god.sky.sky)] = evaluate_status(god)
 	
 	dump_to_file(output,filename)
 	return 
