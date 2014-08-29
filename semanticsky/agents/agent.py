@@ -152,7 +152,8 @@ class Agent(object):
 			
 		if feedback.sign == '-' and DEFAULTS['differentiate_learningspeeds']:
 			LS = DEFAULTS['learningspeed'] / DEFAULTS['negative_feedback_learningspeed_reduction_factor']
-			# for negative feedback we give less impacting feedback.
+			# for negative feedback we (can) give less impacting feedback.
+		
 		else:
 			LS = DEFAULTS['learningspeed']
 		

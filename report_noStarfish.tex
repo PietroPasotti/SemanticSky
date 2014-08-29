@@ -17,14 +17,6 @@
 \tableofcontents
 \clearpage
 
-\part{Starfish.}
-
-\section{(The previous project)}
-
-\section{(Results)}
-
-
-
 \part{SemanticSky.}
 
 \section{Making the case for SemanticSky.}
@@ -64,17 +56,17 @@
 \vspace{15pt}
 
 
-(as the previous project has showed,) There are several algorithms that can do this, each one of them basing its decision on a particular descriptor/feature of the documents. 
+From the literature, we know that there are several algorithms that can do this, each one of them basing its decision on a particular descriptor/feature of the documents. 
 
 As the reader might know, each document has multiple features, and (unless we use some sort of feature selection) each one of them is a plausible candidate for assessing the pairwise similarity of the documents. For example, a document can be described by enumerating the words it is made of; the characters it is made of, but also the capitalized words it contains, its line-wise length, the number and target of hyperlinks or the shape of the coffee stains on its author's desk.
 
-Now suppose we have many different algorithms, each one of which takes into account just one of these features. It is plausible that each algorithm, basing its decisions on different evidence (or maybe just reasoning from it in a different way) will output a different decision for any given pair of documents, or most of them. Then, statistically, if their decisions are diverse enough, it has been proved\footnote{For literature: [Ethem Alpaydin 2010 ch.17].} that combining their suggestions results in a much more accurate prediction than any of their individual outputs.
+Now suppose we have many different algorithms, each one of which takes into account just one of these features. It is plausible that each algorithm, basing its decisions on different evidence (or maybe just reasoning from it in a different way) will output a different decision for any given pair of documents, or most of them. Then, statistically, if their decisions are diverse enough, it has been proved\footnote{For literature: [Ethem Alpaydin 2010 ch.17].} that combining their suggestions results in a much more accurate prediction than any of their individual outputs, or than a single algorithm that takes all of the features into account at once to compute its decision.
 
 Furthermore, depending on the kind of algorithm we are considering, its precision will correlate in some way with the contents of the documents we are having it evaluate: documents with a lot of words and no image are more likely to be correctly classified by a word-based algorithm than by an algorithm that only considers attached .jpg images. Thus, we can consider each algorithm as a local expert: in a more or less restricted region of the space of inputs, each algorithm is capable of predictions which, beside being more likely to get it right than random guess\footnote{Which is a necessary requirement for the algorithms in general.}, are also more likely to be correct than the suggestions of all other algorithms.
 
 Once we have identified these local experts, we may want to combine their suggestions in order to take into account, for each decision we are trying to make, just or mainly the experts in the field the decision is taking place. In other words, we want to train the system in a way such that it will learn (for we don't know it in advance) which algorithm is better at what, and such that having learned this, it will merge the outputs of all the algorithms in a way to maximise the likelihood of having a correct decision given what the system has learned up to that moment.
 
-Suppose then that we did not have the suggestions of **the previous project** about which algorithm is better at what. Then the only way to discover the expertises of the algorithms is to give them feedback: the system has to learn on-line, so as that its future decisions are based on the past evidence. In a real-world application of SemanticSky, the feedback can plausibly be expected to come from the users of such a classification system. For the purposes of this project however we came up with a training mechanism to simulate human input, which will be explained in the appropriate section.
+Suppose then that we did not have any intuition or clue about which algorithm is better at what. Then the only way to discover the expertises of the algorithms is to give them feedback: the system has to learn on-line, or be trained in some way, so as that its future decisions are based on the past evidence. In a real-world application of SemanticSky, the feedback can plausibly be expected to come from the users of such a classification system. For the purposes of this project however we came up with a training mechanism to simulate human input, which will be explained in the appropriate section.
 
 In order to manage the feedback mechanism, and to merge the outputs of the various algorithms into a single one, the system needs a supervisor algorithm.
 Since we were speaking of clouds and skies, it seemed natural to go on with the metaphor and have picture ourselves a round table of guardian angels suggesting their opinions to God himself.
@@ -115,7 +107,7 @@ This is then the pipeline of SemanticSky:
 
 We can consider the network of clouds to be an internal representation of the set of documents, which the system uses as basis for its judgements. The set of judgements, on the other hand, can be considered as the belief state of God (or of SemanticSky as a whole). Each document is represented by a cloud, and the similarity of clouds (that hopefully mirrors the similarity of the underlying documents) is assessed by angels which then contribute with different weights to God's decisions.
 
-Through feedback, the system is able to modify on the fly the weights, thereby modifying the edges of the network of clouds, as if it was adapting his image of the world (his hypothesis) to best fit the evidence we give to it.
+Through feedback, the system is able to modify on the fly the weights, thereby modifying the edges of the network of clouds, as if it was adapting his image of the world (his hypothesis, or posteriors) to best fit the evidence we give to it.
 
 
 \section{Clouds: the bricks.}
@@ -130,13 +122,13 @@ This is what layers are meant to be for: the innermost layer will certainly cont
 
 Currently, the clouds store just about everything in a single layer as the information we have is all first-hand: it comes directly from the document, which is the most trustworthy source of information we have.
 
-The sorts of information a cloud contains in its only layer are (extracted in various ways):
+The sorts of information a cloud contains in its only layer were extracted in various ways, but many of them were available because the data we used to develop the first application of SemanticSky was partially annotated. Thus we had tags and a few other important metadata associated with documents, such as title, author, and such. This is what the main layer contained:
 \begin{itemize}
 \item names: all Capitalized Sequences Of Words.
 \item urls: all urls either hidden in hrefs (if the documents' original text is html) or explicitly mentioned in the text.
 \item words: information about their frequency (tf) \emph{and} their frequency weighted by their inverse document frequency (tf-idf).
 \item core: a special subset of words which (e.g. due to annotations) we have reasons to believe more important than the other ones; for example those which come from titles or headlines.
-\item tags: a list of the tags assigned to the Starfish item.
+\item tags: a list of the tags assigned to the item.
 \end{itemize}
 
 
@@ -157,14 +149,12 @@ The latter example about stars and Carl Sagan is a clear situation where we want
 
 \section{Agents.}
 
-Agents in SemanticSky are basically pipes for human input. In Starfish, they will probably be associated with accounts of people who have write access to the Starfish network, but at a more general level, they are `whatever human source of information we have'.
-
-Beside being able to rate similarity of item-pairs, relevance of tags to items, modifying the items, suggesting (removal of) new links or tags, agents are crucial insofar as their discussions and final decisions trigger feedback, which in turn teaches the system what they want. 
+Agents in SemanticSky are basically pipes for human input. In a non-experimental application, they are meant to be associated with accounts of people who have write access to the network of documents, but at a more general level, they are `whatever human source of information we have', which is used mainly to give feedback to the algorithms and to influence the network themselves, for example by rating similarity of item-pairs, relevance of tags to items, modifying the items, suggesting (removal of) new links or tags.
 
 Ideally, whenever the system will detect that the consensus about some issue is reached, feedback will trigger and backpropagate to all algorithms (and maybe even agents) that had something to say about it, punishing them for their bad suggestions or rewarding them for the good ones.
 
 The most immediate effect of the feedback is to influence (up or down) the trustworthiness of an agent, be it algorithmic or human in nature.
-Trustworthiness is not absolute, however, but relative to some domain or `area of expertise': a person (an algorithm) can be very good on items regarding people but very bad at spotting connections between glossaries and tags. So, we want to learn his expertises and hold as valuable his suggestions in that field, while (proportionately) ignoring his suggestions on topics which we know he is not keen on.
+Trustworthiness is not absolute, however, but relative (or `contextual') to some domain or `area of expertise': a person (an algorithm) can be very good on items regarding people but very bad at spotting connections between glossaries and tags. So, we want to learn his expertises and hold as valuable his suggestions in that field, while (proportionately) ignoring his suggestions on topics which we know he is not keen on.
 
 \subsection{Future work.}
 
@@ -226,18 +216,17 @@ So, the extended core of psi $E(C(\psi))$ will be, where $coo(a,b) \iff$ $a$ and
 
 Finally, the two extended cores are compared in the usual intersection / union way.
 
-
 \paragraph{tag\_similarity\_naive}
 
-This algorithm, as well as the following ones, are made specifically for evaluating the similarity of tag clouds: clouds that wrap tag-type items in Starfish. Typically, the only information we have about this kind of items, beside the name of the tag itself, is a list of synonyms (aliased tags) and perhaps a glossary (a small document). This makes their comparison rather tricky for other algorithms.
+This algorithm, as well as the following ones, are made specifically for evaluating the similarity of tag clouds: clouds that wrap tag-type items. This algorithm was made mainly for experimental reasons. Tag clouds can be obtained by filling in the layers with the tag's glossary and derived information, when available.
 
-Furthermore, there currently are no links in Starfish between tags and other types of items, so we don't have a training set to assess the performance of these algorithms. The choice of treating tag-type items like all other types may also be questioned, but this is not the place for it.
+However the training data we used did not have any rating of the similarity of tags, so we could not assess the evaluation of these two algorithms.
 
-The algorithm, given two clouds, just counts how many pages are tagged with both tags (that is, the tags that the clouds are built around) and normalizes it against the length of the union.
+This algorithm, given two clouds, just counts how many pages are tagged with both tags (that is, the tags that the clouds are built around) and normalizes it against the length of the union.
 
 \paragraph{tag\_similarity\_extended}
 
-This algorithm is an instance of a higher-level Guardian Angel, or Meta Angel: to work, it needs some previous evaluation.
+This algorithm is an instance of a higher-level Guardian Angel, or Meta Angel: to work, it needs some previous evaluation. This algorithm, also, is mentioned to evaluate the similarity of two tags, given the clouds they are tagged with.
 
 Basically, it measures the overlap of the sets of clouds marked with the two tags and returns an averaged confidence of the relations of these links.
 
@@ -245,7 +234,7 @@ Suppose we have the following situation, where $a,b$ are tags (i.e. strings such
 \begin{enumerate}			
 \item[$a\to$] [cloud1, cloud2]; that is: both cloud1 and cloud2 are tagged with `$a$'.
 \item[$b\to$] [cloud1, cloud3]
-\item[$c\to$] [cloud4,	cloud5]
+\item[$c\to$] [cloud4,cloud5]
 \end{enumerate}
 
 Clearly, similarity(cloud1,cloud1) = 1, so tag $a$ and $b$ will be at least 0.5 related since they share half of their clouds; more if cloud2 and cloud3 are related in gods' beliefs.
@@ -255,14 +244,14 @@ Then, tag c will be much closer to tag a than to tag b.
 The algorithm just computes over this intuition.
 
 \paragraph{tag\_overlap}
-This algorithm, unlike the two previous ones, is a measure of the distance of two nontag-type clouds, and simply measures the intersection/union of the tags of the two clouds.
+This algorithm, unlike the two previous ones, is a measure of the distance of two nontag-type clouds, and simply measures the intersection/union of the tags the two clouds are labeled with.
 
 
 \paragraph{coo\_dicts\_overlap}
 
 This algorithm has two versions, plus a third one which consists simply in taking the best result from v1 and v2.
 
-\subparagraph{v1} This version returns a pair-to-pair correspondence check of co-occur\-ring pairs of words in the two clouds. Such correspondence is very valuable, but rare.
+\subparagraph{v1} This version returns a pair-to-pair correspondence check of co-occur\-ring pairs of words in the two clouds. Such correspondence is very valuable and gives some good results, but overall rare.
 
 \subparagraph{v2} This version is more permissive (returns many more nonzero values) and consists in splitting the pairs thereby using single words as term of comparison. (Basically it performs a bag of words overlap/union, building the bags from the co-occurrence dictionary). Implements Grefenstette (1994) algorithm for computing the values.
 
@@ -272,30 +261,29 @@ Taken the co-occurring pairs in cloud $\phi$, denoted $coo(\phi)$, we split them
 
 \paragraph{coo\_dicts\_extended\_neighbour}
 
-This algorithm is very complex, takes ages to run and is so permissive that it captures far more noise than signal. Probably garbage.
-
+This algorithm is very complex, takes ages to run and is so permissive that it captures far more noise than signal. Not even worth an explanation.
 
 \subsection{Future work.}
 ~
 
-$\bullet \quad$Guardian Angels do work, but they also are currently very stupid. Each one of them just performs a little task in a probably naive way: this could be improved. On the other hand, the main idea behind ensembles is precisely to have a large number of very stupid algorithms that collectively produce a smart decision. Be it their small number or their being too stupid, currently this is not happening so much. To face this situation, we could either increment their number (boosting is an option, or even bagging if we had a larger dataset) or make them smarter.
+$\bullet \quad$Guardian Angels do work, but they also are currently very stupid. Each one of them just performs a little task in a probably naive way: this could be improved. On the other hand, the main idea behind ensembles is precisely to have a large number of very stupid algorithms that collectively produce a smart decision. Be it their small number or their being too stupid, in the testing application we tried this did not happen so much. To face this situation, we could either increment their number (boosting is an option, or even bagging if we had a larger dataset) or make them smarter.
 
-$\bullet \quad$Plus, the more and most diverse the angels' decision algorithm are, the higher the overall performance of the system will be. Currently, there are bunches of three-to-four algorithms that perform very similar computations (and mostly work on the same evidence). Thus, one immediate way to extend the system will be to implement more guardians, or to add variations to the already existing ones.
+$\bullet \quad$Plus, the more and most diverse the angels' decision algorithm are, the higher the overall performance of the system will be. Currently, as the reader will have noticed, there are bunches of three-to-four algorithms that perform very similar computations (and mostly work on the same evidence). Thus, one immediate way to extend the system will be to implement more guardians, or to add variations to the already existing ones.
 
 $\bullet \quad$As noticed above, also, the decisions of the algorithms which are currently implemented are based on a rather small subset of all the available information. Some algorithm only takes into account the words' frequency, some other the words' idf-frequency, some other just the `names' appearing in the text, and so on. Some effort might be put into smarter algorithms able to combine on the fly all these different types of inputs, or to extend the range of inputs available, such as through web crawling\footnote{
 A first attempt in this direction has already been made: I constructed an algorithm which would, given a pair of words $a,b$, retrieve the number of google hits for the query ``NEAR($a,b$)|NEAR($a,b$)'', later normalizing it with the number of hits for queries containing just the single words $a$ and $b$. To do the same with clouds is not as straightforward and will need some more research and might involve, for example, keyword extraction (from other Angels' evaluations, maybe).}.
 
 $\bullet \quad$Another thing which might change is that currently algorithms don't (strictly speaking) learn much. They just go on spitting the same decisions over and over, and they gate them through the mechanism of trustworthiness (which is a way to model the self-confidence in the correctness of the algorithms' own suggestions). An attempt could be made to include amongst the angels some more standard learners, such as neural networks.
 
-$\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. Not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted clearly by how near they are) in the current state of the system.}
+$\bullet \quad$Finally, the Guardians' reach could be much extended by having them evaluate not only pairs of clouds but also single clouds, or larger groups. An algorithm for example might try to find hubs in the network, or islands that might then be addressed by `bridging' attempts. Suppose for example that there is a rather insulated part of the network that is rather inaccessible from the external world. Not only that is an interesting information by itself, but also we may want to fuel discussion by, for example, suggesting more links to `external' clouds or by giving incentives to those who propose such links.\footnote{A sketch of higher-level Guardian Angels, which I called Meta Angels, is already present but has currently not been tested or used. In this case, the meta angel tries to use evaluations as they come out of the lower-level angels and take them further: given two items $x,y$ the meta angel's evaluation is a function of how many neighbours $x$ and $y$ share (weighted, clearly, by how near they are) in the current state of the system.}
 
 \section{God: the Supervisor.}
 
 The Supervisor is a gating machine that mediates between the angels and the final output of the system, doing the mostly bureaucratic work of gathering the judgements of the algorithms and agents involved in some voting and weighting them up or down according to the source's trustworthiness, finally merging them (by averaging) into a conclusive judgement that goes to build a belief state.
 
-Such belief state is the final outcome of the system, and represents a snapshot of the link structure within Starfish according to the system. Ideally, we want such structure to closely match Starfish's own link structure (the links that physically appear in the pages) that currently have been hand-hard-wired there by physical persons.
+Such belief state is the final outcome of the system, and represents a snapshot of the link structure within Starfish according to the system. Ideally, we want such structure to closely match the actual network of documents' own link structure (in the case of an hypertext, for example, the links that physically appear in the pages) that in the testing application we used (a portal) have been hand-hard-wired there by physical persons.
 
-But, as Starfish is planned to be a dynamical network, where many discussions are open-ended and there is not always a clear yes/no answer to all questions, we won't pretend Semantic Sky to aim at that goal either. Its highest-rated beliefs should of course have a strong correspondence with the actual structure of Starfish, but the whole body of the iceberg (hidden for example through some thresholding) can be open-ended as much as the underlying discussion (carried out by humans in parallel) is.
+But, as the documents' network is allowed to be a dynamical one, where many discussions are open-ended and there is not always a clear yes/no answer to all questions, we won't pretend Semantic Sky to aim at that goal either. Its highest-rated beliefs should of course have a strong correspondence with the actual structure of Starfish, but the whole body of the iceberg (hidden for example through some thresholding) can be open-ended as much as the underlying discussion (carried out by humans in parallel) is. Of course SemanticSky can also be applied without relevant modifications to a statical bag of documents.
 
 These considerations, among others, led us to the conclusion that recall is not a priority for SemanticSky neither as a suggestions machine nor as a link-spotter in general, making it somewhat closer to a ranker.
 
@@ -311,23 +299,27 @@ When some agent (or a Guardian) communicates to God a new decision concerning so
 \[new\_value = previous\_value - [(previous\_value - new\_value) * learning\_rate] \]
 and nothing more. Some efforts need to be put in determining whether this is the best strategy available. Through the mechanism of contextualized trustworthiness, angels themselves repress their own decisions based on the feedback they received, but this might not be enough, or there just might be more. Maybe some angel's decisions are just all wrong, or maybe it produces such good decisions that even though his confidence in them with trustworthiness at 1 is still not at all high, we might want to boost artificially his confidence: to hear more than we listen to, so to say. God itself might learn, in other words, some useful way of transforming the output to match the current state of the system, thereby minimising his regrets directly (instead of relying entirely on the angel's own learning mechanisms.).\footnote{This, in the light of appendix 2, can be phrased by saying that God might need to have an equalizer as well.}
 
-%Also, maybe something interesting would happen if God would be able to group similar angels making them a single voter with a proportionally higher impact on his decisions.
-
 \section{Conclusions}
 
 In this section we are going to discuss what we learned while working on SemanticSky.
 First, we will show some graphical and numerical results, in an attempt to evaluate how the system performs, therewith explaining why the results are what they are and not otherwise.
 
-The main test we developed consists in removing all the clouds from the sky and initializing an empty God in the empty sky. Then, we add them back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$ of output, this is necessary.} and we ask all the guardians to evaluate the whole sky; that is: to assess all similarities they can spot between the present clouds. 
+As we already mentioned in the previous sections, SemanticSky was developed to fit an existing online network of webpages, namely Starfish.\footnote{starfish.innovatievooronderwijs.nl} This network's data has been downloaded and used to test SemanticSky: clouds were built using each page's data and metadata, and angels were built that were able to crunch that specific data.
+
+The main test we developed consisted in removing all the clouds from the sky and initializing an empty God in the empty sky. Then, we add them back one by one\footnote{Or, to reduce the running time of the test, a bunch of them per time. In fact, the tests I ran mostly were made with step 5 and 6. This has also the effect of reducing the amount of memory used (by $1/n$th) for $n$ = step. And given that for step 6 it's still $74mb$ of output, this is necessary.} and we ask all the guardians to evaluate the available portion of sky; that is: to assess all similarities they can spot between the present clouds. 
 Finally, the Knower (a training algorithm that `knows the truth') judges on their evaluations and triggers feedback, adjusting the trustworthiness of the angels in the various contexts.
 
 \subsection{Testing: online monitoring of the system's evaluation.}
 
 First I will write down clearly and discuss, where needed, the parameters I used for the test; then show the results.
 
-$\bullet \quad$ Learning rate $= 0.4$.
+$\bullet \quad$ Learning rate $= 0.4$. This is the absorption rate of the feedback: how much of it the recipient is going to take into account. A learning rate of 1 means that the learner will replace its previous trustworthiness with the one suggested by the feedback, a learning rate of 0 means that it will just ignore any feedback.
 
-$\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.\footnote{In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links currently not in Starfish and mistakenly captured by the guardians as similar. For further discussion and a test with punish True, see the Appendix.}
+$\bullet \quad$ Merging rule. This affects how the new suggested value (as computed by the update rule) is merged with the previous one: that is, how the learning rate is used The standard merge is:
+\[new\_value = previous\_value - [(previous\_value - new\_value) * learning\_rate] \]
+
+
+$\bullet \quad$ Punish = False. This means that guardians don't receive negative feedback for links that are not in the knower's database of `truths'.\footnote{In a real-life application of Semantic Sky this will be a nonexisting issue, but in a test, we have to choose which items we give negative feedback to. In this test I chose not to give negative feedback for all links \emph{not in the network} and mistakenly captured by the guardians as similar. For further discussion and a test with punish True, see the Appendix.}
 
 To state this more clearly: guardians receive feedback only on items in the knower's database = Starfish's database. The valuation they get for some link, namely, is $1 - $ their current rating of the link.
 
@@ -335,10 +327,7 @@ $\bullet \quad$ Step = 6: clouds were added back to the sky 6 by 6.
 
 $\bullet \quad$ Update rule = median of all feedbacks. The contextual trustworthiness of angels is the \emph{median} of all the feedback he has ever received about links in that area of knowledge (in that context).\footnote{Other available solutions include averaging \[(sum(all feedbacks)/ len(all feedbacks))\] and step-by-step averaging \[(value = (previous value + value) / 2)\], plus average and median of the last $n$ items.}
 
-$\bullet \quad$ Merging rule. This affects how the new suggested value (as computed by the update rule) is merged with the previous one. Extremes include ignoring it and replacing the latter with the former. The standard merge is:
-\[new\_value = previous\_value - [(previous\_value - new\_value) * learning\_rate] \]
-
-This is, sampled at each loop of the test, the average value of each Angel's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are truly out there.
+Follows in a picture, sampled at each loop of the test, the average value of each Angel's beliefs in all true links; that is, all the links that according to our training set (represented by the knower) are truly out there.
 
 We can see how the values increase and (seem to) stabilize for most angels after around 45 iterations. This means that there were $270$ clouds (since the step was 6) in the sky at that point. The least stable lines represent the angels which have few nonzero evaluations, and thus receive less feedback.
 
@@ -369,7 +358,7 @@ We can see how the values increase and (seem to) stabilize for most angels after
   \global\let\svgscale\undefined%
   \makeatother%
   \begin{picture}(1,0.50366032)%
-    \put(-0.18,0.12){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/belief_in_true_links.pdf}\hspace{-355pt} Figure \themyfigure: belief in true links}%
+    \put(-0.18,0){\includegraphics[width=\unitlength]{/home/pietro/Perceptum/code/starfish/similarity/SemanticSky/report_imgs/belief_in_true_links.pdf}\hspace{-355pt} Figure \themyfigure: belief in true links}%
   \end{picture}%
 \endgroup%
 \vspace{5pt}
@@ -443,7 +432,7 @@ Finally, these are the (non-cumulative) regrets of all angels and God itself.
   \end{picture}%
 \endgroup%
 \vspace{5pt}
-Regret (for angel $A$) was computed as follows: $sum$($(1 - A.belief\_in(x))$ for $x$ in $all\_truths$ ), where $all\_truths$ is a list of all links actually existing in Starfish (that is: the Knower's database).
+Regret (for angel $A$) was computed as follows: $sum$($(1 - A.belief\_in(x))$ for $x$ in $all\_truths$ ), where $all\_truths$ is a list of all links actually existing in the database (that is: the Knower's knowledge).
 
 The angels whose regrets don't decrease are the tag-similarity angels (hidden for clarity's sake in the next plots). Currently lacking Starfish any data about how similar two tags are, no link of that type (tag-to-tag) is available in Starfish, and all the feedback will be negative.
 
@@ -725,7 +714,7 @@ $\bullet \quad$ Closely related to the previous point, the issue on whether to g
 
 $\bullet \quad$ Another thing that is missing is some sort of benchmarking: we had some ideas about trying to SemanticSky our way through the immense Wikipedia API or LastFm, IGN, or one of the many databases available.
 
-To extend the framework to deal with that kind of clouds is quite straightforward. The main obstacle, for the moment, seems computational in nature: if we choose to punish false negatives (and the answer to `should we do it' is still open), an evaluation on Starfish takes more than two or three days on my laptop. I wonder how many weeks would it take with (a subsection of) Wikipedia. But, given time and a machine one does not need to Skype his girlfriend, this is clearly something we want to do.
+To extend the framework to deal with that kind of clouds is quite straightforward. The main obstacle, for the moment, seems computational in nature: if we choose to punish false negatives (and the answer to `should we do it' is still open), an evaluation on Starfish took more than two or three days on my laptop. I wonder how many weeks would it take with (a subsection of) Wikipedia. But, given time and a machine one does not need to Skype his girlfriend, this is clearly something we want to do.
 
 $\bullet \quad$ For the moment we did not have time to generalize (codewise) the cloud-formation process. Some programming effort should be taken into doing that in a wise way.
 
@@ -733,25 +722,17 @@ $\bullet \quad$ For the moment we did not have time to generalize (codewise) the
 
 How general is SemanticSky, or how long would it take to make it (more) general?
 
-To our mind, SemanticSky is quite general already. What is Starfish-specific are the cloud-formation process (that partly relies on the information we have from Starfish) and the Angels, that are built to use exactly these features.
+To our mind, SemanticSky is quite general already. What is Starfish-specific are the cloud-formation process (that partly relies on the information we have from our testing platform) and the Angels, that are built to use exactly these features.
 
 For example, Starfish items come with a list of tags, which we store in clouds and some angels use as a basis for their evaluation.
 
-More specifically, the database the system has been designed to work with contains data which is partially annotated: each item has a `title' field, an `author', and other metadata: what if it had not?
+More specifically, the database the system has been designed to work with (Starfish) contains data which is partially annotated: each item has a `title' field, an `author', and other metadata: what if it had not?
 
 There are many ways to go with unannotated data which would move SemanticSky closer to the unsupervised side of the semi-supervised class of approaches: we could either have some algorithms to pre-classify the documents or parts of them (for example to extract tags, or titles, to recognize authorship or inter-document relations) or we could have very simple clouds with only a `text' entry, and our angels will have to be smart and diverse enough to work on that sort of data without any more annotated input.
 
 Here I must add that technically, all the work done by clouds could as well be done by Angels alone. The main idea behind clouds was to do beforehand something that angels would have needed to do themselves, such as tokenizing the text down to words, stemming, and extracting the tags that came along with the items. But there is no higher-order reason for which we should keep the two things separated: we might as well decide to abandon the whole cloud system and have the algorithms evaluate over the raw items, whatever they are, provided they come with the same toplevel datatype/data structure (otherwise, also guardians would need to be modified each time).
 
 Personally, I think the cloud layer is not a bad thing and should be kept, mainly because it allows to standardise the input we receive to a more intuitive form, which all angels (regardless of what kind of data they were built to evaluate on) can accept without crashing.
-
-A very promising possibility which is totally yet to explore is to allow for multiple relation-types to occur between clouds: similarity is not the only thing which can take place between documents. Inclusion, `being more interesting than', or basically any ordering relation can be extracted by using appropriate algorithms. We can thus imagine the possibility of having groups of angels that evaluate different types of relations (even not only two-place ones), maybe influencing each other in some way.
-
-% FUNDAMENTAL!
-
-Another thing that will need generalization is the individuation of what we called contexts: the ones we used for our trial were annotated. The documents were already partitioned in eight types. In order to generalize SemanticSky, we will have to choose to either require such annotations, or find a way to induce them mechanically, keeping in mind that the annotation cannot follow from the angel's decisions, unless we want the system to rapidly overfit.
-
-% ===========
 
 Regarding the way Angels can be generalized there is probably little to say: as specific algorithms they probably can't. What can be generalized is the framework, and probably angels will need to be written depending on the form of the items we are trying to evaluate upon. We might for example build a SemanticSky that recognizes similarities between songs. Then clouds would store some metadata, if available, or extract some features which we deem relevant such as bpm, number of layers, compression level, noise, and more. But, most likely, a tf/idf weighting algorithm will do little if this is all we have, and return 0 all the time.
 

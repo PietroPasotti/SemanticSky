@@ -96,7 +96,7 @@ def tprint(msg):
 	print(wrap(msg,'blue'))
 
 
-# a couple of interactive functions to interact with a semanticsky and have some information about its contents
+# a couple of interactive functions to interact with a semanticsky and have some information about its contents. CURRENTLY BROKEN.
 def interactive_setup(god,auto = False):
 	"""
 	Allows for semi-interactive picking of guardianangels for a given god.
@@ -492,7 +492,7 @@ def interactive(god = None,auto = False):
 	return out
 
 
-# matplotlib tests
+# matplotlib tests # FIXED: should be working.
 def evaluate_online_accuracy_function(defaults_overrides = {},filename = 'online_evaluation_output',step = 6,test = False): 
 	
 	import semanticsky
@@ -641,6 +641,13 @@ def add_to_sky_evaluate_feedback(god,listofclouds):
 OUTPUT = {}
 
 def evaluate_status(god): # returns a bunch of useful information about a gods' semanticsky, including a BlackBox of the god itself.
+	"""
+	Quite all-purpose: tries to shoot a snapshot to the status of a god
+	and his servants. Stores all beliefs and logs (through the BlackBox class)
+	and records a few generic numbers such as the average belief in true/false
+	links according to god's knower (which is assumed to exist), regrets 
+	on true and on all links for god and all his entourage.
+	"""
 	
 	knower = getknower(god)
 	
@@ -654,7 +661,8 @@ def evaluate_status(god): # returns a bunch of useful information about a gods' 
 	out['average_strength_of_god_beliefs']['in true beliefs'] = avg(beltrue)
 	out['average_strength_of_god_beliefs']['in false beliefs'] = avg(belfalse)
 	out['average_strength_of_god_beliefs']['in all beliefs'] = avg(belall)
-	out['god_regrets'] = god.regrets()
+	out['god_regrets'] = god.regrets(only_on_true_links = False)
+	out['god_regrets_ontrue'] = god.regrets(only_on_true_links = True)
 	
 	out["average_precision_of_algorithms"] = {}
 	
@@ -674,7 +682,7 @@ def evaluate_status(god): # returns a bunch of useful information about a gods' 
 		
 		wevaluation = ga.beliefbag.toplevel() 	# weighted **and** equalized (if equalization is on) belief set
 												# however we modify the 'angel.believes' pipeline, toplevel() should always return
-												# the most refined beliefset available.
+												# the most refined-perfect-ultimate beliefset available.
 		
 		wtruebels = tuple(set(knower.beliefbag).intersection(wevaluation))
 		wtrueconfs = tuple(wevaluation[x] for x in wtruebels if x in god.logs)	# weighted confidences in true beliefs
@@ -818,7 +826,8 @@ def printparams(local = False):
 def funcs_to_names(dictionary):
 	"""
 	Being functions unpickleable, we replace them with their __name__
-	attribute throughout a dictionary (which may contain other dictionaries).
+	attribute throughout a dictionary (which may contain other dictionaries:
+	partly recursive).
 	"""
 	clean = {}
 	for key,value in dictionary.items():
@@ -917,9 +926,9 @@ class BlackBox(object):
 		for i in self.beliefs:
 			yield i
 	
-	def regrets(self):
+	def regrets(self,only_on_true_links = False):
 		from semanticsky.agents.utils import regret
-		return regret(self.beliefs,self.truths)
+		return regret(self.beliefs,self.truths,only_on_true_links = only_on_true_links)
 			
 class Evaluator(object):
 	
@@ -1170,18 +1179,16 @@ class Evaluator(object):
 	
 	def plot_ga_regrets(self,show = True,use_stored_values = True,only_on_true = False,getlines = False):	
 		
-		if only_on_true:
-			use_stored_values = False
-		
+		progressions = {aname : [] for aname in self.guardian_names()}
+		godprog = [] # god's progression
+			
 		if use_stored_values: # we use values filled in at runtime, instead of computing them again
-			progressions = {}
-			godprog = []
 			bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
 			for out in self.iter_values():
 				bar()
-				greg = out.get('god_regrets')
+				greg = out.get('god_regrets' if not only_on_true else 'god_regrets_ontrue')
 				if not greg:
-					greg = out['BlackBox'].regrets()
+					greg = out['BlackBox'].regrets(only_on_true_links = only_on_true)
 					out['god_regrets'] = greg
 					
 				godprog.append(greg)
@@ -1192,54 +1199,38 @@ class Evaluator(object):
 						progressions[angel] = []
 					
 					try: 
-						progressions[angel].append(out[ "average_precision_of_algorithms" ][angel]['regrets'])
+						progressions[angel].append(out[ "average_precision_of_algorithms" ][angel]['regrets' if not not only_on_true else 'regrets_ontrue'])
 					except KeyError:
-						progressions[angel].append( out["average_precision_of_algorithms"][angel].get('regret_onall',0) ) # previous versions of evaluate_status
-					# which was filled in at test runtime
+						raise KeyError('Outdated test data. Try running with use_stored_values set to False. Will take waay longer but almost certainly will run.')
 			
-			if getlines:
-				progressions['god'] = godprog
-				return progressions
-			
-			print()
-			print("Plotting...                   ",end = '')
-			
-			for angel,prog in progressions.items():
-				lab.plot(prog,label = "{}'s regrets".format(angel))
-			
-			self.title('Regrets of GuardianAngels')
-			lab.plot(godprog,'bD',label = 'God')
-			return self.show() if show else None
 
-		# ----------------------------------------------------------------------- #
-
-		progressions = {aname : [] for aname in self.guardian_names()}
-		godprog = [] # god's progression
+		# -----------------------------------reconstruct the data------------------------------------ #
 		
-		bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+		else:
 
-		for bb in self.blackboxes():
-			
-			if only_on_true:
-				godprog.append( regret( { b: bb.beliefs.get(b,0) for b in bb.truths },bb.truths))
-			else:
-				godprog.append(bb.regrets())
-			
-			bar()
-			
-			BELIEFS = {aname : {} for aname in self.guardian_names()}
-			
-			for belief,loglist in bb.logs.items():
-				for log in loglist:
-					if log[0] in BELIEFS:
-						BELIEFS[log[0]][belief] = log[2] # we set the belief to the WEIGHTED BELIEF!
-			
-			for angel in BELIEFS:
+			bar = ProgressBar(len(self.raw_data),title = 'Reading BlackBoxes')
+			for bb in self.blackboxes():
+				
 				if only_on_true:
-					progressions[angel].append( regret (  {b : BELIEFS[angel].get(b,0) for b in bb.truths},bb.truths  )  )
+					godprog.append( regret( { b: bb.beliefs.get(b,0) for b in bb.truths },bb.truths))
 				else:
-					progressions[angel].append( regret(BELIEFS[angel],bb.truths) )
-		
+					godprog.append(bb.regrets())
+				
+				bar()
+				
+				BELIEFS = {aname : {} for aname in self.guardian_names()}
+				
+				for belief,loglist in bb.logs.items():
+					for log in loglist:
+						if log[0] in BELIEFS:
+							BELIEFS[log[0]][belief] = log[2] # we set the belief to the WEIGHTED BELIEF!
+				
+				for angel in BELIEFS:
+					if only_on_true:
+						progressions[angel].append( regret (  {b : BELIEFS[angel].get(b,0) for b in bb.truths},bb.truths  )  )
+					else:
+						progressions[angel].append( regret(BELIEFS[angel],bb.truths) )
+			
 		if getlines:
 			progressions['god'] = godprog
 			return progressions
@@ -1255,6 +1246,11 @@ class Evaluator(object):
 		return
 		
 	def plot_relative_tw(self,gas = False,ctypes = False,show = True,legend = False,averaging = True):
+		"""
+		Displays the evolution of GA's contextual trustworthiness (once
+		it was called 'relative trustworthiness') across the various evaluate_status
+		outputs.
+		"""
 		
 		progressions = {angel : {} for angel in self.guardian_names()}
 		
@@ -1825,10 +1821,11 @@ class ProgressBar():
 		print('\b ',end = '')
 
 def diff(iterator):
-	return max(iterator) - min(iterator)
+	a = tuple(iterator)
+	return max(a) - min(a)
 
 
-# loading and saving matters
+# loading and saving matters # FIXED
 
 def store_god(god = None,nameoffile=None):
 	from time import gmtime
