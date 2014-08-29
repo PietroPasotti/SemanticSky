@@ -4,31 +4,29 @@
 import semanticsky
 
 #1) Build a SemanticSky (or 'sky') instance:
-# if you want to build one from the start:
-# sky = semanticsky.skies.SemanticSky()
+# if you want to build one from the start (and on the default Starfish database):
+sky = semanticsky.skies.SemanticSky()
+
 # if you want to build a sky on a data structure other than the default (Starfish), you have to run:
 # sky = semanticsky.skies.SemanticSky("./valid/path/to/pickled_export_of_your_file.pickle")
-
 # if you want to load a pickled one (much faster)
 # sky = semanticsky.tests.load_sky()
-
 # either way, at this point you have a bare set of clouds (the nodes), but no edge between them.
 # you can then initialize a god:
-
 god = semanticsky.agents.God(sky) # takes sky as a parameter: each god can oversee one sky only (for the moment)
 
 # 2) Setup a God to oversee what goes on in the sky
 # if you want this same procedure faster, you can load the default preset by running
-# god = semanticsky.tests.load_new_god() # initializes a god with no sky. if a sky is already present in the global semanticsky._SKY, god.get_sky() will pick it up as its own. Otherwise, god.sky will point to None.
+# god = semanticsky.tests.load_new_god() # initializes a god with a sky which you then can find at god.sky.
 # new gods always get pointed to by semanticsky._GOD, and the same for skies and knowers.
-#god = semanticsky.tests.load_full_god() # also loads a sky, which you then can find at god.sky
+#god = semanticsky.tests.load_full_god() # loads a sky on a new god, but then also loads all default guardianangels, loads their beliefbags (see below) and have them express() (see below). If you do this, you can jump at the feedback stage.
 
-# then you have to give god a few algorithms:
+# then you have to assign to god a few algorithms:
 # to use the builtin ones, just call
 
 god.spawn_servants()
 
-# which will load as angels all algorithms in semanticsky.agents.utils.algorithms.Algorithm.builtin_algs
+# which will load as angels all algorithms you can find at semanticsky.agents.utils.algorithms.Algorithm.builtin_algs (a list)
 # if you want to add a few custom algorithms to the pool of angels:
 # for myfunction in list(my_functions):
 # 	semanticsky.agents.utils.algorithms.Algorithm(myfunction)
