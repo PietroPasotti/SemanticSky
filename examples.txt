@@ -1,5 +1,5 @@
 #Example of usage (with Starfish network), in three easy steps with lots of alternative ways to go. 
-#Note: (This file should execute.)
+#Note: (This file should execute. The default execution is however the long path: evaluates all over. For the shortcuts, you'll have to read the comments.)
 
 import semanticsky
 
@@ -47,6 +47,7 @@ god.consult() # WARNING: can take a shitload of time, depending on the complexit
 # 3) Make actually something go on in your sky!
 # if you want to load the evaluations (as they can be stored by using semanticsky.tests.store_beliefbags(list_of_angels_whose_evaluations_I_want_to_save)), you can:
 # semanticsky.tests.load_beliefbags(god.guardianangels) # this will also inform you of the success of the operation and the status of the belief states of the angels
+# which fetches the beliefbags from the ./semanticsky/data/agents/beliefbags/ folder
 # this however will only load the belief bags: you still need to have each angel communicate all their opinions to god. To do so,
 # god.express_all()
 # or also:
@@ -72,8 +73,11 @@ knower.feedback_all() # will give feedback to all angels in god's pool of slaves
 # to handle matters such as having the knower (EVERY KNOWER) give feedback to false negatives (by default he doesn't), you can set the appropriate default using the default management system at semanticsky.DEFAULTS, which is a dictionary-like object. In this case, you should try doing 
 # semanticsky.set_default('punish_false_negatives',True) # which is and should be the standard pipeline for accessing the defaults.
 
-# ------------------------------------------------------- The clues mechanism ---------------------------------------------------------- #
-# is quite easy: a clue is an object with an 'about' property, an origin and a supervisor, which is the supervisor (god) which this suggestion is ultimately forwarded to. It also conveys a value and has a weightedvalue property which interfaces to the origin agents' own contextual trustworthiness: clue.weightedvalue returns clue.value * clue.agent.get_tw(clue.ctype())
+
+
+# ------------------------------------------------------- The CLUES Mechanism ---------------------------------------------------------- #
+
+# is quite easy: a clue is an object with an 'about' property, an origin and a supervisor, that is the supervisor (god) who this suggestion is ultimately forwarded to. It also conveys a value and has a weightedvalue property which interfaces to the origin agents' own contextual trustworthiness: clue.weightedvalue returns clue.value * clue.agent.get_tw(clue.ctype())
 # clue.ctype in turn is an interface to semantiscky.skies.clouds.core.ctype, which is a function that should return in some way the content type of any given cloud or pair of clouds. For starfish, contenttype is something such as 'person', 'glossary', 'information' and such, but it can be the length of the document, the number of eyes of the author or the shape of your chins in the early morning.
 # semanticsky.agents.Agent.get_tw is a method that tries to fetch the contextual trustworthiness of the agent for a given ctype; if it fails, returns the overall (or noncontextual) trustworthiness instead (which at the moment is an average of all the contextual ones).
 
@@ -95,13 +99,13 @@ pietro.evaluate(link,0.3,consider = True)
 
 # if we want to give pietro the power to trigger feedback, all we have to do is
 
-pietro.makewhisperer() # equivalent to god.whisperer(pietro)
+pietro.makewhisperer() # alias for god.whisperer(pietro)
 
-# now pietro can whisper to god:
+# now pietro can whisper to god. Suppose we run:
 # pietro.evaluate(anotherlink,0.3)
-# suppose that also some angel has clue'd about anotherlink. Then, feedback works as follows:
+# and suppose that also some angel has clue'd about anotherlink. Then, feedback works as follows:
 # if pietro is a whisperer, which he now is, then pietro's last clue triggers feedback (via the god.whisperpipe function) to each of the angels who previously clue'd on anotherlink (all the clues are logged in god.logs (dictionary from Links to lists-of-Clues))
 # the value of the feedback depends on some function, which by default is the difference between pietro's evaluation and the evaluation which he is giving feedback to. Suppose some angel had clue'd 0.8 anotherlink. Then pietro's feedback value will be 0.8-0.3 = 0.5. This is equivalent to telling the angel: hey boy, in my opinion you've shot too high about anotherlink; so take down a bit your contextual trustworthiness: you're not that good at that.
 # feedback value production rule can be changed in the defaults: semanticsky.set_default('feedback_production_rule',myrule)
 
-# this should conclude our starting lesson. Good luck and don't make God angry.
+# this should conclude our starting lesson. Good luck and don't piss off God.

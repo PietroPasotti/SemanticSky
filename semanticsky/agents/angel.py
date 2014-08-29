@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-
 from ..agents import Agent
 
 __all__ = ['GuardianAngel']
