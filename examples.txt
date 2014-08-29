@@ -1,12 +1,11 @@
-#Example of usage (with Starfish network).
+#Example of usage (with Starfish network), in three easy steps with lots of alternative ways to go. 
+#Note: (This file should execute.)
 
 import semanticsky
 
 #1) Build a SemanticSky (or 'sky') instance:
-
 # if you want to build one from the start:
 # sky = semanticsky.skies.SemanticSky()
-
 # if you want to build a sky on a data structure other than the default (Starfish), you have to run:
 # sky = semanticsky.skies.SemanticSky("./valid/path/to/pickled_export_of_your_file.pickle")
 
@@ -18,8 +17,11 @@ import semanticsky
 
 god = semanticsky.agents.God(sky) # takes sky as a parameter: each god can oversee one sky only (for the moment)
 
+# 2) Setup a God to oversee what goes on in the sky
 # if you want this same procedure faster, you can load the default preset by running
-#god = semanticsky.tests.load_full_god() # you can find the sky at god.sky
+# god = semanticsky.tests.load_new_god() # initializes a god with no sky. if a sky is already present in the global semanticsky._SKY, god.get_sky() will pick it up as its own. Otherwise, god.sky will point to None.
+# new gods always get pointed to by semanticsky._GOD, and the same for skies and knowers.
+#god = semanticsky.tests.load_full_god() # also loads a sky, which you then can find at god.sky
 
 # then you have to give god a few algorithms:
 # to use the builtin ones, just call
@@ -42,6 +44,7 @@ god.spawn_servants()
 
 god.consult() # WARNING: can take a shitload of time, depending on the complexity of the angels
 
+# 3) Make actually something go on in your sky!
 # if you want to load the evaluations (as they can be stored by using semanticsky.tests.store_beliefbags(list_of_angels_whose_evaluations_I_want_to_save)), you can:
 # semanticsky.tests.load_beliefbags(god.guardianangels) # this will also inform you of the success of the operation and the status of the belief states of the angels
 # this however will only load the belief bags: you still need to have each angel communicate all their opinions to god. To do so,
@@ -88,7 +91,7 @@ link = semanticsky.skies.Link((clouda,cloudb))
 
 pietro.evaluate(link,0.3,consider = True) 
 # equivalent to clue = Clue(link,0.3,pietro,autoconsider = True, trace = 'Agent.evaluate',supervisor = god)
-# autoconsider (or consider) can be set to False: in this case, the clue is NOT immediately processed by god (he doesn't update his belief state) but the clue is queued and can be processed in a second time.
+# autoconsider (or consider) can be set to False: in this case, the clue is NOT immediately processed by god (he doesn't update his belief state) but the clue is queued and can be processed in a second time. (the queue is at semanticsky._CLUES)
 
 # if we want to give pietro the power to trigger feedback, all we have to do is
 
@@ -96,9 +99,9 @@ pietro.makewhisperer() # equivalent to god.whisperer(pietro)
 
 # now pietro can whisper to god:
 # pietro.evaluate(anotherlink,0.3)
-# suppose that some angel has clue'd about anotherlink. Then, feedback works as follows:
-# if pietro is a whisperer, which he now is, then pietro now sends feedback to each of the angels who previously clue'd on anotherlink (all the clues are logged in god.logs (dictionary from Links to lists-of-Clues))
-# the value of the feedback depends on some function, which by default is the difference from pietro's evaluation and the evaluation which he is giving feedback to. Suppose some angel had clue'd 0.8 anotherlink. Then pietro's feedback value will be 0.8-0.3. This is equivalent to telling the angel: hey boy, in my opinion you've shot too high about anotherlink; so take down a bit your contextual trustworthiness: you're not good at that.
+# suppose that also some angel has clue'd about anotherlink. Then, feedback works as follows:
+# if pietro is a whisperer, which he now is, then pietro's last clue triggers feedback (via the god.whisperpipe function) to each of the angels who previously clue'd on anotherlink (all the clues are logged in god.logs (dictionary from Links to lists-of-Clues))
+# the value of the feedback depends on some function, which by default is the difference between pietro's evaluation and the evaluation which he is giving feedback to. Suppose some angel had clue'd 0.8 anotherlink. Then pietro's feedback value will be 0.8-0.3 = 0.5. This is equivalent to telling the angel: hey boy, in my opinion you've shot too high about anotherlink; so take down a bit your contextual trustworthiness: you're not that good at that.
 # feedback value production rule can be changed in the defaults: semanticsky.set_default('feedback_production_rule',myrule)
 
 # this should conclude our starting lesson. Good luck and don't make God angry.
